@@ -1,4 +1,5 @@
 
+
 import type { 
   Guard, 
   Site, 
@@ -207,6 +208,30 @@ export const shifts: Shift[] = [
     status: 'Open',
     priority: 'STAT',
     role: 'Lead Supervisor'
+  },
+  {
+    id: 'SHF-COMP-001',
+    siteId: 'SITE-001',
+    siteName: 'Tech Hub HQ',
+    guardId: 'GRD-001',
+    guardName: 'Marcus Thorne',
+    startTime: subDays(now, 1).toISOString(),
+    endTime: subDays(now, 0.66).toISOString(),
+    status: 'Completed',
+    priority: 'Routine',
+    role: 'Armed Static Guard'
+  },
+  {
+    id: 'SHF-COMP-002',
+    siteId: 'SITE-003',
+    siteName: 'Data Center Alpha',
+    guardId: 'GRD-001',
+    guardName: 'Marcus Thorne',
+    startTime: subDays(now, 2).toISOString(),
+    endTime: subDays(now, 1.66).toISOString(),
+    status: 'Completed',
+    priority: 'Urgent',
+    role: 'Tactical Responder'
   }
 ];
 
@@ -280,7 +305,7 @@ export const payrollRecords: PayrollRecord[] = [
     period: 'Feb 01 - Feb 15',
     hours: 84,
     amount: 3250.50,
-    status: 'Approved',
+    status: 'Paid',
   },
   {
     id: 'PAY-002',
@@ -373,3 +398,4 @@ export const forms: FormDefinition[] = [
     status: 'Active'
   }
 ];
+
