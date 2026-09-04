@@ -16,9 +16,11 @@ import {
   applicants as initialApplicants,
   visitors as initialVisitors,
   sites as initialSites,
-  users as initialUsers
+  users as initialUsers,
+  clients as initialClients,
+  subcontractors as initialSubcontractors
 } from './data';
-import { Guard, Incident, Message, FormDefinition, Shift, Vehicle, Applicant, Visitor, Site, User } from './types';
+import { Guard, Incident, Message, FormDefinition, Shift, Vehicle, Applicant, Visitor, Site, User, Client, Subcontractor } from './types';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards',
@@ -31,6 +33,8 @@ const STORAGE_KEYS = {
   VISITORS: 'sg_visitors',
   SITES: 'sg_sites',
   USERS: 'sg_users',
+  CLIENTS: 'sg_clients',
+  SUBCONTRACTORS: 'sg_subcontractors',
   CURRENT_USER: 'sg_current_user',
 };
 
@@ -97,6 +101,48 @@ export const useJsonStore = () => {
       const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
       const updated = data.filter((u: User) => u.id !== id);
       setStored(STORAGE_KEYS.USERS, updated);
+      return updated;
+    },
+
+    // Clients
+    getClients: () => getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients),
+    addClient: (item: Client) => {
+      const data = getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    },
+    updateClient: (item: Client) => {
+      const data = getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients);
+      const updated = data.map((c: Client) => c.id === item.id ? item : c);
+      setStored(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    },
+    deleteClient: (id: string) => {
+      const data = getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients);
+      const updated = data.filter((c: Client) => c.id !== id);
+      setStored(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    },
+
+    // Subcontractors
+    getSubcontractors: () => getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors),
+    addSubcontractor: (item: Subcontractor) => {
+      const data = getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.SUBCONTRACTORS, updated);
+      return updated;
+    },
+    updateSubcontractor: (item: Subcontractor) => {
+      const data = getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors);
+      const updated = data.map((s: Subcontractor) => s.id === item.id ? item : s);
+      setStored(STORAGE_KEYS.SUBCONTRACTORS, updated);
+      return updated;
+    },
+    deleteSubcontractor: (id: string) => {
+      const data = getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors);
+      const updated = data.filter((s: Subcontractor) => s.id !== id);
+      setStored(STORAGE_KEYS.SUBCONTRACTORS, updated);
       return updated;
     },
 

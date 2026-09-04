@@ -25,7 +25,9 @@ import {
   MessageSquare,
   ClipboardList,
   Receipt,
-  User as UserIcon
+  User as UserIcon,
+  Handshake,
+  Users2
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -82,7 +84,9 @@ const navGroups = [
   {
     label: 'Business',
     items: [
+      { href: '/clients', label: 'Client Accounts', icon: Building },
       { href: '/sites', label: 'Sites & Contracts', icon: FileText },
+      { href: '/subcontractors', label: 'Subcontractors', icon: Users2 },
       { href: '/fleet', label: 'Fleet & Assets', icon: Truck },
       { href: '/payroll', label: 'Payroll', icon: CreditCard },
       { href: '/invoices', label: 'Invoicing', icon: Receipt },

@@ -35,6 +35,8 @@ export const navItemPermissions: Record<string, PermissionAction> = {
   '/compliance': 'hr',
   '/performance': 'view',
   '/sites': 'manage',
+  '/clients': 'manage',
+  '/subcontractors': 'manage',
   '/fleet': 'manage',
   '/payroll': 'finance',
   '/invoices': 'finance',

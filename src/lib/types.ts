@@ -26,6 +26,27 @@ export type User = {
   password?: string; // Added for mock authentication
 };
 
+export type Client = {
+  id: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  status: 'Active' | 'Inactive';
+  industry: string;
+};
+
+export type Subcontractor = {
+  id: string;
+  name: string;
+  companyReg: string;
+  contactEmail: string;
+  contactPhone: string;
+  status: 'Approved' | 'Pending' | 'Suspended';
+  guardCount: number;
+  rating: number;
+};
+
 export type Guard = {
   id: string;
   name: string;

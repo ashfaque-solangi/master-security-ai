@@ -13,7 +13,9 @@ import type {
   Message, 
   Invoice, 
   FormDefinition,
-  User 
+  User,
+  Client,
+  Subcontractor
 } from './types';
 import { addDays, subHours, subMinutes, subDays } from 'date-fns';
 
@@ -26,6 +28,18 @@ export const users: User[] = [
   { id: 'USR-004', name: 'Emma Davis', email: 'hr@secureguard.com', role: 'HR / Recruitment', status: 'Active', password: 'password123' },
   { id: 'USR-005', name: 'Client X', email: 'client@secureguard.com', role: 'Client Admin', status: 'Active', password: 'password123' },
   { id: 'USR-006', name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'Guard', status: 'Active', password: 'password123' },
+];
+
+export const clients: Client[] = [
+  { id: 'CL-001', name: 'Global Tech Corp', contactPerson: 'John Hammond', email: 'j.hammond@globaltech.com', phone: '+1 (555) 123-4567', status: 'Active', industry: 'Technology' },
+  { id: 'CL-002', name: 'Eastside Properties', contactPerson: 'Linda Vance', email: 'vance@eastside.com', phone: '+1 (555) 987-6543', status: 'Active', industry: 'Real Estate' },
+  { id: 'CL-003', name: 'Springfield Retail', contactPerson: 'Milton Bradley', email: 'mbradley@sretail.com', phone: '+1 (555) 456-7890', status: 'Inactive', industry: 'Retail' },
+];
+
+export const subcontractors: Subcontractor[] = [
+  { id: 'SUB-001', name: 'Peak Security Services', companyReg: 'REG-992211', contactEmail: 'ops@peaksec.com', contactPhone: '+44 7700 900001', status: 'Approved', guardCount: 15, rating: 4.8 },
+  { id: 'SUB-002', name: 'Night Watchers Ltd', companyReg: 'REG-883344', contactEmail: 'info@nightwatch.co.uk', contactPhone: '+44 7700 900002', status: 'Pending', guardCount: 8, rating: 4.2 },
+  { id: 'SUB-003', name: 'Rapid Response Inc', companyReg: 'REG-774455', contactEmail: 'support@rapidresponse.com', contactPhone: '+44 7700 900003', status: 'Suspended', guardCount: 0, rating: 2.5 },
 ];
 
 export const guards: Guard[] = [
