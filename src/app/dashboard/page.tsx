@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,11 +6,13 @@ import {
   Users, 
   AlertCircle, 
   Clock, 
-  MapPin, 
   TrendingUp,
   Activity,
   Zap,
   Flame,
+  ArrowRight,
+  Target,
+  Sparkles
 } from 'lucide-react';
 import {
   Card,
@@ -38,99 +39,131 @@ export default function DashboardPage() {
   const openShiftsCount = sites.reduce((acc, site) => acc + site.openShifts, 0);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Live Command Centre</h1>
-          <p className="text-muted-foreground text-lg">
-            Multi-site operational overview and emergency monitoring.
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Welcome Admin!</h1>
+          <p className="text-muted-foreground text-sm font-medium">
+            Dashboard / Command Centre
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">Export Reports</Button>
-          <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse">
-            Active SOS: {sosAlerts.length}
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="rounded-full shadow-sm">
+            <Zap className="mr-2 h-4 w-4" /> AI Reports
+          </Button>
+          <Button className="bg-primary hover:bg-primary/90 text-white rounded-full shadow-md px-6">
+            + New Incident
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Guards On-Site</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeGuards.length} / {guards.length}</div>
-            <Progress value={(activeGuards.length / guards.length) * 100} className="h-1 mt-2" />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="bg-orange-100 p-3 rounded-full">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Active Guards</p>
+                <p className="text-2xl font-extrabold text-slate-800">{activeGuards.length}</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Progress value={(activeGuards.length / (guards.length || 1)) * 100} className="h-1.5" />
+              <p className="text-[10px] mt-2 text-muted-foreground font-medium">Target: {guards.length} total personnel</p>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Shift Risks</CardTitle>
-            <Clock className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-accent">{openShiftsCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              AI Suggesting 5 replacements
-            </p>
+
+        <Card className="border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="bg-blue-100 p-3 rounded-full">
+                <Target className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Site Coverage</p>
+                <p className="text-2xl font-extrabold text-slate-800">94.2%</p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-xs text-green-500 font-bold flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" /> +2.4%
+              </span>
+              <span className="text-[10px] text-muted-foreground">than last week</span>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Incidents</CardTitle>
-            <AlertCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{incidents.filter(i => i.status === 'Open').length}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {criticalIncidents.length} Critical escalation
-            </p>
+
+        <Card className="border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="bg-red-100 p-3 rounded-full">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Open Risks</p>
+                <p className="text-2xl font-extrabold text-slate-800">{incidents.filter(i => i.status === 'Open').length}</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Badge variant="destructive" className="rounded-full text-[10px]">
+                {criticalIncidents.length} Critical Escalations
+              </Badge>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Compliance Avg</CardTitle>
-            <Zap className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">94.2%</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              +2.1% from last month
-            </p>
+
+        <Card className="border-none shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="bg-purple-100 p-3 rounded-full">
+                <Clock className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Pending Shifts</p>
+                <p className="text-2xl font-extrabold text-slate-800">{openShiftsCount}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-[10px] text-primary font-bold">
+              AI Suggesting Replacements <ArrowRight className="h-3 w-3" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {sosAlerts.length > 0 && (
-        <Card className="border-destructive bg-destructive/5">
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="border-l-4 border-l-destructive shadow-lg bg-white overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-destructive/5 pb-4">
             <div>
-              <CardTitle className="text-destructive flex items-center gap-2">
-                <Flame className="h-5 w-5 animate-bounce" />
-                Active Panic / SOS Alerts
+              <CardTitle className="text-destructive text-lg flex items-center gap-2 font-black">
+                <Flame className="h-5 w-5 animate-pulse" />
+                EMERGENCY RESPONSE REQUIRED
               </CardTitle>
-              <CardDescription>Immediate tactical response required.</CardDescription>
+              <CardDescription className="text-destructive/80 font-medium">Critical SOS Alerts active in the field.</CardDescription>
             </div>
+            <Button size="sm" variant="destructive" className="rounded-full px-6">View Command Map</Button>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-0">
             {sosAlerts.map(alert => (
-              <div key={alert.id} className="flex items-center justify-between p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-destructive flex items-center justify-center text-white font-bold">
+              <div key={alert.id} className="flex items-center justify-between p-6 border-b last:border-0 hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-6">
+                  <div className="h-14 w-14 rounded-full bg-destructive/10 border-2 border-destructive flex items-center justify-center text-destructive text-xl font-black">
                     {alert.guardName.charAt(0)}
                   </div>
                   <div>
-                    <p className="font-bold text-destructive">{alert.guardName} - SOS Triggered</p>
-                    <p className="text-sm text-muted-foreground">
-                      {alert.siteName} • {isMounted ? formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true }) : 'Calculating...'}
-                    </p>
+                    <p className="text-lg font-black text-slate-800">{alert.guardName}</p>
+                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                      <span className="font-bold text-destructive underline">{alert.siteName}</span>
+                      <span>•</span>
+                      <span>{isMounted ? formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true }) : '...'}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="border-destructive text-destructive hover:bg-destructive hover:text-white">Acknowledge</Button>
-                  <Button size="sm" className="bg-destructive text-white">Dispatch Support</Button>
+                <div className="flex gap-3">
+                  <Button size="sm" variant="outline" className="rounded-full border-destructive text-destructive hover:bg-destructive hover:text-white">Acknowledge</Button>
+                  <Button size="sm" className="bg-destructive text-white rounded-full px-6">Dispatch Now</Button>
                 </div>
               </div>
             ))}
@@ -138,38 +171,38 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-accent" />
-              Live Site Alerts
-            </CardTitle>
-            <CardDescription>
-              Real-time events across all monitored sites.
-            </CardDescription>
+      <div className="grid gap-8 lg:grid-cols-3">
+        <Card className="lg:col-span-2 border-none shadow-sm overflow-hidden">
+          <CardHeader className="bg-white border-b pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                Live Incident Feed
+              </CardTitle>
+              <Button variant="link" className="text-primary text-xs font-bold">View History</Button>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="p-0">
             {incidents.map((incident) => (
-              <div key={incident.id} className="flex items-start gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                <div className={`p-2 rounded-full ${
+              <div key={incident.id} className="flex items-start gap-4 p-6 border-b last:border-0 hover:bg-slate-50 transition-all cursor-pointer">
+                <div className={`mt-1 p-2 rounded-lg ${
                   incident.severity === 'Critical' || incident.severity === 'High' 
-                    ? 'bg-destructive/10 text-destructive' 
-                    : 'bg-accent/10 text-accent'
+                    ? 'bg-red-50 text-red-600' 
+                    : 'bg-orange-50 text-primary'
                 }`}>
                   <AlertCircle className="h-5 w-5" />
                 </div>
-                <div className="flex-1 space-y-1">
+                <div className="flex-1 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold">{incident.siteName} - {incident.type}</p>
-                    <Badge variant={incident.severity === 'High' ? 'destructive' : 'outline'}>
+                    <p className="text-base font-bold text-slate-800">{incident.siteName} - {incident.type}</p>
+                    <Badge variant={incident.severity === 'High' ? 'destructive' : 'secondary'} className="rounded-full text-[10px]">
                       {incident.severity}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
                     {incident.description}
                   </p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+                  <div className="flex items-center gap-6 text-[10px] text-muted-foreground font-bold uppercase tracking-widest pt-1">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {isMounted ? formatDistanceToNow(new Date(incident.timestamp), { addSuffix: true }) : '...'}
@@ -182,43 +215,55 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
-            <Button variant="link" className="w-full text-accent">View All Incidents</Button>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-accent" />
-              Site Health & Status
-            </CardTitle>
-            <CardDescription>
-              Infrastructure and coverage scoring.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {sites.map((site) => (
-              <div key={site.id} className="space-y-2 py-2 border-b last:border-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{site.name}</p>
-                    <p className="text-xs text-muted-foreground">{site.activeGuardsCount} Guards • {site.riskLevel} Risk</p>
+        <div className="space-y-8">
+          <Card className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-white border-b pb-4">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                Site Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              {sites.map((site) => (
+                <div key={site.id} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{site.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-medium">{site.activeGuardsCount} Active • {site.riskLevel} Risk</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-black ${site.healthScore > 90 ? 'text-green-500' : 'text-orange-500'}`}>
+                        {site.healthScore}%
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-bold ${site.healthScore > 90 ? 'text-green-500' : 'text-yellow-500'}`}>
-                      {site.healthScore}%
-                    </p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Health</p>
-                  </div>
+                  <Progress value={site.healthScore} className={`h-1.5 ${site.healthScore > 90 ? '[&>div]:bg-green-500' : '[&>div]:bg-orange-500'}`} />
                 </div>
-                <Progress value={site.healthScore} className={`h-1.5 ${site.healthScore > 90 ? '[&>div]:bg-green-500' : '[&>div]:bg-yellow-500'}`} />
-              </div>
-            ))}
-            <Button className="w-full mt-4" variant="outline">
-              Operational Audit
-            </Button>
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-900 border-none shadow-xl text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Zap className="h-24 w-24" />
+            </div>
+            <CardHeader>
+              <CardTitle className="text-lg font-black flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                AI OPS INSIGHT
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Consolidating overlapping patrols at <span className="text-primary font-bold">Tech Hub HQ</span> could reduce overtime spend by <span className="text-green-400 font-bold">$1,200/mo</span> without impacting risk score.
+              </p>
+              <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-full text-xs font-bold">Review Proposal</Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

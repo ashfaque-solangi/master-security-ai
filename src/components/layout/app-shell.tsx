@@ -24,8 +24,6 @@ import {
   Lock,
   Briefcase,
   Settings,
-  Bell,
-  Search,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -51,16 +49,23 @@ const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar');
 
 const navGroups = [
   {
-    label: 'Command & Control',
+    label: 'Main',
     items: [
-      { href: '/dashboard', label: 'Command Centre', icon: LayoutDashboard },
-      { href: '/patrols', label: 'Live Tracking', icon: Map },
-      { href: '/scheduling', label: 'Scheduling', icon: Calendar },
-      { href: '/incidents', label: 'Incidents & SOS', icon: AlertTriangle },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/analytics', label: 'CEO Analytics', icon: PieChart },
     ],
   },
   {
-    label: 'Workforce & HR',
+    label: 'Operations',
+    items: [
+      { href: '/scheduling', label: 'Scheduling', icon: Calendar },
+      { href: '/patrols', label: 'Live Tracking', icon: Map },
+      { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
+      { href: '/visitors', label: 'Visitors', icon: UserCheck },
+    ],
+  },
+  {
+    label: 'Employees',
     items: [
       { href: '/workforce', label: 'Guard Registry', icon: Users },
       { href: '/recruitment', label: 'Recruitment', icon: Briefcase },
@@ -69,30 +74,19 @@ const navGroups = [
     ],
   },
   {
-    label: 'Assets & Logistics',
+    label: 'Administration',
     items: [
-      { href: '/sites', label: 'Sites & Contracts', icon: FileText },
-      { href: '/fleet', label: 'Fleet & Equipment', icon: Truck },
-      { href: '/visitors', label: 'Visitor Management', icon: UserCheck },
-      { href: '/cctv', label: 'CCTV & Evidence', icon: Video },
-    ],
-  },
-  {
-    label: 'Finance & BI',
-    items: [
+      { href: '/sites', label: 'Sites & Sites', icon: FileText },
+      { href: '/fleet', label: 'Assets & Fleet', icon: Truck },
       { href: '/attendance', label: 'Attendance', icon: Clock },
       { href: '/payroll', label: 'Payroll', icon: CreditCard },
-      { href: '/analytics', label: 'CEO Dashboard', icon: PieChart },
-      { href: '/ai-ops', label: 'AI Operations', icon: Sparkles },
     ],
   },
   {
-    label: 'System',
+    label: 'Settings',
     items: [
-      { href: '/inbox', label: 'Unified Inbox', icon: MessageSquare },
-      { href: '/integrations', label: 'Integrations', icon: Link2 },
-      { href: '/security', label: 'Security & Audit', icon: Lock },
       { href: '/settings', label: 'Settings', icon: Settings },
+      { href: '/security', label: 'Security', icon: Lock },
     ],
   },
 ];
@@ -102,18 +96,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon" className="border-r-0">
-        <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border/50 bg-sidebar">
+      <Sidebar collapsible="icon" className="border-r-0 sidebar-gradient">
+        <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border/30">
           <Link href="/dashboard" className="flex items-center gap-3 w-full px-4">
-            <div className="bg-primary/20 p-1.5 rounded-lg border border-primary/30">
-              <Shield className="w-6 h-6 text-primary" />
+            <div className="bg-primary p-1.5 rounded-lg">
+              <Shield className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
               SecureGuard
             </span>
           </Link>
         </SidebarHeader>
-        <SidebarContent className="bg-sidebar">
+        <SidebarContent>
           {navGroups.map((group) => (
             <SidebarGroup key={group.label}>
               <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase font-bold tracking-wider px-4 mb-2">
@@ -127,11 +121,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                         asChild
                         isActive={pathname === item.href}
                         tooltip={item.label}
-                        className="px-4 py-6 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary transition-colors"
+                        className="px-4 py-5 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary data-[active=true]:text-white transition-all rounded-none border-l-4 border-transparent data-[active=true]:border-l-primary"
                       >
                         <Link href={item.href}>
-                          <item.icon className="w-5 h-5" />
-                          <span className="font-medium">{item.label}</span>
+                          <item.icon className="w-4 h-4" />
+                          <span className="font-medium text-sm">{item.label}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -141,30 +135,30 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SidebarGroup>
           ))}
         </SidebarContent>
-        <SidebarFooter className="bg-sidebar border-t border-sidebar-border/50 p-4">
-          <div className="flex items-center gap-3 p-2 rounded-xl bg-sidebar-accent/20 border border-sidebar-border/30">
-            <Avatar className="h-9 w-9 border-2 border-primary/20">
+        <SidebarFooter className="border-t border-sidebar-border/30 p-4">
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent/30">
+            <Avatar className="h-8 w-8 border border-primary/20">
               {userAvatar && (
                 <AvatarImage
                   src={userAvatar.imageUrl}
-                  alt="Dispatcher"
+                  alt="Admin"
                 />
               )}
-              <AvatarFallback>AD</AvatarFallback>
+              <AvatarFallback className="text-[10px]">AD</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="font-bold text-sm tracking-tight">Alex Dispatch</span>
-              <span className="text-[10px] text-sidebar-foreground/50 uppercase font-bold">
-                Control Room
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
+              <span className="font-bold text-xs truncate">Admin Dashboard</span>
+              <span className="text-[9px] text-sidebar-foreground/50 uppercase font-bold">
+                Operations
               </span>
             </div>
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="bg-background">
+      <SidebarInset className="bg-[#f7f7f7]">
         <Header />
         <main className="flex-1 overflow-auto p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-full">
             {children}
           </div>
         </main>

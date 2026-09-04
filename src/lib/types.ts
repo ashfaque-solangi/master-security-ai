@@ -89,3 +89,22 @@ export type Visitor = {
   hostName: string;
   status: 'Expected' | 'Checked In' | 'Checked Out';
 };
+
+export type Patrol = {
+  id: string;
+  siteName: string;
+  guardName: string;
+  startTime: string;
+  completion: number;
+  status: 'Completed' | 'In Progress' | 'Missed';
+  checkpoints: number;
+};
+
+export type PayrollRecord = {
+  id: string;
+  guardName: string;
+  period: string;
+  hours: number;
+  amount: number;
+  status: 'Pending' | 'Approved' | 'Paid';
+};

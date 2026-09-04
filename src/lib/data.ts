@@ -1,4 +1,4 @@
-import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor } from './types';
+import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor, Patrol, PayrollRecord } from './types';
 import { addDays, subHours, subMinutes, subDays } from 'date-fns';
 
 const now = new Date();
@@ -210,5 +210,45 @@ export const visitors: Visitor[] = [
     checkIn: subHours(now, 1).toISOString(),
     hostName: 'Site Supervisor',
     status: 'Checked In',
+  }
+];
+
+export const patrols: Patrol[] = [
+  {
+    id: 'PAT-001',
+    siteName: 'Tech Hub HQ',
+    guardName: 'Marcus Thorne',
+    startTime: subMinutes(now, 45).toISOString(),
+    completion: 85,
+    status: 'In Progress',
+    checkpoints: 12,
+  },
+  {
+    id: 'PAT-002',
+    siteName: 'Data Center Alpha',
+    guardName: 'Leo Varga',
+    startTime: subHours(now, 2).toISOString(),
+    completion: 100,
+    status: 'Completed',
+    checkpoints: 24,
+  }
+];
+
+export const payrollRecords: PayrollRecord[] = [
+  {
+    id: 'PAY-001',
+    guardName: 'Marcus Thorne',
+    period: 'Feb 01 - Feb 15',
+    hours: 84,
+    amount: 3250.50,
+    status: 'Approved',
+  },
+  {
+    id: 'PAY-002',
+    guardName: 'Sarah Jenkins',
+    period: 'Feb 01 - Feb 15',
+    hours: 76,
+    amount: 2850.00,
+    status: 'Pending',
   }
 ];
