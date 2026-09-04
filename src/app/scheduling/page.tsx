@@ -9,7 +9,8 @@ import {
   Clock,
   Sparkles,
   ArrowRight,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import {
   Card,
@@ -30,19 +31,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { Shift } from '@/lib/types';
+import { Shift, Severity } from '@/lib/types';
 import { format, addHours } from 'date-fns';
 
 export default function SchedulingPage() {
   const store = useJsonStore();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Dialog States
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
 
-  // New Shift State
+  // Form State
   const [siteName, setSiteName] = useState('Tech Hub HQ');
   const [role, setRole] = useState('Security Officer');
+  const [priority, setPriority] = useState<Severity>('Low');
 
   useEffect(() => {
     setIsMounted(true);
@@ -57,17 +64,47 @@ export default function SchedulingPage() {
       startTime: new Date().toISOString(),
       endTime: addHours(new Date(), 8).toISOString(),
       status: 'Open',
-      priority: 'Routine',
+      priority: priority === 'Critical' ? 'STAT' : priority === 'High' ? 'Urgent' : 'Routine',
       role
     };
     const updated = store.addShift(shift);
     setShifts(updated);
-    setIsDialogOpen(false);
+    setIsCreateOpen(false);
+    resetForm();
+  };
+
+  const handleUpdate = () => {
+    if (!selectedShift) return;
+    const updatedShift: Shift = {
+      ...selectedShift,
+      siteName,
+      role,
+      priority: priority === 'Critical' ? 'STAT' : priority === 'High' ? 'Urgent' : 'Routine'
+    };
+    const updated = store.updateShift(updatedShift);
+    setShifts(updated);
+    setIsEditOpen(false);
+    resetForm();
   };
 
   const handleDelete = (id: string) => {
     const updated = store.deleteShift(id);
     setShifts(updated);
+  };
+
+  const openEdit = (shift: Shift) => {
+    setSelectedShift(shift);
+    setSiteName(shift.siteName);
+    setRole(shift.role);
+    setPriority(shift.priority === 'STAT' ? 'Critical' : shift.priority === 'Urgent' ? 'High' : 'Low');
+    setIsEditOpen(true);
+  };
+
+  const resetForm = () => {
+    setSiteName('Tech Hub HQ');
+    setRole('Security Officer');
+    setPriority('Low');
+    setSelectedShift(null);
   };
 
   if (!isMounted) return null;
@@ -86,7 +123,7 @@ export default function SchedulingPage() {
             <Sparkles className="mr-2 h-4 w-4" /> AI Auto-Schedule
           </Button>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isCreateOpen} onOpenChange={(val) => { setIsCreateOpen(val); if (!val) resetForm(); }}>
             <DialogTrigger asChild>
               <Button className="bg-accent text-accent-foreground">
                 <Plus className="mr-2 h-4 w-4" /> Create Shift
@@ -106,15 +143,61 @@ export default function SchedulingPage() {
                   <label className="text-sm font-bold">Role Required</label>
                   <Input value={role} onChange={(e) => setRole(e.target.value)} />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold">Priority</label>
+                  <Select value={priority} onValueChange={(v) => setPriority(v as Severity)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">Routine</SelectItem>
+                      <SelectItem value="High">Urgent</SelectItem>
+                      <SelectItem value="Critical">STAT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
                 <Button onClick={handleAdd}>Publish Shift</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Shift Details</DialogTitle>
+            <DialogDescription>Modify the requirements for this shift.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold">Site Location</label>
+              <Input value={siteName} onChange={(e) => setSiteName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold">Role Required</label>
+              <Input value={role} onChange={(e) => setRole(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold">Priority Level</label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as Severity)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Low">Routine</SelectItem>
+                  <SelectItem value="High">Urgent</SelectItem>
+                  <SelectItem value="Critical">STAT</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdate}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-4">
@@ -141,14 +224,24 @@ export default function SchedulingPage() {
             <CardContent className="space-y-3">
               {shifts.filter(s => s.status === 'Open').map(shift => (
                 <div key={shift.id} className="p-3 rounded-md border border-dashed border-accent/40 bg-accent/5 relative group">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"
-                    onClick={() => handleDelete(shift.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 text-primary"
+                      onClick={() => openEdit(shift)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 text-destructive"
+                      onClick={() => handleDelete(shift.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                   <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-bold">{shift.siteName}</p>
                     <Badge variant="destructive" className="text-[10px]">{shift.priority}</Badge>
@@ -171,7 +264,7 @@ export default function SchedulingPage() {
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon"><CalendarIcon className="h-4 w-4" /></Button>
                 <span className="text-sm font-medium">
-                  {`Week of ${format(new Date(), 'MMM dd, yyyy')}`}
+                  {isMounted ? `Week of ${format(new Date(), 'MMM dd, yyyy')}` : '...'}
                 </span>
                 <Button variant="ghost" size="icon"><ArrowRight className="h-4 w-4" /></Button>
               </div>
@@ -179,7 +272,7 @@ export default function SchedulingPage() {
             <CardContent>
               <div className="space-y-4">
                 {shifts.filter(s => s.status !== 'Open').map(shift => (
-                  <div key={shift.id} className="grid grid-cols-1 md:grid-cols-6 items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <div key={shift.id} className="grid grid-cols-1 md:grid-cols-6 items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors group">
                     <div className="md:col-span-2 space-y-1">
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold text-xs">
@@ -200,7 +293,7 @@ export default function SchedulingPage() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         <span>
-                          {`${format(new Date(shift.startTime), 'HH:mm')} - ${format(new Date(shift.endTime), 'HH:mm')}`}
+                          {isMounted ? `${format(new Date(shift.startTime), 'HH:mm')} - ${format(new Date(shift.endTime), 'HH:mm')}` : '...'}
                         </span>
                       </div>
                     </div>
@@ -212,7 +305,10 @@ export default function SchedulingPage() {
                     </div>
 
                     <div className="md:col-span-1 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(shift.id)} className="text-destructive">Delete</Button>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(shift)} className="text-primary"><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(shift.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      </div>
                     </div>
                   </div>
                 ))}

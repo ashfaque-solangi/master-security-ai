@@ -13,9 +13,10 @@ import {
   shifts as initialShifts,
   vehicles as initialVehicles,
   applicants as initialApplicants,
-  visitors as initialVisitors
+  visitors as initialVisitors,
+  sites as initialSites
 } from './data';
-import { Guard, Incident, Message, FormDefinition, Shift, Vehicle, Applicant, Visitor } from './types';
+import { Guard, Incident, Message, FormDefinition, Shift, Vehicle, Applicant, Visitor, Site } from './types';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards',
@@ -26,6 +27,7 @@ const STORAGE_KEYS = {
   VEHICLES: 'sg_vehicles',
   APPLICANTS: 'sg_applicants',
   VISITORS: 'sg_visitors',
+  SITES: 'sg_sites',
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -51,6 +53,12 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.INCIDENTS, updated);
       return updated;
     },
+    updateIncident: (item: Incident) => {
+      const data = getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents);
+      const updated = data.map(i => i.id === item.id ? item : i);
+      setStored(STORAGE_KEYS.INCIDENTS, updated);
+      return updated;
+    },
     deleteIncident: (id: string) => {
       const data = getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents);
       const updated = data.filter(i => i.id !== id);
@@ -66,6 +74,12 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.GUARDS, updated);
       return updated;
     },
+    updateGuard: (item: Guard) => {
+      const data = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
+      const updated = data.map(g => g.id === item.id ? item : g);
+      setStored(STORAGE_KEYS.GUARDS, updated);
+      return updated;
+    },
     deleteGuard: (id: string) => {
       const data = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
       const updated = data.filter(g => g.id !== id);
@@ -73,7 +87,28 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Form Definitions (Dynamic Form Builder)
+    // Sites
+    getSites: () => getStored<Site>(STORAGE_KEYS.SITES, initialSites),
+    addSite: (item: Site) => {
+      const data = getStored<Site>(STORAGE_KEYS.SITES, initialSites);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.SITES, updated);
+      return updated;
+    },
+    updateSite: (item: Site) => {
+      const data = getStored<Site>(STORAGE_KEYS.SITES, initialSites);
+      const updated = data.map(s => s.id === item.id ? item : s);
+      setStored(STORAGE_KEYS.SITES, updated);
+      return updated;
+    },
+    deleteSite: (id: string) => {
+      const data = getStored<Site>(STORAGE_KEYS.SITES, initialSites);
+      const updated = data.filter(s => s.id !== id);
+      setStored(STORAGE_KEYS.SITES, updated);
+      return updated;
+    },
+
+    // Form Definitions
     getForms: () => getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms),
     addForm: (item: FormDefinition) => {
       const data = getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms);
@@ -88,11 +123,17 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Shifts (Scheduling)
+    // Shifts
     getShifts: () => getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts),
     addShift: (item: Shift) => {
       const data = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
       const updated = [item, ...data];
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      return updated;
+    },
+    updateShift: (item: Shift) => {
+      const data = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const updated = data.map(s => s.id === item.id ? item : s);
       setStored(STORAGE_KEYS.SHIFTS, updated);
       return updated;
     },
@@ -103,11 +144,17 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Vehicles (Fleet)
+    // Vehicles
     getVehicles: () => getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles),
     addVehicle: (item: Vehicle) => {
       const data = getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles);
       const updated = [item, ...data];
+      setStored(STORAGE_KEYS.VEHICLES, updated);
+      return updated;
+    },
+    updateVehicle: (item: Vehicle) => {
+      const data = getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles);
+      const updated = data.map(v => v.id === item.id ? item : v);
       setStored(STORAGE_KEYS.VEHICLES, updated);
       return updated;
     },
@@ -118,7 +165,7 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Applicants (Recruitment)
+    // Applicants
     getApplicants: () => getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants),
     addApplicant: (item: Applicant) => {
       const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
@@ -126,10 +173,31 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.APPLICANTS, updated);
       return updated;
     },
+    updateApplicant: (item: Applicant) => {
+      const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
+      const updated = data.map(a => a.id === item.id ? item : a);
+      setStored(STORAGE_KEYS.APPLICANTS, updated);
+      return updated;
+    },
     deleteApplicant: (id: string) => {
       const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
       const updated = data.filter(a => a.id !== id);
       setStored(STORAGE_KEYS.APPLICANTS, updated);
+      return updated;
+    },
+
+    // Visitors
+    getVisitors: () => getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors),
+    addVisitor: (item: Visitor) => {
+      const data = getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.VISITORS, updated);
+      return updated;
+    },
+    updateVisitor: (item: Visitor) => {
+      const data = getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors);
+      const updated = data.map(v => v.id === item.id ? item : v);
+      setStored(STORAGE_KEYS.VISITORS, updated);
       return updated;
     },
 

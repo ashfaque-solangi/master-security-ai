@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,7 +9,8 @@ import {
   MoreVertical,
   ShieldCheck,
   Mail,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import {
   Card,
@@ -38,18 +38,25 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { Guard } from '@/lib/types';
+import { Guard, GuardStatus, ComplianceStatus } from '@/lib/types';
 
 export default function WorkforcePage() {
   const store = useJsonStore();
   const [guards, setGuards] = useState<Guard[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Dialog States
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedGuard, setSelectedGuard] = useState<Guard | null>(null);
 
-  // New Guard State
-  const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
+  // Form State
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<GuardStatus>('Active');
+  const [compliance, setCompliance] = useState<ComplianceStatus>('Compliant');
 
   useEffect(() => {
     setIsMounted(true);
@@ -57,13 +64,13 @@ export default function WorkforcePage() {
   }, []);
 
   const handleAdd = () => {
-    if (!newName) return;
+    if (!name) return;
     const guard: Guard = {
       id: `GRD-${Math.floor(Math.random() * 1000)}`,
-      name: newName,
-      email: newEmail || `${newName.toLowerCase().replace(' ', '.')}@security.com`,
-      status: 'Active',
-      complianceStatus: 'Compliant',
+      name: name,
+      email: email || `${name.toLowerCase().replace(' ', '.')}@security.com`,
+      status: status,
+      complianceStatus: compliance,
       lastLocationUpdate: new Date().toISOString(),
       licenceExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString(),
       docsMissing: 0,
@@ -71,14 +78,45 @@ export default function WorkforcePage() {
     };
     const updated = store.addGuard(guard);
     setGuards(updated);
-    setIsDialogOpen(false);
-    setNewName('');
-    setNewEmail('');
+    setIsCreateOpen(false);
+    resetForm();
+  };
+
+  const handleUpdate = () => {
+    if (!selectedGuard || !name) return;
+    const updatedGuard: Guard = {
+      ...selectedGuard,
+      name,
+      email,
+      status,
+      complianceStatus: compliance
+    };
+    const updated = store.updateGuard(updatedGuard);
+    setGuards(updated);
+    setIsEditOpen(false);
+    resetForm();
   };
 
   const handleDelete = (id: string) => {
     const updated = store.deleteGuard(id);
     setGuards(updated);
+  };
+
+  const openEdit = (guard: Guard) => {
+    setSelectedGuard(guard);
+    setName(guard.name);
+    setEmail(guard.email);
+    setStatus(guard.status);
+    setCompliance(guard.complianceStatus);
+    setIsEditOpen(true);
+  };
+
+  const resetForm = () => {
+    setName('');
+    setEmail('');
+    setStatus('Active');
+    setCompliance('Compliant');
+    setSelectedGuard(null);
   };
 
   if (!isMounted) return null;
@@ -93,7 +131,7 @@ export default function WorkforcePage() {
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateOpen} onOpenChange={(val) => { setIsCreateOpen(val); if (!val) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="bg-primary text-white">
               <UserPlus className="mr-2 h-4 w-4" /> Add Officer
@@ -107,20 +145,94 @@ export default function WorkforcePage() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-bold">Full Name</label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. John Wick" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. John Wick" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold">Email Address</label>
-                <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="email@security.com" />
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@security.com" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold">Initial Status</label>
+                  <Select value={status} onValueChange={(v) => setStatus(v as GuardStatus)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="On Break">On Break</SelectItem>
+                      <SelectItem value="Off Duty">Off Duty</SelectItem>
+                      <SelectItem value="Suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold">Compliance Status</label>
+                  <Select value={compliance} onValueChange={(v) => setCompliance(v as ComplianceStatus)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Compliant">Compliant</SelectItem>
+                      <SelectItem value="Expiring Soon">Expiring Soon</SelectItem>
+                      <SelectItem value="Non-Compliant">Non-Compliant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
               <Button onClick={handleAdd}>Create Profile</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Officer Details</DialogTitle>
+            <DialogDescription>Update the information for {selectedGuard?.name}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold">Full Name</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold">Email Address</label>
+              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Status</label>
+                <Select value={status} onValueChange={(v) => setStatus(v as GuardStatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="On Break">On Break</SelectItem>
+                    <SelectItem value="Off Duty">Off Duty</SelectItem>
+                    <SelectItem value="Suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Compliance Status</label>
+                <Select value={compliance} onValueChange={(v) => setCompliance(v as ComplianceStatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Compliant">Compliant</SelectItem>
+                    <SelectItem value="Expiring Soon">Expiring Soon</SelectItem>
+                    <SelectItem value="Non-Compliant">Non-Compliant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdate}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -153,7 +265,9 @@ export default function WorkforcePage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>View Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openEdit(guard)}>
+                    <Pencil className="mr-2 h-4 w-4" /> Edit Profile
+                  </DropdownMenuItem>
                   <DropdownMenuItem>Assign Shift</DropdownMenuItem>
                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(guard.id)}>
                     <Trash2 className="mr-2 h-4 w-4" /> Delete Profile
@@ -187,11 +301,6 @@ export default function WorkforcePage() {
                   <Mail className="h-4 w-4" />
                   <span className="truncate text-xs">{guard.email}</span>
                 </div>
-              </div>
-
-              <div className="flex gap-2 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="outline" size="sm" className="flex-1 text-xs">Profile</Button>
-                <Button variant="outline" size="sm" className="flex-1 text-xs text-primary">Message</Button>
               </div>
             </CardContent>
           </Card>
