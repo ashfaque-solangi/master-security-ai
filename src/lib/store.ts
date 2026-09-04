@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -70,7 +71,7 @@ export const useJsonStore = () => {
     metadata?: Record<string, any>;
     status?: AuditRecord['status'];
   }) => {
-    const user = getCurrentUser() || { id: 'SYSTEM', name: 'AI Planner', role: 'SUPER_ADMIN' as any };
+    const user = getCurrentUser() || { id: 'SYSTEM', name: 'AI Planner', role: 'Super Admin' as any };
     const newRecord: AuditRecord = {
       id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
@@ -149,6 +150,11 @@ export const useJsonStore = () => {
       logAudit({ action: 'SITE_UPDATED', entityType: 'site', entityId: s.id, description: `Site configuration updated`, oldValues: old, newValues: s });
       return updated; 
     },
+    deleteSite: (id: string) => {
+      const updated = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).filter(s => s.id !== id);
+      setStored(STORAGE_KEYS.SITES, updated);
+      return updated;
+    },
 
     getShifts,
     addShift: (s: Shift) => { 
@@ -193,7 +199,39 @@ export const useJsonStore = () => {
     },
 
     getClients: () => getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients),
+    addClient: (c: Client) => {
+      const updated = [c, ...getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients)];
+      setStored(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    },
+    updateClient: (c: Client) => {
+      const updated = getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients).map(old => old.id === c.id ? c : old);
+      setStored(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    },
+    deleteClient: (id: string) => {
+      const updated = getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients).filter(c => c.id !== id);
+      setStored(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    },
+
     getSubcontractors: () => getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors),
+    addSubcontractor: (s: Subcontractor) => {
+      const updated = [s, ...getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors)];
+      setStored(STORAGE_KEYS.SUBS, updated);
+      return updated;
+    },
+    updateSubcontractor: (s: Subcontractor) => {
+      const updated = getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors).map(old => old.id === s.id ? s : old);
+      setStored(STORAGE_KEYS.SUBS, updated);
+      return updated;
+    },
+    deleteSubcontractor: (id: string) => {
+      const updated = getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors).filter(s => s.id !== id);
+      setStored(STORAGE_KEYS.SUBS, updated);
+      return updated;
+    },
+
     getIncidents: () => getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents),
     addIncident: (i: Incident) => {
       const updated = [i, ...getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents)];
@@ -234,12 +272,8 @@ export const useJsonStore = () => {
           const needed = req.count - filledCount;
 
           for (let i = 0; i < needed; i++) {
-            // Find best valid candidate using central validation service
             const bestCandidate = allGuards.find(g => {
-              // Quick filters first
               if (g.status !== 'Active' || g.complianceStatus !== 'Compliant') return false;
-              
-              // Rigorous check using central validation
               const validation = validateGuardAssignment(g, s, allShifts, req.role);
               return validation.isValid;
             });
@@ -256,12 +290,11 @@ export const useJsonStore = () => {
               };
               updatedAssignments.push(assignment);
               
-              // Audit the AI decision
               logAudit({ 
                 action: 'AI_ASSIGNMENT_PROPOSED', 
                 entityType: 'shift_assignment', 
                 entityId: assignment.id, 
-                description: `AI assigned ${bestCandidate.name} to ${s.siteName} based on optimal compliance/fatigue score.`,
+                description: `AI assigned ${bestCandidate.name} to ${s.siteName} based on optimal compliance scores.`,
                 newValues: assignment
               });
             }

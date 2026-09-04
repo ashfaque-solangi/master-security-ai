@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -25,8 +26,7 @@ import {
   Loader2,
   History,
   Info,
-  XCircle,
-  TrendingDown
+  XCircle
 } from 'lucide-react';
 import {
   Card,
@@ -47,9 +47,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useJsonStore } from '@/lib/store';
-import { Shift, Severity, Guard, Site, AuditRecord } from '@/lib/types';
+import { Shift, Guard, Site, AuditRecord } from '@/lib/types';
 import { 
   format, 
   startOfWeek, 
@@ -112,13 +111,11 @@ export default function SchedulingPage() {
     setSelectedShift(shift);
     setTargetRole(role);
     
-    // Propose candidates with validation status
     const allGuards = store.getGuards();
     const candidatePool = allGuards.map(g => ({
       guard: g,
       validation: validateGuardAssignment(g, shift, shifts, role)
     })).sort((a, b) => {
-      // Sort valid ones to the top, then by fatigue
       if (a.validation.isValid && !b.validation.isValid) return -1;
       if (!a.validation.isValid && b.validation.isValid) return 1;
       return a.guard.weeklyHours - b.guard.weeklyHours;
@@ -323,6 +320,9 @@ export default function SchedulingPage() {
                       </div>
                     </div>
                   ))}
+                  {getEntityHistory(selectedShift.id).length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">No historical logs for this record.</p>
+                  )}
                 </div>
               </div>
             </div>

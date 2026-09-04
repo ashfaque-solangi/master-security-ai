@@ -1,6 +1,7 @@
+
 /**
  * @fileOverview Centralized Scheduling Validation Service (Rule Engine)
- * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), and Role Qualifications.
+ * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), Role Qualifications, and Compliance.
  */
 
 import { Shift, Guard, Site } from './types';
@@ -64,6 +65,7 @@ export function validateGuardAssignment(
     };
   }
 
+  // Guard Inactive Check
   if (guard.status === 'Suspended' || guard.status === 'Inactive') {
     return {
       isValid: false,
@@ -111,7 +113,7 @@ export function validateGuardAssignment(
     return {
       isValid: false,
       code: 'SHIFT_OVERLAP',
-      message: `Overlap Error: Guard already assigned to another shift during this window.`
+      message: `Overlap Error: Guard already assigned to another shift during this window at ${overlappingShift.siteName}.`
     };
   }
 
@@ -122,7 +124,6 @@ export function validateGuardAssignment(
   for (const day of uniqueDays) {
     const existingHours = calculateDailyHours(guard.id, day, allShifts.filter(s => s.id !== targetShift.id));
     
-    // New hours contributed by this shift on this specific day
     const dayStart = startOfDay(day);
     const dayEnd = endOfDay(day);
     const contributionStart = targetInterval.start < dayStart ? dayStart : targetInterval.start;

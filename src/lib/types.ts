@@ -4,19 +4,19 @@ export type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Archived';
 export type IncidentType = 'Intrusion' | 'Fire' | 'Vandalism' | 'Medical' | 'Maintenance' | 'Observation';
 
 export type UserRole = 
-  | 'SUPER_ADMIN' 
-  | 'COMPANY_ADMIN'
-  | 'OPERATIONS_MANAGER' 
-  | 'DISPATCHER'
-  | 'SCHEDULER'
-  | 'SITE_MANAGER'
-  | 'HR_MANAGER'
-  | 'COMPLIANCE_MANAGER'
-  | 'FINANCE_MANAGER'
-  | 'GUARD'
-  | 'CLIENT_ADMIN'
-  | 'CLIENT_VIEWER'
-  | 'SUBCONTRACTOR_ADMIN';
+  | 'Super Admin' 
+  | 'Company Admin'
+  | 'Operations Manager' 
+  | 'Dispatcher'
+  | 'Scheduler'
+  | 'Site Manager'
+  | 'HR / Recruitment'
+  | 'Compliance Manager'
+  | 'Payroll / Finance'
+  | 'Guard'
+  | 'Client Admin'
+  | 'Client Viewer'
+  | 'Subcontractor Admin';
 
 export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit';
 
@@ -156,7 +156,7 @@ export type Shift = {
   priority: 'Routine' | 'Urgent' | 'STAT';
   requirements: RoleRequirement[];
   assignments: ShiftAssignment[];
-  role: string; // Legacy/Primary role
+  role: string; 
 };
 
 export type Incident = {
