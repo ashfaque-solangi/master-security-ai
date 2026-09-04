@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import {
   Shield,
   LayoutDashboard,
@@ -44,6 +45,8 @@ import {
 import { Header } from '@/components/layout/header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useJsonStore } from '@/lib/store';
+import { hasPermission, navItemPermissions } from '@/lib/permissions';
 
 const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar');
 
@@ -96,6 +99,30 @@ const navGroups = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const store = useJsonStore();
+  const [currentUser, setCurrentUser] = useState(store.getCurrentUser());
+
+  useEffect(() => {
+    // Listen for storage changes to update UI when role is switched in header
+    const handleStorage = () => {
+      setCurrentUser(store.getCurrentUser());
+    };
+    window.addEventListener('storage', handleStorage);
+    // Poll for changes in same tab (simple for demo)
+    const interval = setInterval(handleStorage, 1000);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const filteredGroups = navGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      const permissionNeeded = navItemPermissions[item.href];
+      return permissionNeeded ? hasPermission(currentUser.role, permissionNeeded) : true;
+    })
+  })).filter(group => group.items.length > 0);
 
   return (
     <SidebarProvider>
@@ -111,7 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          {navGroups.map((group) => (
+          {filteredGroups.map((group) => (
             <SidebarGroup key={group.label}>
               <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase font-bold tracking-wider px-4 mb-2">
                 {group.label}
@@ -141,18 +168,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SidebarFooter className="border-t border-sidebar-border/30 p-4">
           <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent/30">
             <Avatar className="h-8 w-8 border border-primary/20">
-              {userAvatar && (
-                <AvatarImage
-                  src={userAvatar.imageUrl}
-                  alt="Admin"
-                />
-              )}
-              <AvatarFallback className="text-[10px]">AD</AvatarFallback>
+              <AvatarFallback className="text-[10px]">{currentUser.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
-              <span className="font-bold text-xs truncate">Admin Dashboard</span>
+              <span className="font-bold text-xs truncate">{currentUser.name}</span>
               <span className="text-[9px] text-sidebar-foreground/50 uppercase font-bold">
-                Operations
+                {currentUser.role}
               </span>
             </div>
           </div>

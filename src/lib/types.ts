@@ -5,6 +5,25 @@ export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
 export type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Archived';
 export type IncidentType = 'Intrusion' | 'Fire' | 'Vandalism' | 'Medical' | 'Maintenance' | 'Observation';
 
+export type UserRole = 
+  | 'Super Admin' 
+  | 'Company Admin' 
+  | 'Operations Manager' 
+  | 'Dispatcher' 
+  | 'HR / Recruitment' 
+  | 'Compliance Manager' 
+  | 'Payroll / Finance' 
+  | 'Client Admin';
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatarUrl?: string;
+  status: 'Active' | 'Inactive';
+};
+
 export type Guard = {
   id: string;
   name: string;

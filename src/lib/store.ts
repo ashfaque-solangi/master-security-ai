@@ -1,3 +1,4 @@
+
 'use client';
 
 /**
@@ -14,9 +15,10 @@ import {
   vehicles as initialVehicles,
   applicants as initialApplicants,
   visitors as initialVisitors,
-  sites as initialSites
+  sites as initialSites,
+  users as initialUsers
 } from './data';
-import { Guard, Incident, Message, FormDefinition, Shift, Vehicle, Applicant, Visitor, Site } from './types';
+import { Guard, Incident, Message, FormDefinition, Shift, Vehicle, Applicant, Visitor, Site, User, UserRole } from './types';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards',
@@ -28,23 +30,50 @@ const STORAGE_KEYS = {
   APPLICANTS: 'sg_applicants',
   VISITORS: 'sg_visitors',
   SITES: 'sg_sites',
+  USERS: 'sg_users',
+  CURRENT_USER: 'sg_current_user',
 };
 
 const isBrowser = typeof window !== 'undefined';
 
-function getStored<T>(key: string, initialData: T[]): T[] {
+function getStored<T>(key: string, initialData: T[] | T | null): any {
   if (!isBrowser) return initialData;
   const stored = localStorage.getItem(key);
   return stored ? JSON.parse(stored) : initialData;
 }
 
-function setStored<T>(key: string, data: T[]) {
+function setStored<T>(key: string, data: T) {
   if (!isBrowser) return;
   localStorage.setItem(key, JSON.stringify(data));
 }
 
 export const useJsonStore = () => {
   return {
+    // Current User Session (Mock)
+    getCurrentUser: (): User => getStored<User>(STORAGE_KEYS.CURRENT_USER, initialUsers[0]),
+    setCurrentUser: (user: User) => setStored(STORAGE_KEYS.CURRENT_USER, user),
+
+    // Users
+    getUsers: () => getStored<User>(STORAGE_KEYS.USERS, initialUsers),
+    addUser: (item: User) => {
+      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.USERS, updated);
+      return updated;
+    },
+    updateUser: (item: User) => {
+      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
+      const updated = data.map(u => u.id === item.id ? item : u);
+      setStored(STORAGE_KEYS.USERS, updated);
+      return updated;
+    },
+    deleteUser: (id: string) => {
+      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
+      const updated = data.filter(u => u.id !== id);
+      setStored(STORAGE_KEYS.USERS, updated);
+      return updated;
+    },
+
     // Incidents
     getIncidents: () => getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents),
     addIncident: (item: Incident) => {

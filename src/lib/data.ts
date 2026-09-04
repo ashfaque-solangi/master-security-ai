@@ -1,8 +1,31 @@
 
-import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor, Patrol, PayrollRecord, Applicant, Message, Invoice, FormDefinition } from './types';
+import type { 
+  Guard, 
+  Site, 
+  Incident, 
+  Shift, 
+  SOSAlert, 
+  Vehicle, 
+  Visitor, 
+  Patrol, 
+  PayrollRecord, 
+  Applicant, 
+  Message, 
+  Invoice, 
+  FormDefinition,
+  User 
+} from './types';
 import { addDays, subHours, subMinutes, subDays } from 'date-fns';
 
 const now = new Date();
+
+export const users: User[] = [
+  { id: 'USR-001', name: 'Alex Thompson', email: 'alex.t@secureguard.com', role: 'Super Admin', status: 'Active' },
+  { id: 'USR-002', name: 'Sarah Miller', email: 'sarah.m@secureguard.com', role: 'Operations Manager', status: 'Active' },
+  { id: 'USR-003', name: 'James Wilson', email: 'james.w@secureguard.com', role: 'Dispatcher', status: 'Active' },
+  { id: 'USR-004', name: 'Emma Davis', email: 'emma.d@secureguard.com', role: 'HR / Recruitment', status: 'Active' },
+  { id: 'USR-005', name: 'Client X', email: 'contact@client.com', role: 'Client Admin', status: 'Active' },
+];
 
 export const guards: Guard[] = [
   {
