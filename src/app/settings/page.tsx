@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,7 +10,9 @@ import {
   Search,
   Trash2,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Pencil,
+  MoreVertical
 } from 'lucide-react';
 import {
   Card,
@@ -40,6 +41,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
 import { User, UserRole } from '@/lib/types';
@@ -60,11 +67,16 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [mounted, setMounted] = useState(false);
   
-  // New User State
+  // Dialog States
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRole>('Dispatcher');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
 
   useEffect(() => {
     setMounted(true);
@@ -78,19 +90,49 @@ export default function SettingsPage() {
       name,
       email,
       role,
-      status: 'Active'
+      status
     };
     const updated = store.addUser(newUser);
     setUsers(updated);
-    setIsDialogOpen(false);
-    setName('');
-    setEmail('');
-    setRole('Dispatcher');
+    setIsAddOpen(false);
+    resetForm();
+  };
+
+  const handleUpdateUser = () => {
+    if (!selectedUser || !name || !email) return;
+    const updatedUser: User = {
+      ...selectedUser,
+      name,
+      email,
+      role,
+      status
+    };
+    const updated = store.updateUser(updatedUser);
+    setUsers(updated);
+    setIsEditOpen(false);
+    resetForm();
   };
 
   const handleDeleteUser = (id: string) => {
     const updated = store.deleteUser(id);
     setUsers(updated);
+  };
+
+  const openEdit = (user: User) => {
+    setSelectedUser(user);
+    setName(user.name);
+    setEmail(user.email);
+    setRole(user.role);
+    setStatus(user.status);
+    setIsEditOpen(true);
+  };
+
+  const resetForm = () => {
+    setName('');
+    setEmail('');
+    setRole('Dispatcher');
+    setStatus('Active');
+    setSelectedUser(null);
   };
 
   if (!mounted) return null;
@@ -115,7 +157,8 @@ export default function SettingsPage() {
                 </CardTitle>
                 <CardDescription>Control who can access the SecureGuard Command centre.</CardDescription>
               </div>
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              
+              <Dialog open={isAddOpen} onOpenChange={(val) => { setIsAddOpen(val); if (!val) resetForm(); }}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="bg-primary text-white">
                     <UserPlus className="mr-2 h-4 w-4" /> Add User
@@ -135,18 +178,30 @@ export default function SettingsPage() {
                       <label className="text-sm font-bold">Email</label>
                       <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="robert@company.com" />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold">Assigned Role</label>
-                      <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold">Assigned Role</label>
+                        <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold">Status</label>
+                        <Select value={status} onValueChange={(v) => setStatus(v as 'Active' | 'Inactive')}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Active">Active</SelectItem>
+                            <SelectItem value="Inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
                     <Button onClick={handleAddUser}>Create User</Button>
                   </DialogFooter>
                 </DialogContent>
@@ -164,7 +219,7 @@ export default function SettingsPage() {
                 </TableHeader>
                 <TableBody>
                   {users.map(user => (
-                    <TableRow key={user.id} className="hover:bg-slate-50 transition-colors">
+                    <TableRow key={user.id} className="hover:bg-slate-50 transition-colors group">
                       <TableCell className="px-6">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 border">
@@ -182,19 +237,30 @@ export default function SettingsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-green-600">
-                          <CheckCircle2 className="h-3 w-3" /> {user.status}
+                        <span className={`flex items-center gap-1.5 text-xs font-medium ${user.status === 'Active' ? 'text-green-600' : 'text-slate-400'}`}>
+                          {user.status === 'Active' ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                          {user.status}
                         </span>
                       </TableCell>
                       <TableCell className="text-right px-6">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDeleteUser(user.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-primary"
+                            onClick={() => openEdit(user)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -247,14 +313,55 @@ export default function SettingsPage() {
                 <span className="text-muted-foreground">Storage Usage</span>
                 <span className="font-bold">12.4 GB / 100 GB</span>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Last Audit Backup</span>
-                <span className="font-bold text-muted-foreground">2 hours ago</span>
-              </div>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update User Profile</DialogTitle>
+            <DialogDescription>Modify access permissions and role for {selectedUser?.name}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold">Full Name</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold">Email Address</label>
+              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Assigned Role</label>
+                <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Access Status</label>
+                <Select value={status} onValueChange={(v) => setStatus(v as 'Active' | 'Inactive')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateUser}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
