@@ -1,4 +1,3 @@
-
 'use client';
 
 /**
@@ -130,5 +129,25 @@ export const useJsonStore = () => {
     getApplicants: () => getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants),
     getVisitors: () => getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors),
     getMessages: () => getStored<Message>(STORAGE_KEYS.MESSAGES, initialMessages),
+
+    // Advanced Permission Management
+    addUser: (item: User) => {
+      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.USERS, updated);
+      return updated;
+    },
+    updateUser: (item: User) => {
+      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
+      const updated = data.map((u: User) => u.id === item.id ? item : u);
+      setStored(STORAGE_KEYS.USERS, updated);
+      return updated;
+    },
+    deleteUser: (id: string) => {
+      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
+      const updated = data.filter((u: User) => u.id !== id);
+      setStored(STORAGE_KEYS.USERS, updated);
+      return updated;
+    }
   };
 };

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,7 +15,9 @@ import {
   UserCheck,
   Timer,
   Zap,
-  ArrowLeftRight
+  ArrowLeftRight,
+  RefreshCcw,
+  CheckCircle2
 } from 'lucide-react';
 import {
   Card,
@@ -37,12 +38,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
 import { Shift, Severity, Guard } from '@/lib/types';
@@ -123,6 +118,12 @@ export default function SchedulingPage() {
     setIsSuggestOpen(false);
   };
 
+  const handleApproveSwap = (shift: Shift) => {
+    const updatedShift: Shift = { ...shift, status: 'Claimed' };
+    const updated = store.updateShift(updatedShift);
+    setShifts(updated);
+  };
+
   const resetForm = () => {
     setSiteName('Tech Hub HQ');
     setRole('Security Officer');
@@ -132,6 +133,8 @@ export default function SchedulingPage() {
 
   if (!isMounted) return null;
 
+  const openShifts = shifts.filter(s => s.status === 'Open');
+  const swapRequests = shifts.filter(s => s.status === 'Pending Swap');
   const overtimeGuards = guards.filter(g => g.weeklyHours > 40);
 
   return (
@@ -193,7 +196,7 @@ export default function SchedulingPage() {
             <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Open Shifts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-slate-800">{shifts.filter(s => s.status === 'Open').length}</div>
+            <div className="text-3xl font-black text-slate-800">{openShifts.length}</div>
             <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Awaiting Coverage</p>
           </CardContent>
         </Card>
@@ -211,7 +214,7 @@ export default function SchedulingPage() {
             <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Swap Requests</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-blue-600">0</div>
+            <div className="text-3xl font-black text-blue-600">{swapRequests.length}</div>
             <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">Pending Approval</p>
           </CardContent>
         </Card>
@@ -236,7 +239,7 @@ export default function SchedulingPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              {shifts.filter(s => s.status === 'Open').map(shift => (
+              {openShifts.map(shift => (
                 <div key={shift.id} className="p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors group relative">
                   <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-black text-slate-800">{shift.siteName}</p>
@@ -254,6 +257,32 @@ export default function SchedulingPage() {
                   </Button>
                 </div>
               ))}
+              {openShifts.length === 0 && <p className="text-xs text-center text-muted-foreground italic py-4">No critical blockers.</p>}
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-blue-50 border-b">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4 text-blue-600" />
+                Swap Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {swapRequests.map(shift => (
+                <div key={shift.id} className="p-3 rounded-lg border bg-white shadow-sm space-y-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-bold">{shift.guardName}</span>
+                    <span className="text-muted-foreground">{format(new Date(shift.startTime), 'MMM dd')}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Requesting trade for **{shift.siteName}** shift due to availability conflict.</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 text-[9px] h-7">Deny</Button>
+                    <Button size="sm" className="flex-1 bg-blue-600 text-white text-[9px] h-7" onClick={() => handleApproveSwap(shift)}>Approve</Button>
+                  </div>
+                </div>
+              ))}
+              {swapRequests.length === 0 && <p className="text-xs text-center text-muted-foreground italic py-4">No pending trades.</p>}
             </CardContent>
           </Card>
 
@@ -313,7 +342,7 @@ export default function SchedulingPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {shifts.filter(s => s.status !== 'Open').map(shift => (
+                    {shifts.filter(s => s.status !== 'Open' && s.status !== 'Pending Swap').map(shift => (
                       <tr key={shift.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors group">
                         <td className="p-6">
                           <div className="flex items-center gap-3">
@@ -342,7 +371,9 @@ export default function SchedulingPage() {
                         </td>
                         <td className="p-6">
                           <Badge variant="outline" className={`text-[9px] font-black uppercase rounded-full ${
-                            shift.status === 'In Progress' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-slate-50 text-slate-600 border-slate-200'
+                            shift.status === 'In Progress' ? 'bg-green-50 text-green-600 border-green-200' : 
+                            shift.status === 'Claimed' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                            'bg-slate-50 text-slate-600 border-slate-200'
                           }`}>
                             {shift.status}
                           </Badge>
@@ -391,7 +422,9 @@ export default function SchedulingPage() {
                         <span className="text-[9px] font-bold text-green-600 uppercase flex items-center gap-1">
                           <UserCheck className="h-3 w-3" /> Available
                         </span>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{guard.weeklyHours}h this week</span>
+                        <span className={`text-[9px] font-bold uppercase ${guard.weeklyHours >= 40 ? 'text-red-500' : 'text-slate-400'}`}>
+                          {guard.weeklyHours}h this week
+                        </span>
                       </div>
                     </div>
                   </div>

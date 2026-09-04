@@ -202,7 +202,7 @@ export const shifts: Shift[] = [
     guardName: 'Sarah Jenkins',
     startTime: subHours(now, 1).toISOString(),
     endTime: subHours(now, -7).toISOString(),
-    status: 'In Progress',
+    status: 'Pending Swap',
     priority: 'Routine',
     role: 'Patrol Officer'
   },

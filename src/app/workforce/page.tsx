@@ -10,7 +10,10 @@ import {
   ShieldCheck,
   Mail,
   Trash2,
-  Pencil
+  Pencil,
+  CheckCircle2,
+  XCircle,
+  Clock
 } from 'lucide-react';
 import {
   Card,
@@ -39,6 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useJsonStore } from '@/lib/store';
 import { Guard, GuardStatus, ComplianceStatus } from '@/lib/types';
 
@@ -57,6 +61,7 @@ export default function WorkforcePage() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<GuardStatus>('Active');
   const [compliance, setCompliance] = useState<ComplianceStatus>('Compliant');
+  const [isAvailable, setIsAvailable] = useState(true);
 
   useEffect(() => {
     setIsMounted(true);
@@ -75,6 +80,8 @@ export default function WorkforcePage() {
       licenceExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString(),
       docsMissing: 0,
       performanceScore: 100,
+      weeklyHours: 0,
+      isAvailable: isAvailable
     };
     const updated = store.addGuard(guard);
     setGuards(updated);
@@ -89,12 +96,19 @@ export default function WorkforcePage() {
       name,
       email,
       status,
-      complianceStatus: compliance
+      complianceStatus: compliance,
+      isAvailable
     };
     const updated = store.updateGuard(updatedGuard);
     setGuards(updated);
     setIsEditOpen(false);
     resetForm();
+  };
+
+  const toggleAvailability = (guard: Guard) => {
+    const updatedGuard = { ...guard, isAvailable: !guard.isAvailable };
+    const updated = store.updateGuard(updatedGuard);
+    setGuards(updated);
   };
 
   const handleDelete = (id: string) => {
@@ -108,6 +122,7 @@ export default function WorkforcePage() {
     setEmail(guard.email);
     setStatus(guard.status);
     setCompliance(guard.complianceStatus);
+    setIsAvailable(guard.isAvailable);
     setIsEditOpen(true);
   };
 
@@ -116,6 +131,7 @@ export default function WorkforcePage() {
     setEmail('');
     setStatus('Active');
     setCompliance('Compliant');
+    setIsAvailable(true);
     setSelectedGuard(null);
   };
 
@@ -176,6 +192,13 @@ export default function WorkforcePage() {
                   </Select>
                 </div>
               </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold">Ready for Deployment</label>
+                  <p className="text-xs text-muted-foreground">Officer is active in the scheduling pool.</p>
+                </div>
+                <Switch checked={isAvailable} onCheckedChange={setIsAvailable} />
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
@@ -185,7 +208,6 @@ export default function WorkforcePage() {
         </Dialog>
       </div>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
         <DialogContent>
           <DialogHeader>
@@ -226,6 +248,13 @@ export default function WorkforcePage() {
                 </Select>
               </div>
             </div>
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
+              <div className="space-y-0.5">
+                <label className="text-sm font-bold">Ready for Deployment</label>
+                <p className="text-xs text-muted-foreground">Available for AI-suggested shift filling.</p>
+              </div>
+              <Switch checked={isAvailable} onCheckedChange={setIsAvailable} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
@@ -250,13 +279,13 @@ export default function WorkforcePage() {
               guard.status === 'On Break' ? 'bg-yellow-500' :
               'bg-gray-400'
             }`} />
-            <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+            <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
               <Avatar className="h-12 w-12 border">
                 <AvatarFallback>{guard.name.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <CardTitle className="text-base truncate">{guard.name}</CardTitle>
-                <CardDescription className="text-xs">{guard.id}</CardDescription>
+                <CardDescription className="text-xs font-mono uppercase font-bold text-primary">{guard.id}</CardDescription>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -292,14 +321,24 @@ export default function WorkforcePage() {
                 </div>
               </div>
 
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <ShieldCheck className="h-4 w-4" />
-                  <span className="truncate">{guard.currentSiteName || 'No Active Shift'}</span>
+              <div className="pt-2 border-t space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>{guard.weeklyHours}h / week</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Ready</span>
+                    <Switch 
+                      className="scale-75"
+                      checked={guard.isAvailable} 
+                      onCheckedChange={() => toggleAvailability(guard)}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span className="truncate text-xs">{guard.email}</span>
+                <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  <span className="truncate">{guard.currentSiteName || 'No Active Shift'}</span>
                 </div>
               </div>
             </CardContent>
