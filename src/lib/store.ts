@@ -18,8 +18,9 @@ import {
 import { 
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
-  AuditRecord, AuditAction
+  AuditRecord, AuditAction, ShiftAssignment
 } from './types';
+import { validateGuardAssignment } from './scheduling-validation';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards_p4_v1',
@@ -128,7 +129,6 @@ export const useJsonStore = () => {
       return updated; 
     },
     deleteGuard: (id: string) => { 
-      const old = getGuards().find(o => o.id === id);
       const updated = getGuards().filter(g => g.id !== id); 
       setStored(STORAGE_KEYS.GUARDS, updated); 
       logAudit({ action: 'GUARD_STATUS_CHANGED', entityType: 'guard', entityId: id, description: `Profile archived`, status: 'warning' });
@@ -171,61 +171,112 @@ export const useJsonStore = () => {
       return updated; 
     },
 
-    getAudits,
-    logAudit,
-
     getUsers: () => getStored<User[]>(STORAGE_KEYS.USERS, initialUsers),
+    addUser: (u: User) => {
+      const updated = [u, ...getStored<User[]>(STORAGE_KEYS.USERS, initialUsers)];
+      setStored(STORAGE_KEYS.USERS, updated);
+      logAudit({ action: 'USER_CREATED', entityType: 'user', entityId: u.id, description: `New user profile: ${u.name}`, newValues: u });
+      return updated;
+    },
+    updateUser: (u: User) => {
+      const old = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).find(o => o.id === u.id);
+      const updated = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).map(old => old.id === u.id ? u : old);
+      setStored(STORAGE_KEYS.USERS, updated);
+      logAudit({ action: 'USER_UPDATED', entityType: 'user', entityId: u.id, description: `User profile modified`, oldValues: old, newValues: u });
+      return updated;
+    },
+    deleteUser: (id: string) => {
+      const updated = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).filter(u => u.id !== id);
+      setStored(STORAGE_KEYS.USERS, updated);
+      logAudit({ action: 'USER_DELETED', entityType: 'user', entityId: id, description: `User removed from platform`, status: 'warning' });
+      return updated;
+    },
+
     getClients: () => getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients),
     getSubcontractors: () => getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors),
     getIncidents: () => getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents),
+    addIncident: (i: Incident) => {
+      const updated = [i, ...getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents)];
+      setStored(STORAGE_KEYS.INCIDENTS, updated);
+      return updated;
+    },
+    updateIncident: (i: Incident) => {
+      const updated = getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents).map(old => old.id === i.id ? i : old);
+      setStored(STORAGE_KEYS.INCIDENTS, updated);
+      return updated;
+    },
+    deleteIncident: (id: string) => {
+      const updated = getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents).filter(i => i.id !== id);
+      setStored(STORAGE_KEYS.INCIDENTS, updated);
+      return updated;
+    },
+
     getVisitors: () => getStored<Visitor[]>(STORAGE_KEYS.VISITORS, initialVisitors),
     getInvoices: () => getStored<Invoice[]>(STORAGE_KEYS.INVOICES, initialInvoices),
     getApplicants: () => getStored<Applicant[]>(STORAGE_KEYS.APPLICANTS, initialApplicants),
     getForms: () => getStored<FormDefinition[]>(STORAGE_KEYS.FORMS, initialForms),
+    getAudits,
+    logAudit,
     
     autoFillAllShifts: () => {
       const allShifts = getShifts();
       const allGuards = getGuards();
       logAudit({ action: 'AI_SCHEDULING_RUN', entityType: 'system', entityId: 'GLOBAL_PLAN', description: `AI global optimization engine executed.` });
 
-      const updated = allShifts.map(s => {
+      const updatedShifts = allShifts.map(s => {
         if (s.status === 'Completed' || s.status === 'In Progress') return s;
-        const newAssignments = [...(s.assignments || [])];
         
+        const currentAssignments = [...(s.assignments || [])];
+        const updatedAssignments: ShiftAssignment[] = [...currentAssignments];
+
         s.requirements?.forEach(req => {
-          const filledCount = newAssignments.filter(a => a.rolePerformed === req.role).length;
-          for (let i = filledCount; i < req.count; i++) {
-            // Greedy search for best fit
-            const candidate = allGuards.find(g => {
-              // Rule Check
-              const hasOverlap = allShifts.some(other => 
-                other.id !== s.id && 
-                other.assignments?.some(a => a.guardId === g.id)
-              );
-              const isQualified = g.qualifiedRoles.includes(req.role);
-              const isCompliant = g.complianceStatus === 'Compliant';
-              return g.status === 'Active' && !hasOverlap && isQualified && isCompliant;
+          const filledCount = updatedAssignments.filter(a => a.rolePerformed === req.role).length;
+          const needed = req.count - filledCount;
+
+          for (let i = 0; i < needed; i++) {
+            // Find best valid candidate using central validation service
+            const bestCandidate = allGuards.find(g => {
+              // Quick filters first
+              if (g.status !== 'Active' || g.complianceStatus !== 'Compliant') return false;
+              
+              // Rigorous check using central validation
+              const validation = validateGuardAssignment(g, s, allShifts, req.role);
+              return validation.isValid;
             });
 
-            if (candidate) {
-              newAssignments.push({ 
-                id: `ASG-${Date.now()}-${i}`, 
-                guardId: candidate.id, 
-                guardName: candidate.name, 
+            if (bestCandidate) {
+              const assignment: ShiftAssignment = { 
+                id: `ASG-${Date.now()}-${Math.random()}`, 
+                guardId: bestCandidate.id, 
+                guardName: bestCandidate.name, 
                 rolePerformed: req.role, 
                 status: 'Assigned', 
                 assignedAt: new Date().toISOString(), 
                 assignedBy: 'AI_PLANNER' 
+              };
+              updatedAssignments.push(assignment);
+              
+              // Audit the AI decision
+              logAudit({ 
+                action: 'AI_ASSIGNMENT_PROPOSED', 
+                entityType: 'shift_assignment', 
+                entityId: assignment.id, 
+                description: `AI assigned ${bestCandidate.name} to ${s.siteName} based on optimal compliance/fatigue score.`,
+                newValues: assignment
               });
             }
           }
         });
 
-        return { ...s, assignments: newAssignments, status: newAssignments.length > 0 ? 'Claimed' : 'Open' };
+        return { 
+          ...s, 
+          assignments: updatedAssignments, 
+          status: updatedAssignments.length > 0 ? 'Claimed' : 'Open' 
+        };
       });
 
-      setStored(STORAGE_KEYS.SHIFTS, updated);
-      return updated;
+      setStored(STORAGE_KEYS.SHIFTS, updatedShifts);
+      return updatedShifts;
     }
   };
 };

@@ -1,6 +1,6 @@
 # SecureGuard Command - Progress Report
 
-This document outlines the current state of the platform, specifically the completion of **Phase 1 (Platform Foundation)** and **Phase 2 (Smart Scheduling)**.
+This document outlines the final state of the platform, specifically the completion of **Phase 1 (Platform Foundation)** and **Phase 2 (Smart Scheduling)**.
 
 ## 🚀 Phase 1: Platform Foundation (100% Complete)
 
@@ -29,6 +29,10 @@ This document outlines the current state of the platform, specifically the compl
 - **AI Auto-Scheduling**: Global "One-Click" optimization that fills vacancies using candidate match scores.
 - **AI Candidate Pool**: Intelligent replacement suggester that ranks guards by fatigue, qualification, and compliance status.
 - **Break Management**: Integrated scheduled break windows with visual indicators in the registry.
+
+### 3. Portal Workflows
+- **Guard Open-Shift Board**: Capability for field officers to view and claim eligible vacant shifts directly from their portal.
+- **Client Visibility**: Isolated dashboards for corporate partners to monitor live site staffing and incident logs.
 
 ---
 
