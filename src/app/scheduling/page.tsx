@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -242,7 +243,10 @@ export default function SchedulingPage() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>New Deployment</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>New Deployment</DialogTitle>
+                <DialogDescription>Manually create a new shift for a site.</DialogDescription>
+              </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <label className="text-sm font-bold">Target Site</label>
@@ -506,6 +510,10 @@ export default function SchedulingPage() {
       {/* SHIFT DETAIL MODAL */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-2xl overflow-hidden p-0 rounded-3xl border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Deployment Intelligence</DialogTitle>
+            <DialogDescription>Full operational breakdown of the selected shift, site, and personnel.</DialogDescription>
+          </DialogHeader>
           {selectedShift && (
             <div className="flex flex-col">
               <div className={`p-8 text-white relative overflow-hidden ${
