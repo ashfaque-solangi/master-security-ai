@@ -21,7 +21,10 @@ import {
   ChevronRight,
   LayoutGrid,
   List,
-  GripVertical
+  Info,
+  ShieldAlert,
+  User,
+  ExternalLink
 } from 'lucide-react';
 import {
   Card,
@@ -44,6 +47,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import { useJsonStore } from '@/lib/store';
 import { Shift, Severity, Guard, Site } from '@/lib/types';
 import { format, addHours, isFuture, startOfWeek, addDays, isSameDay, parseISO, differenceInDays } from 'date-fns';
@@ -61,6 +65,7 @@ export default function SchedulingPage() {
   // Dialog States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSuggestOpen, setIsSuggestOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [suggestions, setSuggestions] = useState<Guard[]>([]);
 
@@ -104,6 +109,11 @@ export default function SchedulingPage() {
     setIsSuggestOpen(true);
   };
 
+  const openDetail = (shift: Shift) => {
+    setSelectedShift(shift);
+    setIsDetailOpen(true);
+  };
+
   const assignGuard = (guard: Guard) => {
     if (!selectedShift) return;
     
@@ -124,12 +134,14 @@ export default function SchedulingPage() {
     const updated = store.updateShift(updatedShift);
     setShifts(updated);
     setIsSuggestOpen(false);
+    setIsDetailOpen(false);
     toast({ title: "Officer Assigned", description: `${guard.name} has been deployed to ${selectedShift.siteName}.` });
   };
 
   const deleteShift = (id: string) => {
     const updated = store.deleteShift(id);
     setShifts(updated);
+    setIsDetailOpen(false);
   };
 
   const resetForm = () => {
@@ -187,6 +199,10 @@ export default function SchedulingPage() {
   };
 
   const openShiftsCount = shifts.filter(s => s.status === 'Open').length;
+
+  // Helpers for Detail Modal
+  const getSelectedSite = () => sites.find(s => s.id === selectedShift?.siteId);
+  const getSelectedGuard = () => guards.find(g => g.id === selectedShift?.guardId);
 
   return (
     <div className="flex flex-col gap-8">
@@ -281,7 +297,7 @@ export default function SchedulingPage() {
           </div>
         </div>
 
-        {/* CALENDAR VIEW (FULLCALENDAR STYLE) */}
+        {/* CALENDAR VIEW */}
         <TabsContent value="calendar" className="mt-0">
           <div className="grid grid-cols-1 md:grid-cols-7 gap-px bg-slate-200 border rounded-2xl overflow-hidden shadow-inner">
             {weekDays.map((day, idx) => {
@@ -296,7 +312,6 @@ export default function SchedulingPage() {
                   onDragLeave={onDragLeave}
                   onDrop={(e) => onDrop(e, day)}
                 >
-                  {/* Column Header */}
                   <div className={`p-4 text-center border-b sticky top-0 z-10 bg-white/95 backdrop-blur-sm ${isToday ? 'bg-primary/5 border-b-primary/20' : ''}`}>
                     <p className={`text-[10px] font-black uppercase tracking-widest ${isToday ? 'text-primary' : 'text-slate-400'}`}>
                       {format(day, 'EEEE')}
@@ -306,13 +321,13 @@ export default function SchedulingPage() {
                     </div>
                   </div>
 
-                  {/* Shifts Area */}
                   <div className="flex-1 p-2 space-y-3 bg-[#fdfdfd]">
                     {dayShifts.map(shift => (
                       <Card 
                         key={shift.id} 
                         draggable
                         onDragStart={(e) => onDragStart(e, shift)}
+                        onClick={() => openDetail(shift)}
                         className={`group relative border-none shadow-sm hover:shadow-xl transition-all cursor-grab active:cursor-grabbing overflow-hidden rounded-xl ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/50' : 'bg-white'}`}
                       >
                         <div className={`absolute top-0 left-0 w-1.5 h-full ${
@@ -329,7 +344,7 @@ export default function SchedulingPage() {
                                </div>
                              </div>
                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                               <button onClick={() => deleteShift(shift.id)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                               <button onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }} className="text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                              </div>
                           </div>
 
@@ -348,7 +363,7 @@ export default function SchedulingPage() {
                               <Button 
                                 variant="ghost" 
                                 className="h-8 w-full text-[9px] font-black bg-red-100 text-red-600 hover:bg-red-200 border-none rounded-lg"
-                                onClick={() => openSuggest(shift)}
+                                onClick={(e) => { e.stopPropagation(); openSuggest(shift); }}
                               >
                                 <Zap className="w-2.5 h-2.5 mr-1" /> ASSIGN AI
                               </Button>
@@ -357,8 +372,6 @@ export default function SchedulingPage() {
                         </CardContent>
                       </Card>
                     ))}
-                    
-                    {/* Empty Drop Indicator */}
                     <div className="h-20 border-2 border-dashed border-slate-100 rounded-xl flex items-center justify-center group/drop transition-all hover:border-primary/20">
                       <Button variant="ghost" className="w-full h-full text-slate-300 hover:text-primary transition-colors flex flex-col gap-1" onClick={() => { setCurrentDate(day); setIsCreateOpen(true); }}>
                         <Plus className="w-4 h-4" />
@@ -400,7 +413,7 @@ export default function SchedulingPage() {
                   </thead>
                   <tbody>
                     {shifts.map(shift => (
-                      <tr key={shift.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors group">
+                      <tr key={shift.id} onClick={() => openDetail(shift)} className="border-b last:border-0 hover:bg-slate-50 transition-colors group cursor-pointer">
                         <td className="p-6">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20">
@@ -458,7 +471,6 @@ export default function SchedulingPage() {
               Finding the optimal candidate for **{selectedShift?.siteName}**.
             </DialogDescription>
           </DialogHeader>
-          
           <div className="space-y-4 py-4">
             <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
               <Timer className="w-5 h-5 text-blue-600 mt-0.5" />
@@ -466,7 +478,6 @@ export default function SchedulingPage() {
                 AI is prioritizing officers with the lowest current weekly hours to minimize overtime spend and fatigue risk.
               </p>
             </div>
-
             <div className="space-y-3 mt-4">
               {suggestions.length > 0 ? (
                 suggestions.map(guard => (
@@ -497,10 +508,169 @@ export default function SchedulingPage() {
               )}
             </div>
           </div>
-          
           <DialogFooter>
             <Button variant="outline" className="w-full rounded-full" onClick={() => setIsSuggestOpen(false)}>Cancel AI Search</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SHIFT DETAIL MODAL */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-2xl overflow-hidden p-0 rounded-3xl border-none shadow-2xl">
+          {selectedShift && (
+            <div className="flex flex-col">
+              {/* Header Banner */}
+              <div className={`p-8 text-white relative overflow-hidden ${
+                selectedShift.priority === 'STAT' ? 'bg-red-600' : 
+                selectedShift.priority === 'Urgent' ? 'bg-orange-500' : 'bg-slate-900'
+              }`}>
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                  <ShieldAlert className="w-32 h-32" />
+                </div>
+                <div className="relative z-10 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase tracking-widest px-3">
+                      {selectedShift.priority} DEPLOYMENT
+                    </Badge>
+                    <Badge variant="outline" className="text-white border-white/30 text-[10px] uppercase font-bold">
+                      {selectedShift.status}
+                    </Badge>
+                  </div>
+                  <h2 className="text-3xl font-black tracking-tighter pt-2">
+                    {selectedShift.siteName}
+                  </h2>
+                  <p className="text-white/60 font-medium text-sm flex items-center gap-2">
+                    <Building2 className="w-4 h-4" /> Shift ID: {selectedShift.id}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-8 grid md:grid-cols-2 gap-8 bg-white">
+                {/* Deployment Intel */}
+                <div className="space-y-6">
+                   <div className="space-y-4">
+                      <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2">
+                        <Info className="w-3 h-3" /> Operational Intel
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-4">
+                           <div className="bg-slate-50 p-2.5 rounded-xl border">
+                              <Timer className="w-5 h-5 text-primary" />
+                           </div>
+                           <div>
+                              <p className="text-xs font-bold text-slate-500 uppercase">Deployment Window</p>
+                              <p className="text-sm font-black text-slate-800">
+                                {format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}
+                              </p>
+                              <p className="text-lg font-black text-primary">
+                                {format(parseISO(selectedShift.startTime), 'HH:mm')} - {format(parseISO(selectedShift.endTime), 'HH:mm')}
+                              </p>
+                           </div>
+                        </div>
+                        <div className="flex items-start gap-4">
+                           <div className="bg-slate-50 p-2.5 rounded-xl border">
+                              <MapPin className="w-5 h-5 text-primary" />
+                           </div>
+                           <div>
+                              <p className="text-xs font-bold text-slate-500 uppercase">Site Location</p>
+                              <p className="text-sm font-black text-slate-700 leading-tight">
+                                {getSelectedSite()?.address || 'Site records unavailable'}
+                              </p>
+                              <Button variant="link" className="p-0 h-auto text-[10px] font-black text-primary uppercase flex items-center gap-1">
+                                View Maps <ExternalLink className="w-2.5 h-2.5" />
+                              </Button>
+                           </div>
+                        </div>
+                      </div>
+                   </div>
+
+                   <Separator />
+
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Post Role</p>
+                      <p className="text-xl font-black text-slate-800 italic">{selectedShift.role}</p>
+                   </div>
+                </div>
+
+                {/* Personnel Tracking */}
+                <div className="space-y-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                   <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2">
+                    <User className="w-3 h-3" /> Personnel Assigned
+                   </h3>
+
+                   {selectedShift.guardName ? (
+                     <div className="space-y-6">
+                        <div className="flex items-center gap-4">
+                           <div className="h-16 w-16 rounded-2xl bg-white shadow-sm border-2 border-primary/20 flex items-center justify-center text-2xl font-black text-primary">
+                              {selectedShift.guardName.charAt(0)}
+                           </div>
+                           <div>
+                              <p className="text-xl font-black text-slate-800 leading-none">{selectedShift.guardName}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                 <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 text-[9px] font-black uppercase">
+                                   <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> SIA Compliant
+                                 </Badge>
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="space-y-3">
+                           <div className="flex justify-between text-[10px] font-black uppercase">
+                              <span className="text-slate-500">Fatigue Counter</span>
+                              <span className={getSelectedGuard()?.weeklyHours! >= 40 ? 'text-red-500' : 'text-primary'}>
+                                {getSelectedGuard()?.weeklyHours}h / 40h
+                              </span>
+                           </div>
+                           <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all ${getSelectedGuard()?.weeklyHours! >= 40 ? 'bg-red-500' : 'bg-primary'}`}
+                                style={{ width: `${Math.min((getSelectedGuard()?.weeklyHours! / 40) * 100, 100)}%` }}
+                              />
+                           </div>
+                           {getSelectedGuard()?.weeklyHours! >= 40 && (
+                             <p className="text-[9px] font-bold text-red-500 flex items-center gap-1">
+                               <AlertTriangle className="w-3 h-3" /> Overtime triggered for this officer
+                             </p>
+                           )}
+                        </div>
+
+                        <Button className="w-full bg-slate-900 text-white rounded-xl font-black text-xs h-10" onClick={() => openSuggest(selectedShift)}>
+                          SWAP OFFICER
+                        </Button>
+                     </div>
+                   ) : (
+                     <div className="text-center py-8 space-y-4">
+                        <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                           <AlertTriangle className="w-8 h-8 text-red-600" />
+                        </div>
+                        <div className="space-y-1">
+                           <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Post Unfilled</p>
+                           <p className="text-[10px] text-muted-foreground font-medium">No personnel currently deployed to this slot.</p>
+                        </div>
+                        <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl font-black text-xs h-12 shadow-lg shadow-primary/20" onClick={() => openSuggest(selectedShift)}>
+                           <Zap className="w-4 h-4 mr-2" /> AUTO-ASSIGN NOW
+                        </Button>
+                     </div>
+                   )}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="p-4 px-8 border-t bg-slate-50/80 flex items-center justify-between">
+                <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50 font-black text-[10px] uppercase" onClick={() => deleteShift(selectedShift.id)}>
+                   <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete Record
+                </Button>
+                <div className="flex gap-2">
+                   <Button variant="outline" className="rounded-full px-6 font-black text-[10px] uppercase h-9" onClick={() => setIsDetailOpen(false)}>
+                      Dismiss
+                   </Button>
+                   <Button className="bg-slate-900 text-white rounded-full px-6 font-black text-[10px] uppercase h-9 hover:bg-slate-800">
+                      Print Job Card
+                   </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
