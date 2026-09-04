@@ -1,22 +1,26 @@
 
-export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended';
-export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant';
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
 export type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Archived';
 export type IncidentType = 'Intrusion' | 'Fire' | 'Vandalism' | 'Medical' | 'Maintenance' | 'Observation';
 
 export type UserRole = 
   | 'Super Admin' 
-  | 'Company Admin' 
+  | 'Admin'
   | 'Operations Manager' 
-  | 'Dispatcher' 
-  | 'HR / Recruitment' 
-  | 'Compliance Manager' 
-  | 'Payroll / Finance' 
-  | 'Client Admin'
-  | 'Guard';
+  | 'Scheduler'
+  | 'Site Manager'
+  | 'Client'
+  | 'Guard'
+  | 'Subcontractor'
+  | 'HR/Compliance'
+  | 'Company Admin'
+  | 'Dispatcher'
+  | 'HR / Recruitment'
+  | 'Compliance Manager'
+  | 'Payroll / Finance'
+  | 'Client Admin';
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard';
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule';
 
 export type User = {
   id: string;
@@ -26,6 +30,8 @@ export type User = {
   avatarUrl?: string;
   status: 'Active' | 'Inactive';
   password?: string;
+  clientId?: string; 
+  subcontractorId?: string;
   extraPermissions?: PermissionAction[];
 };
 
@@ -37,52 +43,84 @@ export type Client = {
   phone: string;
   status: 'Active' | 'Inactive';
   industry: string;
-};
-
-export type Subcontractor = {
-  id: string;
-  name: string;
-  companyReg: string;
-  contactEmail: string;
-  contactPhone: string;
-  status: 'Approved' | 'Pending' | 'Suspended';
-  guardCount: number;
-  rating: number;
-};
-
-export type AssignedGuard = {
-  id: string;
-  name: string;
-};
-
-export type Guard = {
-  id: string;
-  name: string;
-  email: string;
-  status: GuardStatus;
-  complianceStatus: ComplianceStatus;
-  currentSiteId?: string;
-  currentSiteName?: string;
-  lastLocationUpdate: string;
-  avatarUrl?: string;
-  licenceExpiry: string;
-  docsMissing: number;
-  performanceScore: number;
-  weeklyHours: number; // For fatigue monitoring
-  isAvailable: boolean; // For scheduling
+  settings?: Record<string, any>;
 };
 
 export type Site = {
   id: string;
   name: string;
+  code: string;
   clientId: string;
   clientName: string;
   address: string;
+  contactInfo: string;
+  status: 'Active' | 'Inactive';
+  operatingHours: string;
+  requiredGuardCount: number;
+  requiredRoles: string[];
   riskLevel: Severity;
   activeGuardsCount: number;
   openShifts: number;
   healthScore: number;
   revenuePerMonth: number;
+  instructions?: string;
+};
+
+export type Subcontractor = {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  companyReg?: string;
+  contactEmail: string;
+  contactPhone: string;
+  status: 'Active' | 'Inactive' | 'Approved' | 'Pending' | 'Suspended';
+  rating: number;
+  guardCount: number;
+};
+
+export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended' | 'Inactive' | 'On Leave';
+export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant';
+
+export type Guard = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  status: GuardStatus;
+  complianceStatus: ComplianceStatus;
+  roles?: string[]; 
+  skills?: string[];
+  qualifications?: string[];
+  licenceExpiry: string;
+  docsMissing: number;
+  performanceScore: number;
+  weeklyHours: number;
+  isAvailable: boolean;
+  currentSiteId?: string;
+  currentSiteName?: string;
+  lastLocationUpdate?: string;
+  subcontractorId?: string;
+  avatarUrl?: string;
+};
+
+export type ShiftAssignment = {
+  guardId: string;
+  guardName: string;
+  role: string;
+};
+
+export type Shift = {
+  id: string;
+  siteId: string;
+  siteName: string;
+  startTime: string; 
+  endTime: string;
+  breakStartTime?: string;
+  breakEndTime?: string;
+  status: 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Published';
+  priority: 'Routine' | 'Urgent' | 'STAT';
+  requiredGuards: number;
+  assignments: ShiftAssignment[];
 };
 
 export type Incident = {
@@ -96,41 +134,6 @@ export type Incident = {
   status: IncidentStatus;
   description: string;
   timestamp: string;
-  mediaUrls?: string[];
-};
-
-export type SOSAlert = {
-  id: string;
-  guardId: string;
-  guardName: string;
-  siteName: string;
-  timestamp: string;
-  status: 'Active' | 'Acknowledged' | 'Resolved';
-  location: { lat: number; lng: number };
-};
-
-export type Shift = {
-  id: string;
-  siteId: string;
-  siteName: string;
-  assignedGuards: AssignedGuard[];
-  startTime: string;
-  endTime: string;
-  breakStartTime?: string;
-  breakEndTime?: string;
-  status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Pending Swap';
-  priority: 'Routine' | 'Urgent' | 'STAT';
-  role: string;
-};
-
-export type Vehicle = {
-  id: string;
-  model: string;
-  plate: string;
-  status: 'Active' | 'Maintenance' | 'Available';
-  location: string;
-  fuelLevel: number;
-  nextService: string;
 };
 
 export type Visitor = {
@@ -138,10 +141,27 @@ export type Visitor = {
   name: string;
   company: string;
   siteName: string;
-  checkIn: string;
-  checkOut?: string;
   hostName: string;
+  checkIn: string;
   status: 'Expected' | 'Checked In' | 'Checked Out';
+};
+
+export type Invoice = {
+  id: string;
+  clientName: string;
+  siteName: string;
+  amount: number;
+  date: string;
+  status: 'Paid' | 'Pending' | 'Overdue';
+};
+
+export type Applicant = {
+  id: string;
+  name: string;
+  role: string;
+  status: 'Applied' | 'Interview' | 'Background Check' | 'Hired' | 'Rejected';
+  appliedDate: string;
+  experience: string;
 };
 
 export type Patrol = {
@@ -150,8 +170,8 @@ export type Patrol = {
   guardName: string;
   startTime: string;
   completion: number;
-  status: 'Completed' | 'In Progress' | 'Missed';
   checkpoints: number;
+  status: 'In Progress' | 'Completed' | 'Alert';
 };
 
 export type PayrollRecord = {
@@ -160,34 +180,7 @@ export type PayrollRecord = {
   period: string;
   hours: number;
   amount: number;
-  status: 'Pending' | 'Approved' | 'Paid';
-};
-
-export type Applicant = {
-  id: string;
-  name: string;
-  role: string;
-  appliedDate: string;
-  status: 'Applied' | 'Interview' | 'Background Check' | 'Hired' | 'Rejected';
-  experience: string;
-};
-
-export type Message = {
-  id: string;
-  senderName: string;
-  preview: string;
-  timestamp: string;
-  status: 'unread' | 'read';
-  type: 'WhatsApp' | 'SMS' | 'Internal';
-};
-
-export type Invoice = {
-  id: string;
-  clientName: string;
-  amount: number;
-  date: string;
-  status: 'Paid' | 'Pending' | 'Overdue';
-  siteName: string;
+  status: 'Paid' | 'Pending' | 'Approved';
 };
 
 export type FormDefinition = {
