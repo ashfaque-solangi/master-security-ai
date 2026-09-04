@@ -16,6 +16,8 @@ export type UserRole =
   | 'Client Admin'
   | 'Guard';
 
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard';
+
 export type User = {
   id: string;
   name: string;
@@ -24,6 +26,7 @@ export type User = {
   avatarUrl?: string;
   status: 'Active' | 'Inactive';
   password?: string;
+  extraPermissions?: PermissionAction[];
 };
 
 export type Client = {

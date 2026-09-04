@@ -26,7 +26,6 @@ import {
   ClipboardList,
   Receipt,
   User as UserIcon,
-  Handshake,
   Users2
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -113,8 +112,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     const user = store.getCurrentUser();
     if (!user && pathname !== '/login') {
       router.push('/login');
-    } else {
+    } else if (user) {
       setCurrentUser(user);
+      
+      // Check current route permission
+      const permissionNeeded = navItemPermissions[pathname];
+      if (permissionNeeded && !hasPermission(user, permissionNeeded)) {
+        // Redirect to authorized dashboard
+        if (hasPermission(user, 'guard')) router.push('/guard-portal');
+        else if (hasPermission(user, 'client')) router.push('/client-portal');
+        else router.push('/dashboard');
+      }
     }
 
     const handleStorage = () => {
@@ -141,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...group,
     items: group.items.filter(item => {
       const permissionNeeded = navItemPermissions[item.href];
-      return permissionNeeded ? hasPermission(currentUser!.role, permissionNeeded) : true;
+      return permissionNeeded ? hasPermission(currentUser!, permissionNeeded) : true;
     })
   })).filter(group => group.items.length > 0);
 

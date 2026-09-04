@@ -1,7 +1,7 @@
 
-import { UserRole } from './types';
+import { User, UserRole, PermissionAction } from './types';
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard';
+export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard'];
 
 const rolePermissions: Record<UserRole, PermissionAction[]> = {
   'Super Admin': ['view', 'manage', 'finance', 'hr', 'client', 'guard'],
@@ -15,8 +15,12 @@ const rolePermissions: Record<UserRole, PermissionAction[]> = {
   'Guard': ['guard'],
 };
 
-export function hasPermission(role: UserRole, action: PermissionAction): boolean {
-  return rolePermissions[role]?.includes(action) || false;
+export function hasPermission(user: User, action: PermissionAction): boolean {
+  // Check base role
+  const roleHasIt = rolePermissions[user.role]?.includes(action);
+  // Check extra overrides
+  const userHasIt = user.extraPermissions?.includes(action);
+  return !!(roleHasIt || userHasIt);
 }
 
 export const navItemPermissions: Record<string, PermissionAction> = {

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   Pencil,
-  MoreVertical
+  ShieldAlert
 } from 'lucide-react';
 import {
   Card,
@@ -41,15 +42,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { User, UserRole } from '@/lib/types';
+import { User, UserRole, PermissionAction } from '@/lib/types';
+import { ALL_PERMISSIONS } from '@/lib/permissions';
 
 const roles: UserRole[] = [
   'Super Admin',
@@ -77,6 +74,7 @@ export default function SettingsPage() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRole>('Dispatcher');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [extraPermissions, setExtraPermissions] = useState<PermissionAction[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -90,7 +88,8 @@ export default function SettingsPage() {
       name,
       email,
       role,
-      status
+      status,
+      extraPermissions
     };
     const updated = store.addUser(newUser);
     setUsers(updated);
@@ -105,7 +104,8 @@ export default function SettingsPage() {
       name,
       email,
       role,
-      status
+      status,
+      extraPermissions
     };
     const updated = store.updateUser(updatedUser);
     setUsers(updated);
@@ -124,6 +124,7 @@ export default function SettingsPage() {
     setEmail(user.email);
     setRole(user.role);
     setStatus(user.status);
+    setExtraPermissions(user.extraPermissions || []);
     setIsEditOpen(true);
   };
 
@@ -132,7 +133,14 @@ export default function SettingsPage() {
     setEmail('');
     setRole('Dispatcher');
     setStatus('Active');
+    setExtraPermissions([]);
     setSelectedUser(null);
+  };
+
+  const togglePermission = (perm: PermissionAction) => {
+    setExtraPermissions(prev => 
+      prev.includes(perm) ? prev.filter(p => p !== perm) : [...prev, perm]
+    );
   };
 
   if (!mounted) return null;
@@ -142,7 +150,7 @@ export default function SettingsPage() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight text-slate-800">System Settings</h1>
-          <p className="text-muted-foreground">Manage platform users, security protocols, and enterprise branding.</p>
+          <p className="text-muted-foreground">Manage platform users, security protocols, and granular permission overrides.</p>
         </div>
       </div>
 
@@ -153,9 +161,9 @@ export default function SettingsPage() {
               <div>
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  User Access & Roles
+                  User Access & Permissions
                 </CardTitle>
-                <CardDescription>Control who can access the SecureGuard Command centre.</CardDescription>
+                <CardDescription>Control who can access different modules within the command centre.</CardDescription>
               </div>
               
               <Dialog open={isAddOpen} onOpenChange={(val) => { setIsAddOpen(val); if (!val) resetForm(); }}>
@@ -164,19 +172,21 @@ export default function SettingsPage() {
                     <UserPlus className="mr-2 h-4 w-4" /> Add User
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Add New Portal User</DialogTitle>
-                    <DialogDescription>Assign a role and email for portal access.</DialogDescription>
+                    <DialogDescription>Assign a role and optional granular permission overrides.</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold">Full Name</label>
-                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Robert Fox" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold">Email</label>
-                      <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="robert@company.com" />
+                  <div className="space-y-6 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold">Full Name</label>
+                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Robert Fox" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold">Email</label>
+                        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="robert@company.com" />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -199,6 +209,28 @@ export default function SettingsPage() {
                         </Select>
                       </div>
                     </div>
+
+                    <div className="space-y-3">
+                      <label className="text-sm font-bold flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-primary" />
+                        Extra Permissions (Individual Overrides)
+                      </label>
+                      <div className="grid grid-cols-3 gap-3 p-4 border rounded-xl bg-slate-50/50">
+                        {ALL_PERMISSIONS.map(perm => (
+                          <div key={perm} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`perm-${perm}`} 
+                              checked={extraPermissions.includes(perm)}
+                              onCheckedChange={() => togglePermission(perm)}
+                            />
+                            <label htmlFor={`perm-${perm}`} className="text-xs font-bold uppercase tracking-wider cursor-pointer">
+                              {perm}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">These permissions will be added to the user's base role access.</p>
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
@@ -213,6 +245,7 @@ export default function SettingsPage() {
                   <TableRow className="bg-slate-50 border-none">
                     <TableHead className="text-[10px] uppercase font-bold tracking-widest px-6">User</TableHead>
                     <TableHead className="text-[10px] uppercase font-bold tracking-widest">Role</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold tracking-widest">Extra Perms</TableHead>
                     <TableHead className="text-[10px] uppercase font-bold tracking-widest">Status</TableHead>
                     <TableHead className="text-[10px] uppercase font-bold tracking-widest text-right px-6">Actions</TableHead>
                   </TableRow>
@@ -235,6 +268,17 @@ export default function SettingsPage() {
                         <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/20 bg-primary/5">
                           {user.role}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {user.extraPermissions?.length ? (
+                            user.extraPermissions.map(p => (
+                              <Badge key={p} variant="secondary" className="text-[8px] h-4 uppercase">{p}</Badge>
+                            ))
+                          ) : (
+                            <span className="text-[10px] text-slate-400">None</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <span className={`flex items-center gap-1.5 text-xs font-medium ${user.status === 'Active' ? 'text-green-600' : 'text-slate-400'}`}>
@@ -299,40 +343,26 @@ export default function SettingsPage() {
               <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold text-xs mt-2">Manage Auth Policy</Button>
             </CardContent>
           </Card>
-
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold">System Health</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">API Latency</span>
-                <span className="font-bold text-green-600">24ms</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Storage Usage</span>
-                <span className="font-bold">12.4 GB / 100 GB</span>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Update User Profile</DialogTitle>
             <DialogDescription>Modify access permissions and role for {selectedUser?.name}.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold">Full Name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold">Email Address</label>
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Full Name</label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Email Address</label>
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -353,6 +383,27 @@ export default function SettingsPage() {
                     <SelectItem value="Inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-sm font-bold flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-primary" />
+                Extra Permissions Override
+              </label>
+              <div className="grid grid-cols-3 gap-3 p-4 border rounded-xl bg-slate-50/50">
+                {ALL_PERMISSIONS.map(perm => (
+                  <div key={perm} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`edit-perm-${perm}`} 
+                      checked={extraPermissions.includes(perm)}
+                      onCheckedChange={() => togglePermission(perm)}
+                    />
+                    <label htmlFor={`edit-perm-${perm}`} className="text-xs font-bold uppercase tracking-wider cursor-pointer">
+                      {perm}
+                    </label>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
