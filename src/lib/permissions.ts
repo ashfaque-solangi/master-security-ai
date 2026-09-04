@@ -1,24 +1,28 @@
 
 import { User, UserRole, PermissionAction } from './types';
 
-export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard'];
+export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit'];
 
 const rolePermissions: Record<UserRole, PermissionAction[]> = {
-  'Super Admin': ['view', 'manage', 'finance', 'hr', 'client', 'guard'],
-  'Company Admin': ['view', 'manage', 'finance', 'hr'],
-  'Operations Manager': ['view', 'manage'],
-  'Dispatcher': ['view'],
+  'Super Admin': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit'],
+  'Company Admin': ['view', 'manage', 'finance', 'hr', 'schedule', 'audit'],
+  'Operations Manager': ['view', 'manage', 'schedule', 'audit'],
+  'Dispatcher': ['view', 'schedule'],
   'HR / Recruitment': ['view', 'hr'],
   'Compliance Manager': ['view', 'hr'],
   'Payroll / Finance': ['view', 'finance'],
   'Client Admin': ['client'],
   'Guard': ['guard'],
+  'Admin': ['view', 'manage', 'schedule', 'audit'],
+  'Scheduler': ['view', 'schedule'],
+  'Site Manager': ['view', 'manage'],
+  'Client': ['client'],
+  'Subcontractor': ['view'],
+  'HR/Compliance': ['hr']
 };
 
 export function hasPermission(user: User, action: PermissionAction): boolean {
-  // Check base role
   const roleHasIt = rolePermissions[user.role]?.includes(action);
-  // Check extra overrides
   const userHasIt = user.extraPermissions?.includes(action);
   return !!(roleHasIt || userHasIt);
 }
@@ -29,8 +33,8 @@ export const navItemPermissions: Record<string, PermissionAction> = {
   '/recruitment': 'hr',
   '/analytics': 'manage',
   '/client-portal': 'client',
-  '/scheduling': 'view',
-  '/shifts': 'view',
+  '/scheduling': 'schedule',
+  '/shifts': 'schedule',
   '/patrols': 'view',
   '/incidents': 'view',
   '/forms': 'manage',
@@ -46,5 +50,6 @@ export const navItemPermissions: Record<string, PermissionAction> = {
   '/payroll': 'finance',
   '/invoices': 'finance',
   '/settings': 'manage',
-  '/security': 'manage',
+  '/security': 'audit',
+  '/audit': 'audit',
 };

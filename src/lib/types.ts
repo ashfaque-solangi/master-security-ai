@@ -20,7 +20,7 @@ export type UserRole =
   | 'Payroll / Finance'
   | 'Client Admin';
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule';
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit';
 
 export type User = {
   id: string;
@@ -88,7 +88,7 @@ export type Guard = {
   phone?: string;
   status: GuardStatus;
   complianceStatus: ComplianceStatus;
-  qualifiedRoles: string[]; // Rule 3: Validated roles
+  qualifiedRoles: string[];
   skills: string[];
   licenceExpiry: string;
   docsMissing: number;
@@ -120,9 +120,9 @@ export type Shift = {
   breakEndTime?: string;
   status: 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Published';
   priority: 'Routine' | 'Urgent' | 'STAT';
-  requirements: RoleRequirement[]; // Rule 2: team breakdown
+  requirements: RoleRequirement[];
   assignments: ShiftAssignment[];
-  role: string; // Primary role for display
+  role: string;
 };
 
 export type Incident = {
@@ -191,4 +191,30 @@ export type FormDefinition = {
   fields: number;
   lastModified: string;
   status: 'Active' | 'Draft';
+};
+
+export type AuditAction = 
+  | 'USER_CREATED' | 'USER_UPDATED' | 'USER_DELETED' | 'ROLE_ASSIGNED'
+  | 'GUARD_CREATED' | 'GUARD_UPDATED' | 'GUARD_STATUS_CHANGED'
+  | 'CLIENT_CREATED' | 'CLIENT_UPDATED'
+  | 'SITE_CREATED' | 'SITE_UPDATED'
+  | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'SHIFT_PUBLISHED'
+  | 'GUARD_ASSIGNED' | 'GUARD_REMOVED' | 'GUARD_REPLACED'
+  | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
+  | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED';
+
+export type AuditRecord = {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  action: AuditAction;
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor';
+  entityId: string;
+  description: string;
+  oldValues: any | null;
+  newValues: any | null;
+  metadata?: Record<string, any>;
+  status: 'success' | 'warning' | 'error' | 'info';
 };

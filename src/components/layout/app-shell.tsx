@@ -27,7 +27,8 @@ import {
   Receipt,
   User as UserIcon,
   Users2,
-  Clock3
+  Clock3,
+  History
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -97,7 +98,8 @@ const navGroups = [
     label: 'System',
     items: [
       { href: '/settings', label: 'Settings', icon: Settings },
-      { href: '/security', label: 'System Audit', icon: Lock },
+      { href: '/security', label: 'System Security', icon: Lock },
+      { href: '/audit', label: 'Audit Trail', icon: History },
     ],
   },
 ];
@@ -116,35 +118,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       router.push('/login');
     } else if (user) {
       setCurrentUser(user);
-      
-      // Check current route permission
-      const permissionNeeded = navItemPermissions[pathname];
-      if (permissionNeeded && !hasPermission(user, permissionNeeded)) {
-        // Redirect to authorized dashboard
-        if (hasPermission(user, 'guard')) router.push('/guard-portal');
-        else if (hasPermission(user, 'client')) router.push('/client-portal');
-        else router.push('/dashboard');
-      }
     }
-
-    const handleStorage = () => {
-      const updatedUser = store.getCurrentUser();
-      if (!updatedUser && pathname !== '/login') {
-        router.push('/login');
-      }
-      setCurrentUser(updatedUser);
-    };
-
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
   }, [pathname, router]);
 
   if (!isMounted) return null;
-
-  // Don't show shell on login page
   if (pathname === '/login') return <>{children}</>;
-  
-  // If no user yet but we are on a protected page, show nothing while redirecting
   if (!currentUser && pathname !== '/login') return null;
 
   const filteredGroups = navGroups.map(group => ({

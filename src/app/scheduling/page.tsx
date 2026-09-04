@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Calendar as CalendarIcon, 
   Plus, 
   Search, 
   Building2,
@@ -20,15 +19,13 @@ import {
   MapPin,
   ChevronLeft,
   ChevronRight,
-  LayoutGrid,
-  List,
-  Info,
   ShieldAlert,
-  User,
   Users,
   Lock,
   Coffee,
-  Loader2
+  Loader2,
+  History,
+  Info
 } from 'lucide-react';
 import {
   Card,
@@ -47,21 +44,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { useJsonStore } from '@/lib/store';
-import { Shift, Severity, Guard, Site, RoleRequirement } from '@/lib/types';
+import { Shift, Severity, Guard, Site, AuditRecord } from '@/lib/types';
 import { 
   format, 
-  addHours, 
   startOfWeek, 
   addDays, 
   isSameDay, 
   parseISO, 
-  differenceInDays,
   startOfMonth,
   endOfMonth,
   endOfWeek,
@@ -80,6 +73,7 @@ export default function SchedulingPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [guards, setGuards] = useState<Guard[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
@@ -92,15 +86,12 @@ export default function SchedulingPage() {
   const [targetRole, setTargetRole] = useState('');
   const [suggestions, setSuggestions] = useState<Guard[]>([]);
 
-  const [selectedSiteId, setSelectedSiteId] = useState('');
-  const [role, setRole] = useState('Security Guard');
-  const [priority, setPriority] = useState<Severity>('Low');
-
   useEffect(() => {
     setIsMounted(true);
     setShifts(store.getShifts());
     setGuards(store.getGuards());
     setSites(store.getSites());
+    setAudits(store.getAudits());
   }, []);
 
   if (!isMounted) return null;
@@ -111,6 +102,7 @@ export default function SchedulingPage() {
       const updated = store.autoFillAllShifts();
       setShifts(updated);
       setIsAutoFilling(false);
+      setAudits(store.getAudits());
       toast({ title: "AI Optimization Complete", description: "All site requirements have been filled with qualified personnel." });
     }, 1500);
   };
@@ -128,6 +120,14 @@ export default function SchedulingPage() {
     if (!selectedShift || !targetRole) return;
     const validation = validateGuardAssignment(guard, selectedShift, shifts, targetRole);
     if (!validation.isValid) {
+      store.logAudit({ 
+        action: 'CONFLICT_DETECTED', 
+        entityType: 'shift_assignment', 
+        entityId: selectedShift.id, 
+        description: `Manual assignment failed: ${validation.errors[0]}`,
+        status: 'error',
+        metadata: { guard: guard.name, reason: validation.errors }
+      });
       toast({ variant: "destructive", title: "Assignment Blocked", description: validation.errors[0] });
       return;
     }
@@ -139,6 +139,7 @@ export default function SchedulingPage() {
     };
     const updated = store.updateShift(updatedShift);
     setShifts(updated);
+    setAudits(store.getAudits());
     setIsSuggestOpen(false);
     toast({ title: "Officer Deployed", description: `${guard.name} assigned as ${targetRole}.` });
   };
@@ -161,6 +162,10 @@ export default function SchedulingPage() {
     } else return [currentDate];
   })();
 
+  const getEntityHistory = (id: string) => {
+    return audits.filter(a => a.entityId === id).slice(0, 5);
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -175,7 +180,7 @@ export default function SchedulingPage() {
             {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
             AI AUTO-FILL
           </Button>
-          <Button className="bg-primary text-white rounded-full px-6 shadow-lg" onClick={() => setIsCreateOpen(true)}>
+          <Button className="bg-primary text-white rounded-full px-6 shadow-lg">
             <Plus className="mr-2 h-4 w-4" /> Create Shift
           </Button>
         </div>
@@ -244,13 +249,18 @@ export default function SchedulingPage() {
           </DialogHeader>
           
           {selectedShift && (
-            <div className="p-8 space-y-8 bg-white">
+            <div className="p-8 space-y-8 bg-white max-h-[80vh] overflow-y-auto">
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Clock className="w-3 h-3" /> Shift Window</h3>
                   <div className="p-4 bg-slate-50 rounded-2xl border">
                     <p className="text-lg font-black text-slate-800">{format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
                     <p className="text-2xl font-black text-primary">{format(parseISO(selectedShift.startTime), 'HH:mm')} - {format(parseISO(selectedShift.endTime), 'HH:mm')}</p>
+                    {selectedShift.breakStartTime && (
+                      <div className="mt-2 pt-2 border-t border-dashed flex items-center gap-2 text-xs font-bold text-orange-600">
+                        <Coffee className="h-3.5 w-3.5" /> Break: {format(parseISO(selectedShift.breakStartTime), 'HH:mm')} - {format(parseISO(selectedShift.breakEndTime!), 'HH:mm')}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -266,13 +276,13 @@ export default function SchedulingPage() {
                             <p className="text-xs font-black text-slate-800">{req.role}</p>
                             <p className="text-[10px] text-muted-foreground font-bold">{assigned.length} / {req.count} Filled</p>
                           </div>
-                          {missing > 0 ? (
+                          {missing > 0 && selectedShift.status !== 'Completed' ? (
                             <Button size="sm" variant="ghost" className="text-red-500 font-black text-[10px] bg-red-50 hover:bg-red-100" onClick={() => openSuggest(selectedShift, req.role)}>
                               <Zap className="w-3 h-3 mr-1" /> FILL GAP
                             </Button>
-                          ) : (
+                          ) : assigned.length >= req.count ? (
                             <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
@@ -281,17 +291,20 @@ export default function SchedulingPage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><UserCheck className="w-3 h-3" /> Assigned Personnel</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {selectedShift.assignments?.map(a => (
-                    <div key={a.guardId} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">{a.guardName.charAt(0)}</div>
+                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><History className="h-3 w-3" /> Recent Activity</h3>
+                <div className="space-y-3">
+                  {getEntityHistory(selectedShift.id).map(log => (
+                    <div key={log.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-dashed">
+                      <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center text-[8px] font-black border">{log.userName.charAt(0)}</div>
                       <div>
-                        <p className="text-xs font-black text-slate-800">{a.guardName}</p>
-                        <p className="text-[9px] text-primary font-bold uppercase">{a.role}</p>
+                        <p className="text-[10px] font-bold text-slate-800">{log.description}</p>
+                        <p className="text-[8px] text-muted-foreground uppercase font-black">{format(new Date(log.timestamp), 'MMM dd @ HH:mm')}</p>
                       </div>
                     </div>
                   ))}
+                  {getEntityHistory(selectedShift.id).length === 0 && (
+                    <p className="text-[10px] text-muted-foreground italic text-center py-4">No recent audit logs for this deployment.</p>
+                  )}
                 </div>
               </div>
             </div>
