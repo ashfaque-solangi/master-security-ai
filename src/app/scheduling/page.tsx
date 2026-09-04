@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,12 +5,11 @@ import {
   Calendar as CalendarIcon, 
   Plus, 
   Search, 
-  Filter, 
-  Users,
   Building2,
   Clock,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 import {
   Card,
@@ -23,15 +21,56 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { shifts, sites } from '@/lib/data';
-import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useJsonStore } from '@/lib/store';
+import { Shift } from '@/lib/types';
+import { format, addHours } from 'date-fns';
 
 export default function SchedulingPage() {
+  const store = useJsonStore();
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // New Shift State
+  const [siteName, setSiteName] = useState('Tech Hub HQ');
+  const [role, setRole] = useState('Security Officer');
 
   useEffect(() => {
     setIsMounted(true);
+    setShifts(store.getShifts());
   }, []);
+
+  const handleAdd = () => {
+    const shift: Shift = {
+      id: `SHF-${Math.floor(Math.random() * 1000)}`,
+      siteId: 'SITE-001',
+      siteName,
+      startTime: new Date().toISOString(),
+      endTime: addHours(new Date(), 8).toISOString(),
+      status: 'Open',
+      priority: 'Routine',
+      role
+    };
+    const updated = store.addShift(shift);
+    setShifts(updated);
+    setIsDialogOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = store.deleteShift(id);
+    setShifts(updated);
+  };
+
+  if (!isMounted) return null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -46,9 +85,34 @@ export default function SchedulingPage() {
           <Button variant="outline" className="border-accent text-accent hover:bg-accent/5">
             <Sparkles className="mr-2 h-4 w-4" /> AI Auto-Schedule
           </Button>
-          <Button className="bg-accent text-accent-foreground">
-            <Plus className="mr-2 h-4 w-4" /> Create Shift
-          </Button>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-accent-foreground">
+                <Plus className="mr-2 h-4 w-4" /> Create Shift
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Schedule New Shift</DialogTitle>
+                <DialogDescription>Add a new operational shift to the roster.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold">Site Location</label>
+                  <Input value={siteName} onChange={(e) => setSiteName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold">Role Required</label>
+                  <Input value={role} onChange={(e) => setRole(e.target.value)} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleAdd}>Publish Shift</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -66,14 +130,6 @@ export default function SchedulingPage() {
                   <Input placeholder="Search..." className="pl-8" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Priority</label>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="cursor-pointer hover:bg-accent hover:text-white">STAT</Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-accent hover:text-white">Urgent</Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-accent hover:text-white">Routine</Badge>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -84,7 +140,15 @@ export default function SchedulingPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {shifts.filter(s => s.status === 'Open').map(shift => (
-                <div key={shift.id} className="p-3 rounded-md border border-dashed border-accent/40 bg-accent/5">
+                <div key={shift.id} className="p-3 rounded-md border border-dashed border-accent/40 bg-accent/5 relative group">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"
+                    onClick={() => handleDelete(shift.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                   <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-bold">{shift.siteName}</p>
                     <Badge variant="destructive" className="text-[10px]">{shift.priority}</Badge>
@@ -107,7 +171,7 @@ export default function SchedulingPage() {
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon"><CalendarIcon className="h-4 w-4" /></Button>
                 <span className="text-sm font-medium">
-                  {isMounted ? `Week of ${format(new Date(), 'MMM dd, yyyy')}` : 'Loading...'}
+                  {`Week of ${format(new Date(), 'MMM dd, yyyy')}`}
                 </span>
                 <Button variant="ghost" size="icon"><ArrowRight className="h-4 w-4" /></Button>
               </div>
@@ -136,7 +200,7 @@ export default function SchedulingPage() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         <span>
-                          {isMounted ? `${format(new Date(shift.startTime), 'HH:mm')} - ${format(new Date(shift.endTime), 'HH:mm')}` : '...'}
+                          {`${format(new Date(shift.startTime), 'HH:mm')} - ${format(new Date(shift.endTime), 'HH:mm')}`}
                         </span>
                       </div>
                     </div>
@@ -148,7 +212,7 @@ export default function SchedulingPage() {
                     </div>
 
                     <div className="md:col-span-1 text-right">
-                      <Button variant="ghost" size="sm">Modify</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(shift.id)} className="text-destructive">Delete</Button>
                     </div>
                   </div>
                 ))}

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,7 +9,6 @@ import {
   Eye, 
   Copy, 
   Trash2, 
-  MoreVertical,
   Layout,
   Type,
   CheckSquare,
@@ -26,12 +24,56 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { forms } from '@/lib/data';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useJsonStore } from '@/lib/store';
+import { FormDefinition } from '@/lib/types';
 import { format } from 'date-fns';
 
 export default function FormBuilder() {
+  const store = useJsonStore();
+  const [forms, setForms] = useState<FormDefinition[]>([]);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // New Form State
+  const [newName, setNewName] = useState('');
+  const [newFields, setNewFields] = useState(1);
+
+  useEffect(() => {
+    setMounted(true);
+    setForms(store.getForms());
+  }, []);
+
+  const handleAdd = () => {
+    if (!newName) return;
+    const form: FormDefinition = {
+      id: `FRM-${Math.floor(Math.random() * 1000)}`,
+      name: newName,
+      fields: newFields,
+      lastModified: new Date().toISOString(),
+      status: 'Draft'
+    };
+    const updated = store.addForm(form);
+    setForms(updated);
+    setIsDialogOpen(false);
+    setNewName('');
+    setNewFields(1);
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = store.deleteForm(id);
+    setForms(updated);
+  };
+
+  if (!mounted) return null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -40,9 +82,34 @@ export default function FormBuilder() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-800">Dynamic Form Builder</h1>
           <p className="text-muted-foreground">Configure custom report structures for field officers.</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90 text-white rounded-full shadow-md px-6">
-          <Plus className="mr-2 h-4 w-4" /> Create New Form
-        </Button>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90 text-white rounded-full shadow-md px-6">
+              <Plus className="mr-2 h-4 w-4" /> Create New Form
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Template</DialogTitle>
+              <DialogDescription>Define a new reporting form for field deployment.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Form Name</label>
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Daily Activity Report" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Initial Field Count</label>
+                <Input type="number" value={newFields} onChange={(e) => setNewFields(parseInt(e.target.value))} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAdd}>Create Draft</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
@@ -79,10 +146,10 @@ export default function FormBuilder() {
                         </td>
                         <td className="p-4 font-medium">{form.fields}</td>
                         <td className="p-4 text-xs text-muted-foreground">
-                          {mounted ? format(new Date(form.lastModified), 'MMM dd, yyyy') : '...'}
+                          {format(new Date(form.lastModified), 'MMM dd, yyyy')}
                         </td>
                         <td className="p-4">
-                          <Badge variant="outline" className="text-[10px] bg-green-50 text-green-600 border-green-200">
+                          <Badge variant="outline" className={`text-[10px] ${form.status === 'Active' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-slate-50 text-slate-600'}`}>
                             {form.status}
                           </Badge>
                         </td>
@@ -90,7 +157,14 @@ export default function FormBuilder() {
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8"><Copy className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => handleDelete(form.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>

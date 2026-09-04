@@ -1,14 +1,14 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { 
   Truck, 
   MapPin, 
   Fuel, 
-  Activity, 
-  AlertCircle,
   Wrench,
   Search,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react';
 import {
   Card,
@@ -21,10 +21,59 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
-import { vehicles } from '@/lib/data';
-import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useJsonStore } from '@/lib/store';
+import { Vehicle } from '@/lib/types';
+import { format, addDays } from 'date-fns';
 
 export default function FleetPage() {
+  const store = useJsonStore();
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [mounted, setMounted] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // New Vehicle State
+  const [model, setModel] = useState('');
+  const [plate, setPlate] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+    setVehicles(store.getVehicles());
+  }, []);
+
+  const handleAdd = () => {
+    if (!model || !plate) return;
+    const vehicle: Vehicle = {
+      id: `VH-${Math.floor(Math.random() * 1000)}`,
+      model,
+      plate,
+      status: 'Available',
+      location: 'Main Depot',
+      fuelLevel: 100,
+      nextService: addDays(new Date(), 90).toISOString(),
+    };
+    const updated = store.addVehicle(vehicle);
+    setVehicles(updated);
+    setIsDialogOpen(false);
+    setModel('');
+    setPlate('');
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = store.deleteVehicle(id);
+    setVehicles(updated);
+  };
+
+  if (!mounted) return null;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -34,9 +83,34 @@ export default function FleetPage() {
             Monitor vehicle deployment, maintenance schedules, and fuel usage.
           </p>
         </div>
-        <Button className="bg-primary text-white">
-          <Truck className="mr-2 h-4 w-4" /> Add Vehicle
-        </Button>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary text-white">
+              <Truck className="mr-2 h-4 w-4" /> Add Vehicle
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Register New Vehicle</DialogTitle>
+              <DialogDescription>Add a new asset to the security fleet.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold">Model</label>
+                <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. Toyota Hilux" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold">License Plate</label>
+                <Input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="e.g. ABC-123" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAdd}>Add to Fleet</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex gap-4 items-center">
@@ -49,7 +123,15 @@ export default function FleetPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {vehicles.map((vehicle) => (
-          <Card key={vehicle.id} className="group hover:border-primary transition-all shadow-sm">
+          <Card key={vehicle.id} className="group hover:border-primary transition-all shadow-sm relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-2 right-2 h-8 w-8 text-destructive opacity-0 group-hover:opacity-100"
+              onClick={() => handleDelete(vehicle.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="p-2 bg-primary/10 rounded-lg">

@@ -1,18 +1,31 @@
-
 'use client';
 
 /**
- * @fileOverview A simple JSON-based local storage manager to handle CRUD operations
- * for the prototype without a real backend, simulating a JSON database.
+ * @fileOverview A persistent JSON-based local storage manager for the Security Workforce Platform.
+ * Simulates a real-time database with full CRUD operations for all major entities.
  */
 
-import { guards as initialGuards, incidents as initialIncidents, messages as initialMessages } from './data';
-import { Guard, Incident, Message } from './types';
+import { 
+  guards as initialGuards, 
+  incidents as initialIncidents, 
+  messages as initialMessages,
+  forms as initialForms,
+  shifts as initialShifts,
+  vehicles as initialVehicles,
+  applicants as initialApplicants,
+  visitors as initialVisitors
+} from './data';
+import { Guard, Incident, Message, FormDefinition, Shift, Vehicle, Applicant, Visitor } from './types';
 
 const STORAGE_KEYS = {
-  GUARDS: 'secureguard_guards',
-  INCIDENTS: 'secureguard_incidents',
-  MESSAGES: 'secureguard_messages',
+  GUARDS: 'sg_guards',
+  INCIDENTS: 'sg_incidents',
+  MESSAGES: 'sg_messages',
+  FORMS: 'sg_forms',
+  SHIFTS: 'sg_shifts',
+  VEHICLES: 'sg_vehicles',
+  APPLICANTS: 'sg_applicants',
+  VISITORS: 'sg_visitors',
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -30,11 +43,11 @@ function setStored<T>(key: string, data: T[]) {
 
 export const useJsonStore = () => {
   return {
-    // Incidents CRUD
+    // Incidents
     getIncidents: () => getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents),
-    addIncident: (incident: Incident) => {
+    addIncident: (item: Incident) => {
       const data = getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents);
-      const updated = [incident, ...data];
+      const updated = [item, ...data];
       setStored(STORAGE_KEYS.INCIDENTS, updated);
       return updated;
     },
@@ -45,11 +58,11 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Guards CRUD
+    // Guards
     getGuards: () => getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards),
-    addGuard: (guard: Guard) => {
+    addGuard: (item: Guard) => {
       const data = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
-      const updated = [guard, ...data];
+      const updated = [item, ...data];
       setStored(STORAGE_KEYS.GUARDS, updated);
       return updated;
     },
@@ -60,11 +73,71 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Messages CRUD
+    // Form Definitions (Dynamic Form Builder)
+    getForms: () => getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms),
+    addForm: (item: FormDefinition) => {
+      const data = getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.FORMS, updated);
+      return updated;
+    },
+    deleteForm: (id: string) => {
+      const data = getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms);
+      const updated = data.filter(f => f.id !== id);
+      setStored(STORAGE_KEYS.FORMS, updated);
+      return updated;
+    },
+
+    // Shifts (Scheduling)
+    getShifts: () => getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts),
+    addShift: (item: Shift) => {
+      const data = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      return updated;
+    },
+    deleteShift: (id: string) => {
+      const data = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const updated = data.filter(s => s.id !== id);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      return updated;
+    },
+
+    // Vehicles (Fleet)
+    getVehicles: () => getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles),
+    addVehicle: (item: Vehicle) => {
+      const data = getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.VEHICLES, updated);
+      return updated;
+    },
+    deleteVehicle: (id: string) => {
+      const data = getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles);
+      const updated = data.filter(v => v.id !== id);
+      setStored(STORAGE_KEYS.VEHICLES, updated);
+      return updated;
+    },
+
+    // Applicants (Recruitment)
+    getApplicants: () => getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants),
+    addApplicant: (item: Applicant) => {
+      const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
+      const updated = [item, ...data];
+      setStored(STORAGE_KEYS.APPLICANTS, updated);
+      return updated;
+    },
+    deleteApplicant: (id: string) => {
+      const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
+      const updated = data.filter(a => a.id !== id);
+      setStored(STORAGE_KEYS.APPLICANTS, updated);
+      return updated;
+    },
+
+    // Messages
     getMessages: () => getStored<Message>(STORAGE_KEYS.MESSAGES, initialMessages),
-    addMessage: (message: Message) => {
+    addMessage: (item: Message) => {
       const data = getStored<Message>(STORAGE_KEYS.MESSAGES, initialMessages);
-      const updated = [message, ...data];
+      const updated = [item, ...data];
       setStored(STORAGE_KEYS.MESSAGES, updated);
       return updated;
     }
