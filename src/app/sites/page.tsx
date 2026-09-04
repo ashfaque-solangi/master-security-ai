@@ -10,7 +10,9 @@ import {
   ArrowUpRight,
   Plus,
   Trash2,
-  Pencil
+  Pencil,
+  Activity,
+  UserCheck
 } from 'lucide-react';
 import {
   Card,
@@ -34,11 +36,12 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { Site, Severity } from '@/lib/types';
+import { Site, Severity, Shift } from '@/lib/types';
 
 export default function SitesPage() {
   const store = useJsonStore();
   const [sites, setSites] = useState<Site[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   
   // Dialog States
@@ -55,6 +58,7 @@ export default function SitesPage() {
   useEffect(() => {
     setIsMounted(true);
     setSites(store.getSites());
+    setShifts(store.getShifts());
   }, []);
 
   const handleAdd = () => {
@@ -116,165 +120,161 @@ export default function SitesPage() {
 
   if (!isMounted) return null;
 
+  // Helper to get operational data for a site
+  const getSiteStats = (siteId: string) => {
+    const siteShifts = shifts.filter(s => s.siteId === siteId);
+    const active = siteShifts.filter(s => s.status === 'In Progress').length;
+    const open = siteShifts.filter(s => s.status === 'Open').length;
+    const guards = siteShifts.filter(s => s.status === 'In Progress' && s.guardName).map(s => s.guardName);
+    return { active, open, guards };
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Sites & Clients</h1>
-          <p className="text-muted-foreground">
-            Manage operational locations, contracts, and site health.
+          <h1 className="text-3xl font-black tracking-tight text-slate-800">Operational Sites</h1>
+          <p className="text-muted-foreground font-medium">
+            Manage contracted locations, monitor live coverage, and audit site health.
           </p>
         </div>
 
         <Dialog open={isCreateOpen} onOpenChange={(val) => { setIsCreateOpen(val); if (!val) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground">
-              <Plus className="mr-2 h-4 w-4" /> New Site
+            <Button className="bg-primary text-white rounded-full px-6 font-bold shadow-lg shadow-primary/20">
+              <Plus className="mr-2 h-4 w-4" /> Register New Site
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Register New Operational Site</DialogTitle>
+              <DialogTitle>Register Operational Site</DialogTitle>
               <DialogDescription>Add a new contracted location to the platform.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <label className="text-sm font-bold">Site Name</label>
+                <label className="text-sm font-bold text-slate-600">Site Name</label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Data Center Alpha" />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-bold">Client Name</label>
+                <label className="text-sm font-bold text-slate-600">Client Name</label>
                 <Input value={client} onChange={(e) => setClient(e.target.value)} placeholder="e.g. Global Tech Corp" />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-bold">Address</label>
+                <label className="text-sm font-bold text-slate-600">Physical Address</label>
                 <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Security Blvd" />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-bold">Risk Level</label>
+                <label className="text-sm font-bold text-slate-600">Risk Profile</label>
                 <Select value={risk} onValueChange={(v) => setRisk(v as Severity)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Low">Low</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Critical">Critical</SelectItem>
+                    <SelectItem value="Low">Low Risk</SelectItem>
+                    <SelectItem value="Medium">Medium Risk</SelectItem>
+                    <SelectItem value="High">High Risk</SelectItem>
+                    <SelectItem value="Critical">Critical Risk</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleAdd}>Create Site</Button>
+              <Button onClick={handleAdd} className="bg-primary">Create Site</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Site Configuration</DialogTitle>
-            <DialogDescription>Update details for {selectedSite?.name}.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold">Site Name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold">Client Name</label>
-              <Input value={client} onChange={(e) => setClient(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold">Address</label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold">Risk Level</label>
-              <Select value={risk} onValueChange={(v) => setRisk(v as Severity)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Low">Low</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {sites.map((site) => (
-          <Card key={site.id} className="group hover:border-accent transition-all relative">
-             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openEdit(site)}>
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(site.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <Building2 className="h-6 w-6 text-accent" />
-                </div>
-                <Badge variant={
-                  site.riskLevel === 'Critical' ? 'destructive' :
-                  site.riskLevel === 'High' ? 'destructive' :
-                  'outline'
-                }>
-                  {site.riskLevel} Risk
-                </Badge>
-              </div>
-              <div className="mt-4">
-                <CardTitle className="text-xl">{site.name}</CardTitle>
-                <CardDescription className="flex items-center gap-1 mt-1">
-                  <MapPin className="h-3 w-3" />
-                  {site.address}
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium">
-                  <span>Coverage Status</span>
-                  <span>{site.activeGuardsCount} Guards Active</span>
-                </div>
-                <Progress value={85} className="h-2" />
+        {sites.map((site) => {
+          const stats = getSiteStats(site.id);
+          const coveragePercent = stats.active > 0 || stats.open > 0 ? (stats.active / (stats.active + stats.open)) * 100 : 100;
+          
+          return (
+            <Card key={site.id} className="group border-none shadow-sm hover:shadow-md transition-all relative overflow-hidden bg-white">
+              <div className={`absolute top-0 left-0 w-full h-1.5 ${
+                site.riskLevel === 'Critical' ? 'bg-red-600' :
+                site.riskLevel === 'High' ? 'bg-orange-500' :
+                'bg-blue-500'
+              }`} />
+              
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openEdit(site)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(site.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 py-4 border-y border-dashed">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-bold uppercase">Client</p>
-                  <p className="text-sm font-semibold truncate">{site.clientName}</p>
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm group-hover:scale-105 transition-transform">
+                    <Building2 className="h-6 w-6 text-primary" />
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] font-black uppercase rounded-full ${
+                    site.riskLevel === 'Critical' ? 'border-red-200 bg-red-50 text-red-600' : 'bg-slate-50'
+                  }`}>
+                    {site.riskLevel} Risk
+                  </Badge>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground font-bold uppercase">Open Shifts</p>
-                  <p className={`text-sm font-semibold ${site.openShifts > 0 ? 'text-destructive' : ''}`}>
-                    {site.openShifts} Critical
+                <div className="mt-4">
+                  <CardTitle className="text-xl font-black text-slate-800">{site.name}</CardTitle>
+                  <CardDescription className="flex items-center gap-1 mt-1 text-xs font-medium">
+                    <MapPin className="h-3 w-3 text-primary" />
+                    {site.address}
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[11px] font-black uppercase text-slate-400 tracking-widest">
+                    <span>Live Shift Coverage</span>
+                    <span className="text-primary">{stats.active} Covered / {stats.open} Open</span>
+                  </div>
+                  <Progress value={coveragePercent} className="h-2 rounded-full" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 py-4 border-y border-dashed border-slate-100">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-tighter">Primary Client</p>
+                    <p className="text-sm font-black text-slate-700 truncate">{site.clientName}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-tighter">Operational Score</p>
+                    <div className="flex items-center gap-1.5">
+                      <Activity className={`h-3 w-3 ${site.healthScore > 90 ? 'text-green-500' : 'text-orange-500'}`} />
+                      <p className={`text-sm font-black ${site.healthScore > 90 ? 'text-green-500' : 'text-orange-500'}`}>
+                        {site.healthScore}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
+                    <UserCheck className="h-3 w-3" /> On-Duty Officers
                   </p>
+                  {stats.guards.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {stats.guards.map((name, idx) => (
+                        <Badge key={idx} variant="secondary" className="bg-slate-100 text-slate-600 border-none font-bold text-[10px] py-0 px-2 h-6">
+                          {name}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No officers currently clocked in.</p>
+                  )}
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <Button className="flex-1 text-accent border-accent hover:bg-accent/5" variant="outline">
-                  Site Details
+                <Button className="w-full bg-slate-900 text-white rounded-xl h-11 font-black group-hover:bg-primary transition-colors">
+                  OPEN SITE COMMAND <ArrowUpRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="group-hover:translate-x-1 transition-transform">
-                  <ArrowUpRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

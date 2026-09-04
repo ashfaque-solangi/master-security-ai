@@ -12,7 +12,8 @@ import {
   Flame,
   ArrowRight,
   Target,
-  Sparkles
+  Sparkles,
+  MapPin
 } from 'lucide-react';
 import {
   Card,
@@ -24,27 +25,59 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { guards, incidents, sites, sosAlerts } from '@/lib/data';
-import { formatDistanceToNow } from 'date-fns';
+import { useJsonStore } from '@/lib/store';
+import { Guard, Incident, Site, SOSAlert, Shift } from '@/lib/types';
+import { formatDistanceToNow, isWithinInterval, parseISO } from 'date-fns';
 
 export default function DashboardPage() {
+  const store = useJsonStore();
   const [isMounted, setIsMounted] = useState(false);
+  const [guards, setGuards] = useState<Guard[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  
+  // Mock SOS alerts for dashboard display
+  const sosAlerts: SOSAlert[] = [
+    {
+      id: 'SOS-001',
+      guardId: 'GRD-001',
+      guardName: 'Marcus Thorne',
+      siteName: 'Tech Hub HQ',
+      timestamp: new Date().toISOString(),
+      status: 'Active',
+      location: { lat: 37.7749, lng: -122.4194 }
+    }
+  ];
 
   useEffect(() => {
     setIsMounted(true);
+    setGuards(store.getGuards());
+    setIncidents(store.getIncidents());
+    setSites(store.getSites());
+    setShifts(store.getShifts());
   }, []);
+
+  if (!isMounted) return null;
 
   const activeGuards = guards.filter(g => g.status === 'Active');
   const criticalIncidents = incidents.filter(i => i.severity === 'High' || i.severity === 'Critical');
-  const openShiftsCount = sites.reduce((acc, site) => acc + site.openShifts, 0);
+  const openShiftsCount = shifts.filter(s => s.status === 'Open').length;
+
+  // Helper to get guards currently at a site via shifts
+  const getGuardsForSite = (siteId: string) => {
+    return shifts
+      .filter(s => s.siteId === siteId && s.status === 'In Progress' && s.guardName)
+      .map(s => s.guardName);
+  };
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Welcome Admin!</h1>
+          <h1 className="text-3xl font-black tracking-tight text-slate-800">Welcome Admin!</h1>
           <p className="text-muted-foreground text-sm font-medium">
-            Dashboard / Command Centre
+            Command Centre / Operational Overview
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -122,7 +155,7 @@ export default function DashboardPage() {
                 <Clock className="h-6 w-6 text-purple-600" />
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Pending Shifts</p>
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Open Shifts</p>
                 <p className="text-2xl font-extrabold text-slate-800">{openShiftsCount}</p>
               </div>
             </div>
@@ -157,7 +190,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                       <span className="font-bold text-destructive underline">{alert.siteName}</span>
                       <span>•</span>
-                      <span>{isMounted ? formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true }) : '...'}</span>
+                      <span>{formatDistanceToNow(parseISO(alert.timestamp), { addSuffix: true })}</span>
                     </div>
                   </div>
                 </div>
@@ -205,7 +238,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-6 text-[10px] text-muted-foreground font-bold uppercase tracking-widest pt-1">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {isMounted ? formatDistanceToNow(new Date(incident.timestamp), { addSuffix: true }) : '...'}
+                      {formatDistanceToNow(parseISO(incident.timestamp), { addSuffix: true })}
                     </span>
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
@@ -223,26 +256,42 @@ export default function DashboardPage() {
             <CardHeader className="bg-white border-b pb-4">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" />
-                Site Health
+                Site Coverage Monitoring
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              {sites.map((site) => (
-                <div key={site.id} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{site.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-medium">{site.activeGuardsCount} Active • {site.riskLevel} Risk</p>
+              {sites.map((site) => {
+                const siteGuards = getGuardsForSite(site.id);
+                return (
+                  <div key={site.id} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-black text-slate-800">{site.name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                           <Badge variant="outline" className="text-[9px] h-4">{site.riskLevel} RISK</Badge>
+                           <span className="text-[10px] text-muted-foreground font-bold uppercase">{siteGuards.length} On Duty</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-black ${site.healthScore > 90 ? 'text-green-500' : 'text-orange-500'}`}>
+                          {site.healthScore}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-black ${site.healthScore > 90 ? 'text-green-500' : 'text-orange-500'}`}>
-                        {site.healthScore}%
-                      </p>
-                    </div>
+                    <Progress value={site.healthScore} className={`h-1.5 ${site.healthScore > 90 ? '[&>div]:bg-green-500' : '[&>div]:bg-orange-500'}`} />
+                    {siteGuards.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {siteGuards.map((name, idx) => (
+                          <div key={idx} className="flex items-center gap-1 bg-slate-50 border px-2 py-0.5 rounded text-[9px] font-bold text-slate-600">
+                            <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <Progress value={site.healthScore} className={`h-1.5 ${site.healthScore > 90 ? '[&>div]:bg-green-500' : '[&>div]:bg-orange-500'}`} />
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
