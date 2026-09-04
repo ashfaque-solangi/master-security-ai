@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -20,6 +21,9 @@ import {
   Briefcase,
   Settings,
   Building,
+  MessageSquare,
+  ClipboardList,
+  Receipt
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -49,7 +53,7 @@ const navGroups = [
     items: [
       { href: '/dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
       { href: '/recruitment', label: 'HR Dashboard', icon: Briefcase },
-      { href: '/analytics', label: 'Executive Analytics', icon: PieChart },
+      { href: '/analytics', label: 'Executive AI', icon: PieChart },
       { href: '/client-portal', label: 'Client Portal', icon: Building },
     ],
   },
@@ -59,7 +63,9 @@ const navGroups = [
       { href: '/scheduling', label: 'Scheduling', icon: Calendar },
       { href: '/patrols', label: 'Live Tracking', icon: Map },
       { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
+      { href: '/forms', label: 'Form Builder', icon: ClipboardList },
       { href: '/visitors', label: 'Visitors', icon: UserCheck },
+      { href: '/inbox', label: 'Unified Inbox', icon: MessageSquare },
     ],
   },
   {
@@ -76,6 +82,7 @@ const navGroups = [
       { href: '/sites', label: 'Sites & Contracts', icon: FileText },
       { href: '/fleet', label: 'Fleet & Assets', icon: Truck },
       { href: '/payroll', label: 'Payroll', icon: CreditCard },
+      { href: '/invoices', label: 'Invoicing', icon: Receipt },
     ],
   },
   {

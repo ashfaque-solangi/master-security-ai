@@ -1,4 +1,5 @@
-import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor, Patrol, PayrollRecord, Applicant } from './types';
+
+import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor, Patrol, PayrollRecord, Applicant, Message, Invoice, FormDefinition } from './types';
 import { addDays, subHours, subMinutes, subDays } from 'date-fns';
 
 const now = new Date();
@@ -277,5 +278,60 @@ export const applicants: Applicant[] = [
     appliedDate: subDays(now, 10).toISOString(),
     status: 'Background Check',
     experience: '10 years'
+  }
+];
+
+export const messages: Message[] = [
+  {
+    id: 'MSG-001',
+    senderName: 'Marcus Thorne',
+    preview: 'I have arrived at Checkpoint B. All secure.',
+    timestamp: subMinutes(now, 5).toISOString(),
+    status: 'unread',
+    type: 'WhatsApp'
+  },
+  {
+    id: 'MSG-002',
+    senderName: 'Sarah Jenkins',
+    preview: 'Requesting early break due to heat.',
+    timestamp: subMinutes(now, 20).toISOString(),
+    status: 'read',
+    type: 'Internal'
+  }
+];
+
+export const invoices: Invoice[] = [
+  {
+    id: 'INV-2024-001',
+    clientName: 'Global Tech Corp',
+    amount: 45000.00,
+    date: subDays(now, 2).toISOString(),
+    status: 'Pending',
+    siteName: 'Tech Hub HQ'
+  },
+  {
+    id: 'INV-2024-002',
+    clientName: 'Eastside Properties',
+    amount: 12000.00,
+    date: subDays(now, 15).toISOString(),
+    status: 'Paid',
+    siteName: 'Retail Park East'
+  }
+];
+
+export const forms: FormDefinition[] = [
+  {
+    id: 'FRM-001',
+    name: 'Incident Report v2',
+    fields: 12,
+    lastModified: subDays(now, 1).toISOString(),
+    status: 'Active'
+  },
+  {
+    id: 'FRM-002',
+    name: 'Vehicle Inspection',
+    fields: 8,
+    lastModified: subDays(now, 10).toISOString(),
+    status: 'Active'
   }
 ];

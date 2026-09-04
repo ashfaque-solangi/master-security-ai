@@ -1,3 +1,4 @@
+
 export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended';
 export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant';
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
@@ -116,4 +117,30 @@ export type Applicant = {
   appliedDate: string;
   status: 'Applied' | 'Interview' | 'Background Check' | 'Hired' | 'Rejected';
   experience: string;
+};
+
+export type Message = {
+  id: string;
+  senderName: string;
+  preview: string;
+  timestamp: string;
+  status: 'unread' | 'read';
+  type: 'WhatsApp' | 'SMS' | 'Internal';
+};
+
+export type Invoice = {
+  id: string;
+  clientName: string;
+  amount: number;
+  date: string;
+  status: 'Paid' | 'Pending' | 'Overdue';
+  siteName: string;
+};
+
+export type FormDefinition = {
+  id: string;
+  name: string;
+  fields: number;
+  lastModified: string;
+  status: 'Active' | 'Draft';
 };
