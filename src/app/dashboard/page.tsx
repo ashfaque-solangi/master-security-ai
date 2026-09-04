@@ -8,7 +8,9 @@ import {
   Clock, 
   MapPin, 
   TrendingUp,
-  Activity
+  Activity,
+  Zap,
+  Flame,
 } from 'lucide-react';
 import {
   Card,
@@ -20,7 +22,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { guards, incidents, sites } from '@/lib/data';
+import { guards, incidents, sites, sosAlerts } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function DashboardPage() {
@@ -34,13 +36,13 @@ export default function DashboardPage() {
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Live Command Centre</h1>
           <p className="text-muted-foreground text-lg">
-            Operational overview of active sites and workforce.
+            Multi-site operational overview and emergency monitoring.
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Export Reports</Button>
-          <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-            New Incident
+          <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90 animate-pulse">
+            Active SOS: {sosAlerts.length}
           </Button>
         </div>
       </div>
@@ -58,23 +60,11 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Incidents</CardTitle>
-            <AlertCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{incidents.filter(i => i.status === 'Open').length}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {criticalIncidents.length} Critical escalation required
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Shifts</CardTitle>
+            <CardTitle className="text-sm font-medium">Open Shift Risks</CardTitle>
             <Clock className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{openShiftsCount}</div>
+            <div className="text-2xl font-bold text-accent">{openShiftsCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
               AI Suggesting 5 replacements
             </p>
@@ -82,8 +72,20 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Compliance Rate</CardTitle>
-            <Shield className="h-4 w-4 text-green-500" />
+            <CardTitle className="text-sm font-medium">Active Incidents</CardTitle>
+            <AlertCircle className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{incidents.filter(i => i.status === 'Open').length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {criticalIncidents.length} Critical escalation
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Compliance Avg</CardTitle>
+            <Zap className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">94.2%</div>
@@ -94,6 +96,39 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {sosAlerts.length > 0 && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-destructive flex items-center gap-2">
+                <Flame className="h-5 w-5 animate-bounce" />
+                Active Panic / SOS Alerts
+              </CardTitle>
+              <CardDescription>Immediate tactical response required.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sosAlerts.map(alert => (
+              <div key={alert.id} className="flex items-center justify-between p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-destructive flex items-center justify-center text-white font-bold">
+                    {alert.guardName.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-destructive">{alert.guardName} - SOS Triggered</p>
+                    <p className="text-sm text-muted-foreground">{alert.siteName} • {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="border-destructive text-destructive hover:bg-destructive hover:text-white">Acknowledge</Button>
+                  <Button size="sm" className="bg-destructive text-white">Dispatch Support</Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-7">
         <Card className="lg:col-span-4">
           <CardHeader>
@@ -102,7 +137,7 @@ export default function DashboardPage() {
               Live Site Alerts
             </CardTitle>
             <CardDescription>
-              Recent events across all monitored sites.
+              Real-time events across all monitored sites.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -145,40 +180,33 @@ export default function DashboardPage() {
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-accent" />
-              Workforce Status
+              <Shield className="h-5 w-5 text-accent" />
+              Site Health & Status
             </CardTitle>
             <CardDescription>
-              Real-time guard deployment.
+              Infrastructure and coverage scoring.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {guards.map((guard) => (
-              <div key={guard.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="h-9 w-9 rounded-full bg-accent/20 flex items-center justify-center font-bold text-accent">
-                      {guard.name.substring(0, 1)}
-                    </div>
-                    <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background ${
-                      guard.status === 'Active' ? 'bg-green-500' : 
-                      guard.status === 'On Break' ? 'bg-yellow-500' : 'bg-gray-400'
-                    }`} />
-                  </div>
+            {sites.map((site) => (
+              <div key={site.id} className="space-y-2 py-2 border-b last:border-0">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">{guard.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {guard.currentSiteName || 'Off-site'}
+                    <p className="text-sm font-medium">{site.name}</p>
+                    <p className="text-xs text-muted-foreground">{site.activeGuardsCount} Guards • {site.riskLevel} Risk</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${site.healthScore > 90 ? 'text-green-500' : 'text-yellow-500'}`}>
+                      {site.healthScore}%
                     </p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Health</p>
                   </div>
                 </div>
-                <Badge variant={guard.complianceStatus === 'Compliant' ? 'secondary' : 'destructive'} className="text-[10px]">
-                  {guard.complianceStatus}
-                </Badge>
+                <Progress value={site.healthScore} className={`h-1.5 ${site.healthScore > 90 ? '[&>div]:bg-green-500' : '[&>div]:bg-yellow-500'}`} />
               </div>
             ))}
             <Button className="w-full mt-4" variant="outline">
-              Manage Workforce
+              Operational Audit
             </Button>
           </CardContent>
         </Card>

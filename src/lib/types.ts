@@ -15,6 +15,8 @@ export type Guard = {
   currentSiteName?: string;
   lastLocationUpdate: string;
   avatarUrl?: string;
+  licenceExpiry: string;
+  docsMissing: number;
 };
 
 export type Site = {
@@ -26,6 +28,7 @@ export type Site = {
   riskLevel: Severity;
   activeGuardsCount: number;
   openShifts: number;
+  healthScore: number;
 };
 
 export type Incident = {
@@ -42,6 +45,16 @@ export type Incident = {
   mediaUrls?: string[];
 };
 
+export type SOSAlert = {
+  id: string;
+  guardId: string;
+  guardName: string;
+  siteName: string;
+  timestamp: string;
+  status: 'Active' | 'Acknowledged' | 'Resolved';
+  location: { lat: number; lng: number };
+};
+
 export type Shift = {
   id: string;
   siteId: string;
@@ -52,4 +65,5 @@ export type Shift = {
   endTime: string;
   status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed';
   priority: 'Routine' | 'Urgent' | 'STAT';
+  role: string;
 };

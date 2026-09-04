@@ -1,5 +1,8 @@
 
-import type { Guard, Site, Incident, Shift } from './types';
+import type { Guard, Site, Incident, Shift, SOSAlert } from './types';
+import { addDays, subHours, subMinutes } from 'date-fns';
+
+const now = new Date();
 
 export const guards: Guard[] = [
   {
@@ -10,7 +13,9 @@ export const guards: Guard[] = [
     complianceStatus: 'Compliant',
     currentSiteId: 'SITE-001',
     currentSiteName: 'Tech Hub HQ',
-    lastLocationUpdate: new Date().toISOString(),
+    lastLocationUpdate: subMinutes(now, 2).toISOString(),
+    licenceExpiry: addDays(now, 240).toISOString(),
+    docsMissing: 0,
   },
   {
     id: 'GRD-002',
@@ -20,7 +25,9 @@ export const guards: Guard[] = [
     complianceStatus: 'Expiring Soon',
     currentSiteId: 'SITE-002',
     currentSiteName: 'Retail Park East',
-    lastLocationUpdate: new Date().toISOString(),
+    lastLocationUpdate: subMinutes(now, 15).toISOString(),
+    licenceExpiry: addDays(now, 15).toISOString(),
+    docsMissing: 1,
   },
   {
     id: 'GRD-003',
@@ -30,7 +37,9 @@ export const guards: Guard[] = [
     complianceStatus: 'Compliant',
     currentSiteId: 'SITE-001',
     currentSiteName: 'Tech Hub HQ',
-    lastLocationUpdate: new Date().toISOString(),
+    lastLocationUpdate: subMinutes(now, 5).toISOString(),
+    licenceExpiry: addDays(now, 180).toISOString(),
+    docsMissing: 0,
   },
   {
     id: 'GRD-004',
@@ -38,7 +47,9 @@ export const guards: Guard[] = [
     email: 'e.rossi@security.com',
     status: 'Off Duty',
     complianceStatus: 'Non-Compliant',
-    lastLocationUpdate: new Date().toISOString(),
+    lastLocationUpdate: subHours(now, 2).toISOString(),
+    licenceExpiry: now.toISOString(),
+    docsMissing: 3,
   }
 ];
 
@@ -52,6 +63,7 @@ export const sites: Site[] = [
     riskLevel: 'High',
     activeGuardsCount: 5,
     openShifts: 2,
+    healthScore: 92,
   },
   {
     id: 'SITE-002',
@@ -62,6 +74,7 @@ export const sites: Site[] = [
     riskLevel: 'Medium',
     activeGuardsCount: 2,
     openShifts: 0,
+    healthScore: 78,
   },
   {
     id: 'SITE-003',
@@ -72,6 +85,7 @@ export const sites: Site[] = [
     riskLevel: 'Critical',
     activeGuardsCount: 12,
     openShifts: 5,
+    healthScore: 98,
   }
 ];
 
@@ -86,7 +100,7 @@ export const incidents: Incident[] = [
     severity: 'High',
     status: 'Open',
     description: 'Unauthorized access detected at Perimeter Fence B. Person scaled fence and headed towards Server Room 1.',
-    timestamp: new Date().toISOString(),
+    timestamp: subHours(now, 1).toISOString(),
   },
   {
     id: 'INC-2024-002',
@@ -98,7 +112,19 @@ export const incidents: Incident[] = [
     severity: 'Low',
     status: 'Resolved',
     description: 'Minor water leak discovered in the parking garage ceiling. Maintenance notified.',
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    timestamp: subHours(now, 4).toISOString(),
+  }
+];
+
+export const sosAlerts: SOSAlert[] = [
+  {
+    id: 'SOS-001',
+    guardId: 'GRD-001',
+    guardName: 'Marcus Thorne',
+    siteName: 'Tech Hub HQ',
+    timestamp: subMinutes(now, 2).toISOString(),
+    status: 'Active',
+    location: { lat: 37.7749, lng: -122.4194 }
   }
 ];
 
@@ -109,18 +135,32 @@ export const shifts: Shift[] = [
     siteName: 'Tech Hub HQ',
     guardId: 'GRD-001',
     guardName: 'Marcus Thorne',
-    startTime: new Date().toISOString(),
-    endTime: new Date(Date.now() + 28800000).toISOString(),
+    startTime: subHours(now, 2).toISOString(),
+    endTime: subHours(now, -6).toISOString(),
     status: 'In Progress',
     priority: 'Urgent',
+    role: 'Armed Static Guard'
   },
   {
     id: 'SHF-002',
+    siteId: 'SITE-002',
+    siteName: 'Retail Park East',
+    guardId: 'GRD-002',
+    guardName: 'Sarah Jenkins',
+    startTime: subHours(now, 1).toISOString(),
+    endTime: subHours(now, -7).toISOString(),
+    status: 'In Progress',
+    priority: 'Routine',
+    role: 'Patrol Officer'
+  },
+  {
+    id: 'SHF-003',
     siteId: 'SITE-003',
     siteName: 'Data Center Alpha',
-    startTime: new Date(Date.now() + 86400000).toISOString(),
-    endTime: new Date(Date.now() + 115200000).toISOString(),
+    startTime: addDays(now, 1).toISOString(),
+    endTime: addDays(now, 1.33).toISOString(),
     status: 'Open',
     priority: 'STAT',
+    role: 'Lead Supervisor'
   }
 ];

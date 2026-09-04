@@ -16,6 +16,16 @@ import {
   Settings,
   Briefcase,
   Zap,
+  Clock,
+  CreditCard,
+  Truck,
+  UserCheck,
+  Star,
+  Sparkles,
+  PieChart,
+  Video,
+  Link2,
+  Lock,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -41,34 +51,48 @@ const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar');
 
 const navGroups = [
   {
-    label: 'Operations',
+    label: 'Command & Control',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/tracking', label: 'Live Tracking', icon: Map },
       { href: '/scheduling', label: 'Scheduling', icon: Calendar },
-      { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
+      { href: '/incidents', label: 'Incidents & SOS', icon: AlertTriangle },
+      { href: '/patrols', label: 'Patrol Monitoring', icon: Shield },
     ],
   },
   {
-    label: 'Workforce',
+    label: 'Workforce & HR',
     items: [
       { href: '/workforce', label: 'Guard Registry', icon: Users },
       { href: '/recruitment', label: 'Recruitment', icon: Briefcase },
       { href: '/compliance', label: 'Compliance', icon: Zap },
+      { href: '/performance', label: 'Performance', icon: Star },
     ],
   },
   {
-    label: 'Business',
+    label: 'Assets & Logistics',
     items: [
-      { href: '/sites', label: 'Sites & Clients', icon: Shield },
-      { href: '/reports', label: 'Reports', icon: FileText },
-      { href: '/finance', label: 'Finance', icon: BarChart3 },
+      { href: '/fleet', label: 'Fleet & Equipment', icon: Truck },
+      { href: '/visitors', label: 'Visitor Management', icon: UserCheck },
+      { href: '/cctv', label: 'CCTV & Evidence', icon: Video },
     ],
   },
   {
-    label: 'Communication',
+    label: 'Finance & BI',
+    items: [
+      { href: '/attendance', label: 'Attendance', icon: Clock },
+      { href: '/finance', label: 'Payroll & Invoicing', icon: CreditCard },
+      { href: '/analytics', label: 'CEO Dashboard', icon: PieChart },
+      { href: '/ai-ops', label: 'AI Operations', icon: Sparkles },
+    ],
+  },
+  {
+    label: 'System',
     items: [
       { href: '/inbox', label: 'Unified Inbox', icon: MessageSquare },
+      { href: '/integrations', label: 'Integrations', icon: Link2 },
+      { href: '/security', label: 'Security & Audit', icon: Lock },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];
