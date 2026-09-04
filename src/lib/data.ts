@@ -1,3 +1,4 @@
+
 import type { 
   Guard, 
   Site, 
@@ -19,11 +20,11 @@ import { addDays, subHours, subMinutes, subDays } from 'date-fns';
 const now = new Date();
 
 export const users: User[] = [
-  { id: 'USR-001', name: 'Alex Thompson', email: 'alex.t@secureguard.com', role: 'Super Admin', status: 'Active' },
-  { id: 'USR-002', name: 'Sarah Miller', email: 'sarah.m@secureguard.com', role: 'Operations Manager', status: 'Active' },
-  { id: 'USR-003', name: 'James Wilson', email: 'james.w@secureguard.com', role: 'Dispatcher', status: 'Active' },
-  { id: 'USR-004', name: 'Emma Davis', email: 'emma.d@secureguard.com', role: 'HR / Recruitment', status: 'Active' },
-  { id: 'USR-005', name: 'Client X', email: 'contact@client.com', role: 'Client Admin', status: 'Active' },
+  { id: 'USR-001', name: 'Alex Thompson', email: 'admin@secureguard.com', role: 'Super Admin', status: 'Active', password: 'password123' },
+  { id: 'USR-002', name: 'Sarah Miller', email: 'ops@secureguard.com', role: 'Operations Manager', status: 'Active', password: 'password123' },
+  { id: 'USR-003', name: 'James Wilson', email: 'dispatcher@secureguard.com', role: 'Dispatcher', status: 'Active', password: 'password123' },
+  { id: 'USR-004', name: 'Emma Davis', email: 'hr@secureguard.com', role: 'HR / Recruitment', status: 'Active', password: 'password123' },
+  { id: 'USR-005', name: 'Client X', email: 'client@secureguard.com', role: 'Client Admin', status: 'Active', password: 'password123' },
 ];
 
 export const guards: Guard[] = [

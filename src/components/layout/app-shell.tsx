@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
   Shield,
@@ -43,12 +43,10 @@ import {
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
 import { Header } from '@/components/layout/header';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useJsonStore } from '@/lib/store';
 import { hasPermission, navItemPermissions } from '@/lib/permissions';
-
-const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar');
+import { User } from '@/lib/types';
 
 const navGroups = [
   {
@@ -99,28 +97,45 @@ const navGroups = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const store = useJsonStore();
-  const [currentUser, setCurrentUser] = useState(store.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // Listen for storage changes to update UI when role is switched in header
+    setIsMounted(true);
+    const user = store.getCurrentUser();
+    if (!user && pathname !== '/login') {
+      router.push('/login');
+    } else {
+      setCurrentUser(user);
+    }
+
     const handleStorage = () => {
-      setCurrentUser(store.getCurrentUser());
+      const updatedUser = store.getCurrentUser();
+      if (!updatedUser && pathname !== '/login') {
+        router.push('/login');
+      }
+      setCurrentUser(updatedUser);
     };
+
     window.addEventListener('storage', handleStorage);
-    // Poll for changes in same tab (simple for demo)
-    const interval = setInterval(handleStorage, 1000);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      clearInterval(interval);
-    };
-  }, []);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [pathname, router]);
+
+  if (!isMounted) return null;
+
+  // Don't show shell on login page
+  if (pathname === '/login') return <>{children}</>;
+  
+  // If no user yet but we are on a protected page, show nothing while redirecting
+  if (!currentUser && pathname !== '/login') return null;
 
   const filteredGroups = navGroups.map(group => ({
     ...group,
     items: group.items.filter(item => {
       const permissionNeeded = navItemPermissions[item.href];
-      return permissionNeeded ? hasPermission(currentUser.role, permissionNeeded) : true;
+      return permissionNeeded ? hasPermission(currentUser!.role, permissionNeeded) : true;
     })
   })).filter(group => group.items.length > 0);
 
@@ -168,12 +183,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SidebarFooter className="border-t border-sidebar-border/30 p-4">
           <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent/30">
             <Avatar className="h-8 w-8 border border-primary/20">
-              <AvatarFallback className="text-[10px]">{currentUser.name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-[10px]">{currentUser?.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
-              <span className="font-bold text-xs truncate">{currentUser.name}</span>
+              <span className="font-bold text-xs truncate">{currentUser?.name}</span>
               <span className="text-[9px] text-sidebar-foreground/50 uppercase font-bold">
-                {currentUser.role}
+                {currentUser?.role}
               </span>
             </div>
           </div>

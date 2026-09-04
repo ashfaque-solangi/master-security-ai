@@ -22,6 +22,7 @@ export type User = {
   role: UserRole;
   avatarUrl?: string;
   status: 'Active' | 'Inactive';
+  password?: string; // Added for mock authentication
 };
 
 export type Guard = {

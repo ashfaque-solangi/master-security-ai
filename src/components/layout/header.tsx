@@ -1,11 +1,12 @@
 
 'use client';
-import { Search, Bell, UserCircle, LogOut, Settings, UserPlus } from 'lucide-react';
+import { Search, Bell, UserCircle, LogOut, Settings } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,17 +15,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useJsonStore } from '@/lib/store';
-import { User, UserRole } from '@/lib/types';
+import { User } from '@/lib/types';
 import { users as initialUsers } from '@/lib/data';
-
-const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar');
 
 export function Header() {
   const isMobile = useIsMobile();
   const store = useJsonStore();
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -36,6 +35,11 @@ export function Header() {
     setCurrentUser(user);
     // Reload to apply permission changes to shell
     window.location.reload();
+  };
+
+  const handleLogout = () => {
+    store.logout();
+    router.push('/login');
   };
 
   if (!currentUser) return null;
@@ -101,7 +105,9 @@ export function Header() {
             <DropdownMenuItem><UserCircle className="mr-2 h-4 w-4" /> My Profile</DropdownMenuItem>
             <DropdownMenuItem><Settings className="mr-2 h-4 w-4" /> Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive"><LogOut className="mr-2 h-4 w-4" /> Logout</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" /> Logout
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
