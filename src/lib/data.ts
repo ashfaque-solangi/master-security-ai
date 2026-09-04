@@ -1,5 +1,4 @@
 
-
 import type { 
   Guard, 
   Site, 
@@ -56,6 +55,8 @@ export const guards: Guard[] = [
     licenceExpiry: addDays(now, 240).toISOString(),
     docsMissing: 0,
     performanceScore: 94,
+    weeklyHours: 38,
+    isAvailable: true,
   },
   {
     id: 'GRD-002',
@@ -69,6 +70,8 @@ export const guards: Guard[] = [
     licenceExpiry: addDays(now, 15).toISOString(),
     docsMissing: 1,
     performanceScore: 88,
+    weeklyHours: 42,
+    isAvailable: false,
   },
   {
     id: 'GRD-003',
@@ -82,6 +85,8 @@ export const guards: Guard[] = [
     licenceExpiry: addDays(now, 180).toISOString(),
     docsMissing: 0,
     performanceScore: 91,
+    weeklyHours: 24,
+    isAvailable: true,
   },
   {
     id: 'GRD-004',
@@ -93,6 +98,8 @@ export const guards: Guard[] = [
     licenceExpiry: now.toISOString(),
     docsMissing: 3,
     performanceScore: 72,
+    weeklyHours: 12,
+    isAvailable: true,
   }
 ];
 
@@ -210,6 +217,16 @@ export const shifts: Shift[] = [
     role: 'Lead Supervisor'
   },
   {
+    id: 'SHF-004',
+    siteId: 'SITE-001',
+    siteName: 'Tech Hub HQ',
+    startTime: addDays(now, 2).toISOString(),
+    endTime: addDays(now, 2.33).toISOString(),
+    status: 'Open',
+    priority: 'Routine',
+    role: 'Security Officer'
+  },
+  {
     id: 'SHF-COMP-001',
     siteId: 'SITE-001',
     siteName: 'Tech Hub HQ',
@@ -221,18 +238,6 @@ export const shifts: Shift[] = [
     priority: 'Routine',
     role: 'Armed Static Guard'
   },
-  {
-    id: 'SHF-COMP-002',
-    siteId: 'SITE-003',
-    siteName: 'Data Center Alpha',
-    guardId: 'GRD-001',
-    guardName: 'Marcus Thorne',
-    startTime: subDays(now, 2).toISOString(),
-    endTime: subDays(now, 1.66).toISOString(),
-    status: 'Completed',
-    priority: 'Urgent',
-    role: 'Tactical Responder'
-  }
 ];
 
 export const vehicles: Vehicle[] = [
@@ -334,14 +339,6 @@ export const applicants: Applicant[] = [
     status: 'Interview',
     experience: '3 years'
   },
-  {
-    id: 'APP-003',
-    name: 'Mike Brown',
-    role: 'Supervisor',
-    appliedDate: subDays(now, 10).toISOString(),
-    status: 'Background Check',
-    experience: '10 years'
-  }
 ];
 
 export const messages: Message[] = [
@@ -353,14 +350,6 @@ export const messages: Message[] = [
     status: 'unread',
     type: 'WhatsApp'
   },
-  {
-    id: 'MSG-002',
-    senderName: 'Sarah Jenkins',
-    preview: 'Requesting early break due to heat.',
-    timestamp: subMinutes(now, 20).toISOString(),
-    status: 'read',
-    type: 'Internal'
-  }
 ];
 
 export const invoices: Invoice[] = [
@@ -372,14 +361,6 @@ export const invoices: Invoice[] = [
     status: 'Pending',
     siteName: 'Tech Hub HQ'
   },
-  {
-    id: 'INV-2024-002',
-    clientName: 'Eastside Properties',
-    amount: 12000.00,
-    date: subDays(now, 15).toISOString(),
-    status: 'Paid',
-    siteName: 'Retail Park East'
-  }
 ];
 
 export const forms: FormDefinition[] = [
@@ -390,12 +371,4 @@ export const forms: FormDefinition[] = [
     lastModified: subDays(now, 1).toISOString(),
     status: 'Active'
   },
-  {
-    id: 'FRM-002',
-    name: 'Vehicle Inspection',
-    fields: 8,
-    lastModified: subDays(now, 10).toISOString(),
-    status: 'Active'
-  }
 ];
-

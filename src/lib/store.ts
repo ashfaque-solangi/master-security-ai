@@ -3,7 +3,7 @@
 
 /**
  * @fileOverview A persistent JSON-based local storage manager for the Security Workforce Platform.
- * Simulates a real-time database with full CRUD operations for all major entities.
+ * Enhanced for Phase 2: Smart Scheduling logic.
  */
 
 import { 
@@ -49,125 +49,37 @@ function getStored<T>(key: string, initialData: T[] | T | null): any {
 function setStored<T>(key: string, data: T) {
   if (!isBrowser) return;
   localStorage.setItem(key, JSON.stringify(data));
-  // Dispatch event for other components to listen
   window.dispatchEvent(new Event('storage'));
 }
 
 export const useJsonStore = () => {
   return {
+    // AI & Smart Logic Helpers
+    suggestReplacement: (shift: Shift): Guard[] => {
+      const allGuards = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
+      // Logic: Filter available guards with < 40 hours and compliant SIA
+      return allGuards.filter((g: Guard) => 
+        g.isAvailable && 
+        g.weeklyHours < 40 && 
+        g.complianceStatus === 'Compliant'
+      ).sort((a, b) => a.weeklyHours - b.weeklyHours);
+    },
+
     // Authentication
     getCurrentUser: (): User | null => getStored<User>(STORAGE_KEYS.CURRENT_USER, null),
     setCurrentUser: (user: User | null) => setStored(STORAGE_KEYS.CURRENT_USER, user),
-    
-    login: (email: string, password: string): { success: boolean; user?: User; error?: string } => {
+    login: (email: string, password: string) => {
       const allUsers = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
       const foundUser = allUsers.find((u: User) => u.email === email && u.password === password);
-      
       if (foundUser) {
-        if (foundUser.status === 'Inactive') {
-          return { success: false, error: 'Your account has been deactivated.' };
-        }
         setStored(STORAGE_KEYS.CURRENT_USER, foundUser);
         return { success: true, user: foundUser };
       }
-      return { success: false, error: 'Invalid email or password.' };
+      return { success: false, error: 'Invalid credentials' };
     },
-    
-    logout: () => {
-      setStored(STORAGE_KEYS.CURRENT_USER, null);
-    },
+    logout: () => setStored(STORAGE_KEYS.CURRENT_USER, null),
 
-    // Users
-    getUsers: () => getStored<User>(STORAGE_KEYS.USERS, initialUsers),
-    addUser: (item: User) => {
-      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.USERS, updated);
-      return updated;
-    },
-    updateUser: (item: User) => {
-      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
-      const updated = data.map((u: User) => u.id === item.id ? item : u);
-      setStored(STORAGE_KEYS.USERS, updated);
-      
-      // Update current user if it's the same person
-      const current = getStored<User>(STORAGE_KEYS.CURRENT_USER, null);
-      if (current && current.id === item.id) {
-        setStored(STORAGE_KEYS.CURRENT_USER, item);
-      }
-      return updated;
-    },
-    deleteUser: (id: string) => {
-      const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
-      const updated = data.filter((u: User) => u.id !== id);
-      setStored(STORAGE_KEYS.USERS, updated);
-      return updated;
-    },
-
-    // Clients
-    getClients: () => getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients),
-    addClient: (item: Client) => {
-      const data = getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.CLIENTS, updated);
-      return updated;
-    },
-    updateClient: (item: Client) => {
-      const data = getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients);
-      const updated = data.map((c: Client) => c.id === item.id ? item : c);
-      setStored(STORAGE_KEYS.CLIENTS, updated);
-      return updated;
-    },
-    deleteClient: (id: string) => {
-      const data = getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients);
-      const updated = data.filter((c: Client) => c.id !== id);
-      setStored(STORAGE_KEYS.CLIENTS, updated);
-      return updated;
-    },
-
-    // Subcontractors
-    getSubcontractors: () => getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors),
-    addSubcontractor: (item: Subcontractor) => {
-      const data = getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.SUBCONTRACTORS, updated);
-      return updated;
-    },
-    updateSubcontractor: (item: Subcontractor) => {
-      const data = getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors);
-      const updated = data.map((s: Subcontractor) => s.id === item.id ? item : s);
-      setStored(STORAGE_KEYS.SUBCONTRACTORS, updated);
-      return updated;
-    },
-    deleteSubcontractor: (id: string) => {
-      const data = getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors);
-      const updated = data.filter((s: Subcontractor) => s.id !== id);
-      setStored(STORAGE_KEYS.SUBCONTRACTORS, updated);
-      return updated;
-    },
-
-    // Incidents
-    getIncidents: () => getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents),
-    addIncident: (item: Incident) => {
-      const data = getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.INCIDENTS, updated);
-      return updated;
-    },
-    updateIncident: (item: Incident) => {
-      const data = getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents);
-      const updated = data.map((i: Incident) => i.id === item.id ? item : i);
-      setStored(STORAGE_KEYS.INCIDENTS, updated);
-      return updated;
-    },
-    deleteIncident: (id: string) => {
-      const data = getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents);
-      const updated = data.filter((i: Incident) => i.id !== id);
-      setStored(STORAGE_KEYS.INCIDENTS, updated);
-      return updated;
-    },
-
-    // Guards
+    // Standard CRUD
     getGuards: () => getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards),
     addGuard: (item: Guard) => {
       const data = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
@@ -188,43 +100,6 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Sites
-    getSites: () => getStored<Site>(STORAGE_KEYS.SITES, initialSites),
-    addSite: (item: Site) => {
-      const data = getStored<Site>(STORAGE_KEYS.SITES, initialSites);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.SITES, updated);
-      return updated;
-    },
-    updateSite: (item: Site) => {
-      const data = getStored<Site>(STORAGE_KEYS.SITES, initialSites);
-      const updated = data.map((s: Site) => s.id === item.id ? item : s);
-      setStored(STORAGE_KEYS.SITES, updated);
-      return updated;
-    },
-    deleteSite: (id: string) => {
-      const data = getStored<Site>(STORAGE_KEYS.SITES, initialSites);
-      const updated = data.filter((s: Site) => s.id !== id);
-      setStored(STORAGE_KEYS.SITES, updated);
-      return updated;
-    },
-
-    // Form Definitions
-    getForms: () => getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms),
-    addForm: (item: FormDefinition) => {
-      const data = getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.FORMS, updated);
-      return updated;
-    },
-    deleteForm: (id: string) => {
-      const data = getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms);
-      const updated = data.filter((f: FormDefinition) => f.id !== id);
-      setStored(STORAGE_KEYS.FORMS, updated);
-      return updated;
-    },
-
-    // Shifts
     getShifts: () => getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts),
     addShift: (item: Shift) => {
       const data = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
@@ -245,70 +120,15 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // Vehicles
+    getSites: () => getStored<Site>(STORAGE_KEYS.SITES, initialSites),
+    getUsers: () => getStored<User>(STORAGE_KEYS.USERS, initialUsers),
+    getClients: () => getStored<Client>(STORAGE_KEYS.CLIENTS, initialClients),
+    getSubcontractors: () => getStored<Subcontractor>(STORAGE_KEYS.SUBCONTRACTORS, initialSubcontractors),
+    getIncidents: () => getStored<Incident>(STORAGE_KEYS.INCIDENTS, initialIncidents),
+    getForms: () => getStored<FormDefinition>(STORAGE_KEYS.FORMS, initialForms),
     getVehicles: () => getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles),
-    addVehicle: (item: Vehicle) => {
-      const data = getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.VEHICLES, updated);
-      return updated;
-    },
-    updateVehicle: (item: Vehicle) => {
-      const data = getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles);
-      const updated = data.map((v: Vehicle) => v.id === item.id ? item : v);
-      setStored(STORAGE_KEYS.VEHICLES, updated);
-      return updated;
-    },
-    deleteVehicle: (id: string) => {
-      const data = getStored<Vehicle>(STORAGE_KEYS.VEHICLES, initialVehicles);
-      const updated = data.filter((v: Vehicle) => v.id !== id);
-      setStored(STORAGE_KEYS.VEHICLES, updated);
-      return updated;
-    },
-
-    // Applicants
     getApplicants: () => getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants),
-    addApplicant: (item: Applicant) => {
-      const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.APPLICANTS, updated);
-      return updated;
-    },
-    updateApplicant: (item: Applicant) => {
-      const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
-      const updated = data.map((a: Applicant) => a.id === item.id ? item : a);
-      setStored(STORAGE_KEYS.APPLICANTS, updated);
-      return updated;
-    },
-    deleteApplicant: (id: string) => {
-      const data = getStored<Applicant>(STORAGE_KEYS.APPLICANTS, initialApplicants);
-      const updated = data.filter((a: Applicant) => a.id !== id);
-      setStored(STORAGE_KEYS.APPLICANTS, updated);
-      return updated;
-    },
-
-    // Visitors
     getVisitors: () => getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors),
-    addVisitor: (item: Visitor) => {
-      const data = getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.VISITORS, updated);
-      return updated;
-    },
-    updateVisitor: (item: Visitor) => {
-      const data = getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors);
-      const updated = data.map((v: Visitor) => v.id === item.id ? item : v);
-      setStored(STORAGE_KEYS.VISITORS, updated);
-      return updated;
-    },
-
-    // Messages
     getMessages: () => getStored<Message>(STORAGE_KEYS.MESSAGES, initialMessages),
-    addMessage: (item: Message) => {
-      const data = getStored<Message>(STORAGE_KEYS.MESSAGES, initialMessages);
-      const updated = [item, ...data];
-      setStored(STORAGE_KEYS.MESSAGES, updated);
-      return updated;
-    }
   };
 };

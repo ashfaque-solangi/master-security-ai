@@ -23,7 +23,7 @@ export type User = {
   role: UserRole;
   avatarUrl?: string;
   status: 'Active' | 'Inactive';
-  password?: string; // Added for mock authentication
+  password?: string;
 };
 
 export type Client = {
@@ -60,6 +60,8 @@ export type Guard = {
   licenceExpiry: string;
   docsMissing: number;
   performanceScore: number;
+  weeklyHours: number; // For fatigue monitoring
+  isAvailable: boolean; // For scheduling
 };
 
 export type Site = {
@@ -107,7 +109,7 @@ export type Shift = {
   guardName?: string;
   startTime: string;
   endTime: string;
-  status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed';
+  status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Pending Swap';
   priority: 'Routine' | 'Urgent' | 'STAT';
   role: string;
 };
