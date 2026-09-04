@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
   Search, 
@@ -42,6 +43,12 @@ import { incidents } from '@/lib/data';
 import { format } from 'date-fns';
 
 export default function IncidentsPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -111,8 +118,14 @@ export default function IncidentsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col text-xs">
-                      <span>{format(new Date(incident.timestamp), 'MMM dd, yyyy')}</span>
-                      <span className="text-muted-foreground">{format(new Date(incident.timestamp), 'HH:mm')}</span>
+                      {isMounted ? (
+                        <>
+                          <span>{format(new Date(incident.timestamp), 'MMM dd, yyyy')}</span>
+                          <span className="text-muted-foreground">{format(new Date(incident.timestamp), 'HH:mm')}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground italic">Loading...</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, 
   Plus, 
@@ -26,6 +27,12 @@ import { shifts, sites } from '@/lib/data';
 import { format } from 'date-fns';
 
 export default function SchedulingPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -99,7 +106,9 @@ export default function SchedulingPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon"><CalendarIcon className="h-4 w-4" /></Button>
-                <span className="text-sm font-medium">Week of {format(new Date(), 'MMM dd, yyyy')}</span>
+                <span className="text-sm font-medium">
+                  {isMounted ? `Week of ${format(new Date(), 'MMM dd, yyyy')}` : 'Loading...'}
+                </span>
                 <Button variant="ghost" size="icon"><ArrowRight className="h-4 w-4" /></Button>
               </div>
             </CardHeader>
@@ -126,7 +135,9 @@ export default function SchedulingPage() {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        <span>{format(new Date(shift.startTime), 'HH:mm')} - {format(new Date(shift.endTime), 'HH:mm')}</span>
+                        <span>
+                          {isMounted ? `${format(new Date(shift.startTime), 'HH:mm')} - ${format(new Date(shift.endTime), 'HH:mm')}` : '...'}
+                        </span>
                       </div>
                     </div>
 

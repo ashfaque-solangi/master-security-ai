@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { 
   Shield, 
   Users, 
@@ -26,6 +27,12 @@ import { guards, incidents, sites, sosAlerts } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function DashboardPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const activeGuards = guards.filter(g => g.status === 'Active');
   const criticalIncidents = incidents.filter(i => i.severity === 'High' || i.severity === 'Critical');
   const openShiftsCount = sites.reduce((acc, site) => acc + site.openShifts, 0);
@@ -116,7 +123,9 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="font-bold text-destructive">{alert.guardName} - SOS Triggered</p>
-                    <p className="text-sm text-muted-foreground">{alert.siteName} • {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {alert.siteName} • {isMounted ? formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true }) : 'Calculating...'}
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -163,7 +172,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(incident.timestamp), { addSuffix: true })}
+                      {isMounted ? formatDistanceToNow(new Date(incident.timestamp), { addSuffix: true }) : '...'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
