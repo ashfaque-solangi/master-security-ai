@@ -30,6 +30,7 @@ export const navItemPermissions: Record<string, PermissionAction> = {
   '/analytics': 'manage',
   '/client-portal': 'client',
   '/scheduling': 'view',
+  '/shifts': 'view',
   '/patrols': 'view',
   '/incidents': 'view',
   '/forms': 'manage',

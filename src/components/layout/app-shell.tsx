@@ -26,7 +26,8 @@ import {
   ClipboardList,
   Receipt,
   User as UserIcon,
-  Users2
+  Users2,
+  Clock3
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -64,7 +65,8 @@ const navGroups = [
   {
     label: 'Operations',
     items: [
-      { href: '/scheduling', label: 'Scheduling', icon: Calendar },
+      { href: '/scheduling', label: 'Visual Scheduler', icon: Calendar },
+      { href: '/shifts', label: 'Shift Registry', icon: Clock3 },
       { href: '/patrols', label: 'Live Tracking', icon: Map },
       { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
       { href: '/forms', label: 'Form Builder', icon: ClipboardList },
