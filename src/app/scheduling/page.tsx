@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -161,7 +160,6 @@ export default function SchedulingPage() {
   };
 
   const openShifts = shifts.filter(s => s.status === 'Open');
-  const overtimeGuards = guards.filter(g => g.weeklyHours > 40);
 
   return (
     <div className="flex flex-col gap-8">
@@ -225,12 +223,12 @@ export default function SchedulingPage() {
 
       <Tabs defaultValue="calendar" className="space-y-6">
         <div className="flex items-center justify-between">
-          <TabsList className="bg-slate-100 p-1 rounded-xl h-10">
-            <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 font-bold">
-              <LayoutGrid className="w-4 h-4 mr-2" /> Calendar View
+          <TabsList className="bg-slate-100 p-1 rounded-xl h-12">
+            <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6 font-bold flex items-center gap-2">
+              <LayoutGrid className="w-4 h-4" /> Calendar View
             </TabsTrigger>
-            <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 font-bold">
-              <List className="w-4 h-4 mr-2" /> Master Roster
+            <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6 font-bold flex items-center gap-2">
+              <List className="w-4 h-4" /> Master Roster (Static)
             </TabsTrigger>
           </TabsList>
 
@@ -323,7 +321,7 @@ export default function SchedulingPage() {
           </div>
         </TabsContent>
 
-        {/* LIST VIEW (Previous Master Roster) */}
+        {/* STATIC MASTER ROSTER VIEW */}
         <TabsContent value="list" className="mt-0">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1 space-y-6">
@@ -331,7 +329,7 @@ export default function SchedulingPage() {
                 <CardHeader className="bg-slate-50 border-b">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-primary" />
-                    Coverage Blockers
+                    Critical Coverage Gaps
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3">
@@ -349,20 +347,20 @@ export default function SchedulingPage() {
                         className="w-full bg-slate-900 text-white rounded-lg h-8 text-[10px] font-bold"
                         onClick={() => openSuggest(shift)}
                       >
-                        <Zap className="h-3 w-3 mr-1 text-primary" /> Suggest Replacement
+                        <Zap className="h-3 w-3 mr-1 text-primary" /> Cover Instantly
                       </Button>
                     </div>
                   ))}
-                  {openShifts.length === 0 && <p className="text-xs text-center text-muted-foreground italic py-4">No critical blockers.</p>}
+                  {openShifts.length === 0 && <p className="text-xs text-center text-muted-foreground italic py-4">All sites fully covered.</p>}
                 </CardContent>
               </Card>
 
               <Card className="border-none shadow-sm">
                 <CardHeader className="border-b">
-                  <CardTitle className="text-sm font-bold">Fatigue Monitor</CardTitle>
+                  <CardTitle className="text-sm font-bold">Workforce Health Monitor</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 space-y-4">
-                  {guards.slice(0, 4).map(guard => (
+                  {guards.slice(0, 5).map(guard => (
                     <div key={guard.id} className="space-y-1.5">
                       <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
                         <span>{guard.name}</span>
@@ -386,12 +384,12 @@ export default function SchedulingPage() {
                   <div>
                     <CardTitle className="text-lg font-black text-slate-800">Master Deployment Roster</CardTitle>
                     <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                      Full view of all operational intervals
+                      Unified view of all operational intervals
                     </CardDescription>
                   </div>
                   <div className="relative w-48">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search records..." className="pl-8 text-xs h-9 bg-slate-50 border-none rounded-full" />
+                    <Input placeholder="Filter shifts..." className="pl-8 text-xs h-9 bg-slate-50 border-none rounded-full" />
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -414,7 +412,7 @@ export default function SchedulingPage() {
                                   {shift.guardName?.charAt(0) || '?'}
                                 </div>
                                 <div>
-                                  <p className="font-black text-slate-800">{shift.guardName || 'Awaiting Guard'}</p>
+                                  <p className="font-black text-slate-800">{shift.guardName || 'Awaiting Assignment'}</p>
                                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{shift.role}</p>
                                 </div>
                               </div>
@@ -461,7 +459,7 @@ export default function SchedulingPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-black">
               <Zap className="h-5 w-5 text-primary" />
-              AI Deployment Suggester
+              AI Deployment Engine
             </DialogTitle>
             <DialogDescription>
               Finding the optimal candidate for **{selectedShift?.siteName}** ({selectedShift?.role}).
@@ -469,7 +467,7 @@ export default function SchedulingPage() {
           </DialogHeader>
           
           <div className="space-y-4 py-6">
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Recommended Officers:</p>
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Top Recommendations:</p>
             {suggestions.length > 0 ? (
               suggestions.map(guard => (
                 <div key={guard.id} className="flex items-center justify-between p-4 rounded-2xl border hover:border-primary transition-all cursor-pointer group" onClick={() => assignGuard(guard)}>
