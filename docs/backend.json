@@ -1,0 +1,94 @@
+
+{
+  "entities": {
+    "Tenant": {
+      "title": "Tenant",
+      "description": "A security company using the platform (SaaS tenant).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "branding": {
+          "type": "object",
+          "properties": {
+            "logoUrl": { "type": "string" },
+            "primaryColor": { "type": "string" }
+          }
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "Guard": {
+      "title": "Guard",
+      "description": "A security officer in the field.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "status": { "type": "string", "enum": ["Active", "On Break", "Off Duty", "Suspended"] },
+        "complianceStatus": { "type": "string", "enum": ["Compliant", "Expiring Soon", "Non-Compliant"] },
+        "currentSiteId": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "Site": {
+      "title": "Site",
+      "description": "A client location being secured.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "clientId": { "type": "string" },
+        "address": { "type": "string" },
+        "riskLevel": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "activeGuardsCount": { "type": "number" }
+      },
+      "required": ["id", "name", "clientId"]
+    },
+    "Incident": {
+      "title": "Incident",
+      "description": "A security event reported from the field.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "siteId": { "type": "string" },
+        "guardId": { "type": "string" },
+        "type": { "type": "string", "enum": ["Intrusion", "Fire", "Vandalism", "Medical", "Maintenance", "Observation"] },
+        "severity": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "status": { "type": "string", "enum": ["Open", "In Progress", "Resolved", "Archived"] },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "siteId", "guardId", "type", "severity", "status"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com", "password"]
+  },
+  "firestore": {
+    "/tenants/{tenantId}": {
+      "schema": "Tenant",
+      "description": "Tenant configuration and branding."
+    },
+    "/tenants/{tenantId}/guards/{guardId}": {
+      "schema": "Guard",
+      "description": "Workforce records."
+    },
+    "/tenants/{tenantId}/sites/{siteId}": {
+      "schema": "Site",
+      "description": "Client site management."
+    },
+    "/tenants/{tenantId}/incidents/{incidentId}": {
+      "schema": "Incident",
+      "description": "Incident report records."
+    }
+  }
+}

@@ -1,47 +1,55 @@
-export type Sample = {
-  id: string;
-  patientName: string;
-  patientId: string;
-  testName: string;
-  status: 'Collected' | 'Processing' | 'Pending Verification' | 'Verified' | 'Reported' | 'Disposed';
-  priority: 'Routine' | 'Urgent' | 'STAT';
-  technician: string;
-  collectionDate: string;
-  turnaroundTime: string;
-  results: TestResult[];
-  predefinedRules: string;
-  statisticalData: string;
-  remarks: string[];
-  auditTrail: AuditEntry[];
-};
 
-export type TestResult = {
-  parameter: string;
-  value: number | null;
-  unit: string;
-  referenceRange: {
-    min: number;
-    max: number;
-  };
-};
+export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended';
+export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant';
+export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
+export type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Archived';
+export type IncidentType = 'Intrusion' | 'Fire' | 'Vandalism' | 'Medical' | 'Maintenance' | 'Observation';
 
-export type AuditEntry = {
-  user: string;
-  action: string;
-  timestamp: string;
-};
-
-export type Patient = {
+export type Guard = {
   id: string;
   name: string;
-  dateOfBirth: string;
-  gender: 'Male' | 'Female' | 'Other';
-  contact: string;
-  sampleCount: number;
+  email: string;
+  status: GuardStatus;
+  complianceStatus: ComplianceStatus;
+  currentSiteId?: string;
+  currentSiteName?: string;
+  lastLocationUpdate: string;
+  avatarUrl?: string;
 };
 
-export type BloodUnit = {
-  bloodType: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
-  quantity: number;
-  lowStockThreshold: number;
+export type Site = {
+  id: string;
+  name: string;
+  clientId: string;
+  clientName: string;
+  address: string;
+  riskLevel: Severity;
+  activeGuardsCount: number;
+  openShifts: number;
+};
+
+export type Incident = {
+  id: string;
+  siteId: string;
+  siteName: string;
+  guardId: string;
+  guardName: string;
+  type: IncidentType;
+  severity: Severity;
+  status: IncidentStatus;
+  description: string;
+  timestamp: string;
+  mediaUrls?: string[];
+};
+
+export type Shift = {
+  id: string;
+  siteId: string;
+  siteName: string;
+  guardId?: string;
+  guardName?: string;
+  startTime: string;
+  endTime: string;
+  status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed';
+  priority: 'Routine' | 'Urgent' | 'STAT';
 };

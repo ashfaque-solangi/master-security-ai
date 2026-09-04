@@ -1,11 +1,12 @@
+
 import type { Metadata } from 'next';
 import { AppShell } from '@/components/layout/app-shell';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'LabFlow Pro',
-  description: 'Efficiently manage your laboratory workflows.',
+  title: 'SecureGuard Command',
+  description: 'Enterprise Security Workforce Management Platform.',
 };
 
 export default function RootLayout({
