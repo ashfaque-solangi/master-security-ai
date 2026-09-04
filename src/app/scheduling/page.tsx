@@ -15,8 +15,6 @@ import {
   UserCheck,
   Timer,
   Zap,
-  ArrowLeftRight,
-  RefreshCcw,
   CheckCircle2,
   MapPin,
   ChevronLeft,
@@ -62,7 +60,6 @@ export default function SchedulingPage() {
   
   // Dialog States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSuggestOpen, setIsSuggestOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [suggestions, setSuggestions] = useState<Guard[]>([]);
@@ -100,22 +97,6 @@ export default function SchedulingPage() {
     toast({ title: "Shift Created", description: "Deployment added to the master roster." });
   };
 
-  const handleUpdate = () => {
-    if (!selectedShift) return;
-    const site = sites.find(s => s.id === selectedSiteId);
-    const updatedShift: Shift = {
-      ...selectedShift,
-      siteId: selectedSiteId,
-      siteName: site?.name || selectedShift.siteName,
-      role,
-      priority: priority === 'Critical' ? 'STAT' : priority === 'High' ? 'Urgent' : 'Routine'
-    };
-    const updated = store.updateShift(updatedShift);
-    setShifts(updated);
-    setIsEditOpen(false);
-    resetForm();
-  };
-
   const openSuggest = (shift: Shift) => {
     setSelectedShift(shift);
     const suggested = store.suggestReplacement(shift);
@@ -126,7 +107,6 @@ export default function SchedulingPage() {
   const assignGuard = (guard: Guard) => {
     if (!selectedShift) return;
     
-    // Fatigue Check
     if (guard.weeklyHours >= 40) {
       toast({
         variant: "destructive",
@@ -177,7 +157,7 @@ export default function SchedulingPage() {
     
     const updated = store.updateShift({ ...shift, startTime: newStart, endTime: newEnd });
     setShifts(updated);
-    toast({ title: "Shift Rescheduled", description: `Deployment moved to ${format(targetDate, 'MMM dd')}.` });
+    toast({ title: "Deployment Rescheduled", description: `Shift for ${shift.siteName} moved to ${format(targetDate, 'EEEE, MMM dd')}.` });
   };
 
   // Drag and Drop Handlers
@@ -188,11 +168,17 @@ export default function SchedulingPage() {
 
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.currentTarget.classList.add('bg-primary/5');
     e.dataTransfer.dropEffect = 'move';
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('bg-primary/5');
   };
 
   const onDrop = (e: React.DragEvent, targetDate: Date) => {
     e.preventDefault();
+    e.currentTarget.classList.remove('bg-primary/5');
     const shiftId = e.dataTransfer.getData('shiftId');
     const shiftToMove = shifts.find(s => s.id === shiftId);
     if (shiftToMove) {
@@ -200,18 +186,20 @@ export default function SchedulingPage() {
     }
   };
 
-  const openShifts = shifts.filter(s => s.status === 'Open');
+  const openShiftsCount = shifts.filter(s => s.status === 'Open').length;
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black tracking-tight text-slate-800">Operational Scheduling</h1>
-          <p className="text-muted-foreground font-medium">Visual deployment, site coverage, and fatigue control.</p>
+          <p className="text-muted-foreground font-medium flex items-center gap-2">
+            <Building2 className="w-4 h-4" /> Global Site Coverage Dashboard
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6">
-            <Zap className="mr-2 h-4 w-4" /> AI Auto-Schedule
+            <Zap className="mr-2 h-4 w-4" /> AI Auto-Fill
           </Button>
           
           <Dialog open={isCreateOpen} onOpenChange={(val) => { setIsCreateOpen(val); if (!val) resetForm(); }}>
@@ -223,7 +211,7 @@ export default function SchedulingPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Schedule New Deployment</DialogTitle>
-                <DialogDescription>Define a new operational shift for a contracted site.</DialogDescription>
+                <DialogDescription>Define a new operational requirement for a site.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -239,23 +227,23 @@ export default function SchedulingPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold">Operational Role</label>
-                  <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Lead Supervisor" />
+                  <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Armed Guard" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold">Shift Priority</label>
+                  <label className="text-sm font-bold">Priority</label>
                   <Select value={priority} onValueChange={(v) => setPriority(v as Severity)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Low">Routine</SelectItem>
                       <SelectItem value="High">Urgent</SelectItem>
-                      <SelectItem value="Critical">STAT (Immediate)</SelectItem>
+                      <SelectItem value="Critical">STAT</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                <Button onClick={handleAdd} className="bg-primary">Publish to Roster</Button>
+                <Button onClick={handleAdd} className="bg-primary">Publish</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -263,31 +251,39 @@ export default function SchedulingPage() {
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-6">
-        <div className="flex items-center justify-between">
-          <TabsList className="bg-slate-100 p-1 rounded-xl h-12">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <TabsList className="bg-slate-100 p-1 rounded-xl h-12 w-fit">
             <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6 font-bold flex items-center gap-2">
-              <LayoutGrid className="w-4 h-4" /> Calendar View
+              <LayoutGrid className="w-4 h-4" /> Calendar Grid
             </TabsTrigger>
             <TabsTrigger value="list" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6 font-bold flex items-center gap-2">
               <List className="w-4 h-4" /> Master Roster
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex items-center gap-4 bg-white px-4 py-1.5 rounded-full shadow-sm border border-slate-100">
-             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(addDays(currentDate, -7))}>
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-100 self-center">
+             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-50" onClick={() => setCurrentDate(addDays(currentDate, -7))}>
                <ChevronLeft className="h-4 w-4" />
              </Button>
-             <span className="text-sm font-bold text-slate-700 min-w-32 text-center">
+             <span className="text-xs font-black text-slate-700 min-w-44 text-center uppercase tracking-widest">
                {format(startDate, 'MMM dd')} - {format(addDays(startDate, 6), 'MMM dd, yyyy')}
              </span>
-             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(addDays(currentDate, 7))}>
+             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-50" onClick={() => setCurrentDate(addDays(currentDate, 7))}>
                <ChevronRight className="h-4 w-4" />
              </Button>
           </div>
+
+          <div className="flex items-center gap-4 ml-auto">
+             <div className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 rounded-full border border-red-100">
+               <AlertTriangle className="w-3.5 h-3.5" />
+               <span className="text-[10px] font-black uppercase tracking-tighter">{openShiftsCount} Gaps Detected</span>
+             </div>
+          </div>
         </div>
 
+        {/* CALENDAR VIEW (FULLCALENDAR STYLE) */}
         <TabsContent value="calendar" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-px bg-slate-200 border rounded-2xl overflow-hidden shadow-inner">
             {weekDays.map((day, idx) => {
               const dayShifts = getShiftsForDay(day);
               const isToday = isSameDay(day, new Date());
@@ -295,57 +291,63 @@ export default function SchedulingPage() {
               return (
                 <div 
                   key={idx} 
-                  className="flex flex-col gap-4"
+                  className={`flex flex-col min-h-[700px] bg-white transition-colors duration-300`}
                   onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
                   onDrop={(e) => onDrop(e, day)}
                 >
-                  <div className={`text-center p-3 rounded-2xl border transition-all ${isToday ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-white border-slate-100'}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${isToday ? 'text-white/80' : 'text-slate-400'}`}>
+                  {/* Column Header */}
+                  <div className={`p-4 text-center border-b sticky top-0 z-10 bg-white/95 backdrop-blur-sm ${isToday ? 'bg-primary/5 border-b-primary/20' : ''}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${isToday ? 'text-primary' : 'text-slate-400'}`}>
                       {format(day, 'EEEE')}
                     </p>
-                    <p className="text-xl font-black">{format(day, 'dd')}</p>
+                    <div className={`mt-1 inline-flex items-center justify-center w-8 h-8 rounded-full text-lg font-black ${isToday ? 'bg-primary text-white shadow-md' : 'text-slate-800'}`}>
+                      {format(day, 'dd')}
+                    </div>
                   </div>
 
-                  <div className={`space-y-3 min-h-[500px] p-2 bg-slate-50/50 rounded-2xl border-2 border-dashed transition-colors ${dayShifts.length === 0 ? 'border-slate-200' : 'border-transparent'}`}>
+                  {/* Shifts Area */}
+                  <div className="flex-1 p-2 space-y-3 bg-[#fdfdfd]">
                     {dayShifts.map(shift => (
                       <Card 
                         key={shift.id} 
                         draggable
                         onDragStart={(e) => onDragStart(e, shift)}
-                        className={`group relative border-none shadow-sm hover:shadow-md transition-all overflow-hidden cursor-grab active:cursor-grabbing ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/30' : 'bg-white'}`}
+                        className={`group relative border-none shadow-sm hover:shadow-xl transition-all cursor-grab active:cursor-grabbing overflow-hidden rounded-xl ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/50' : 'bg-white'}`}
                       >
-                        <div className={`absolute top-0 left-0 w-1 h-full ${
+                        <div className={`absolute top-0 left-0 w-1.5 h-full ${
                           shift.priority === 'STAT' ? 'bg-red-600' : 
                           shift.priority === 'Urgent' ? 'bg-orange-500' : 'bg-primary'
                         }`} />
-                        <CardContent className="p-3 space-y-2">
+                        <CardContent className="p-3 pt-4 space-y-3">
                           <div className="flex justify-between items-start">
-                             <div className="flex items-center gap-1">
-                               <GripVertical className="w-3 h-3 text-slate-300 group-hover:text-primary transition-colors" />
-                               <p className="text-[10px] font-black text-slate-800 uppercase truncate max-w-[80px]">{shift.siteName}</p>
+                             <div className="space-y-0.5">
+                               <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{shift.siteName}</p>
+                               <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-bold italic">
+                                 <Clock className="w-2.5 h-2.5" />
+                                 {format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}
+                               </div>
                              </div>
                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                               <button onClick={() => deleteShift(shift.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                               <button onClick={() => deleteShift(shift.id)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                              </div>
                           </div>
-                          
-                          <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-bold italic">
-                            <Clock className="w-2.5 h-2.5" />
-                            {format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}
-                          </div>
 
-                          <div className="pt-2 border-t border-slate-50">
+                          <div className="flex flex-col gap-2">
                             {shift.guardName ? (
-                              <div className="flex items-center gap-2">
-                                <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-black text-primary border border-primary/20">
+                              <div className="flex items-center gap-2 p-1.5 bg-slate-50 rounded-lg border border-slate-100">
+                                <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center text-[9px] font-black text-primary">
                                   {shift.guardName.charAt(0)}
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-600 truncate">{shift.guardName}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] font-black text-slate-700 truncate leading-none">{shift.guardName}</p>
+                                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{shift.role}</p>
+                                </div>
                               </div>
                             ) : (
                               <Button 
                                 variant="ghost" 
-                                className="h-7 w-full text-[9px] font-black bg-red-100 text-red-600 hover:bg-red-200 border-none rounded-lg"
+                                className="h-8 w-full text-[9px] font-black bg-red-100 text-red-600 hover:bg-red-200 border-none rounded-lg"
                                 onClick={() => openSuggest(shift)}
                               >
                                 <Zap className="w-2.5 h-2.5 mr-1" /> ASSIGN AI
@@ -355,9 +357,14 @@ export default function SchedulingPage() {
                         </CardContent>
                       </Card>
                     ))}
-                    <Button variant="ghost" className="w-full h-10 border-2 border-dashed border-slate-200 rounded-xl hover:bg-white hover:border-primary/30 transition-all text-slate-400" onClick={() => { setCurrentDate(day); setIsCreateOpen(true); }}>
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                    
+                    {/* Empty Drop Indicator */}
+                    <div className="h-20 border-2 border-dashed border-slate-100 rounded-xl flex items-center justify-center group/drop transition-all hover:border-primary/20">
+                      <Button variant="ghost" className="w-full h-full text-slate-300 hover:text-primary transition-colors flex flex-col gap-1" onClick={() => { setCurrentDate(day); setIsCreateOpen(true); }}>
+                        <Plus className="w-4 h-4" />
+                        <span className="text-[8px] font-black uppercase tracking-widest opacity-0 group-hover/drop:opacity-100">Schedule</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
@@ -365,140 +372,77 @@ export default function SchedulingPage() {
           </div>
         </TabsContent>
 
+        {/* STATIC ROSTER VIEW */}
         <TabsContent value="list" className="mt-0">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <div className="lg:col-span-1 space-y-6">
-              <Card className="border-none shadow-sm overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-primary" />
-                    Operational Risk: Gaps
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3 bg-slate-50">
-                  {openShifts.map(shift => (
-                    <div key={shift.id} className="p-4 rounded-xl border border-dashed border-primary/30 bg-white hover:bg-primary/5 transition-colors group relative shadow-sm">
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="text-sm font-black text-slate-800">{shift.siteName}</p>
-                        <Badge variant={shift.priority === 'STAT' ? 'destructive' : 'outline'} className="text-[9px] uppercase font-black">
-                          {shift.priority}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground font-medium mb-4">{shift.role}</p>
-                      <Button 
-                        size="sm" 
-                        className="w-full bg-slate-900 text-white rounded-lg h-8 text-[10px] font-bold"
-                        onClick={() => openSuggest(shift)}
-                      >
-                        <Zap className="h-3 w-3 mr-1 text-primary" /> Auto-Fill (AI)
-                      </Button>
-                    </div>
-                  ))}
-                  {openShifts.length === 0 && <p className="text-xs text-center text-muted-foreground italic py-4">All sites fully covered.</p>}
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm">
-                <CardHeader className="border-b bg-orange-50">
-                  <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
-                    <Timer className="h-4 w-4" />
-                    Fatigue Monitor (40h+)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                  {guards.sort((a, b) => b.weeklyHours - a.weeklyHours).slice(0, 5).map(guard => (
-                    <div key={guard.id} className="space-y-1.5">
-                      <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                        <span className="flex items-center gap-1">
-                          {guard.name}
-                          {guard.weeklyHours >= 40 && <AlertTriangle className="h-2.5 w-2.5 text-red-500" />}
-                        </span>
-                        <span className={guard.weeklyHours >= 40 ? 'text-red-500 font-black' : 'text-slate-500'}>{guard.weeklyHours}h</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all ${guard.weeklyHours >= 40 ? 'bg-red-500 animate-pulse' : guard.weeklyHours > 35 ? 'bg-orange-400' : 'bg-primary'}`} 
-                          style={{ width: `${Math.min((guard.weeklyHours / 40) * 100, 100)}%` }} 
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-3">
-              <Card className="border-none shadow-sm overflow-hidden">
-                <CardHeader className="bg-white border-b flex flex-row items-center justify-between py-4 px-6">
-                  <div>
-                    <CardTitle className="text-lg font-black text-slate-800">Master Deployment Roster</CardTitle>
-                    <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
-                      Auditable log of all operational intervals
-                    </CardDescription>
-                  </div>
-                  <div className="relative w-48">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Filter registry..." className="pl-8 text-xs h-9 bg-slate-50 border-none rounded-full" />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-50/50 border-b">
-                          <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Officer & Role</th>
-                          <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Site Location</th>
-                          <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Interval</th>
-                          <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {shifts.map(shift => (
-                          <tr key={shift.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors group">
-                            <td className="p-6">
-                              <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20">
-                                  {shift.guardName?.charAt(0) || '?'}
-                                </div>
-                                <div>
-                                  <p className="font-black text-slate-800">{shift.guardName || 'UNASSIGNED'}</p>
-                                  <p className="text-[10px] font-bold text-muted-foreground uppercase">{shift.role}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-6">
-                              <div className="flex items-center gap-2">
-                                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="font-bold text-slate-700">{shift.siteName}</span>
-                              </div>
-                            </td>
-                            <td className="p-6">
-                              <div className="flex items-center gap-2">
-                                <Timer className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="font-mono text-xs font-bold text-slate-600">
-                                  {format(parseISO(shift.startTime), 'MMM dd, HH:mm')}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-6">
-                              <Badge variant="outline" className={`text-[9px] font-black uppercase rounded-full ${
-                                shift.status === 'In Progress' ? 'bg-green-50 text-green-600 border-green-200' : 
-                                shift.status === 'Claimed' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                shift.status === 'Open' ? 'bg-red-50 text-red-600 border-red-200' :
-                                'bg-slate-50 text-slate-600 border-slate-200'
-                              }`}>
-                                {shift.status}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <Card className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-white border-b flex flex-row items-center justify-between py-4 px-6">
+              <div>
+                <CardTitle className="text-lg font-black text-slate-800">Master Roster Logs</CardTitle>
+                <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                  Detailed view of all scheduled operations
+                </CardDescription>
+              </div>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search logs..." className="pl-9 h-10 rounded-xl bg-slate-50 border-none" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b">
+                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Officer & Role</th>
+                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Site Location</th>
+                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Interval</th>
+                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shifts.map(shift => (
+                      <tr key={shift.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors group">
+                        <td className="p-6">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20">
+                              {shift.guardName?.charAt(0) || '?'}
+                            </div>
+                            <div>
+                              <p className="font-black text-slate-800">{shift.guardName || 'UNASSIGNED'}</p>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">{shift.role}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-6">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-bold text-slate-700">{shift.siteName}</span>
+                          </div>
+                        </td>
+                        <td className="p-6">
+                          <div className="flex items-center gap-2">
+                            <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-mono text-xs font-bold text-slate-600">
+                              {format(parseISO(shift.startTime), 'MMM dd, HH:mm')}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-6">
+                          <Badge variant="outline" className={`text-[9px] font-black uppercase rounded-full ${
+                            shift.status === 'In Progress' ? 'bg-green-50 text-green-600 border-green-200' : 
+                            shift.status === 'Claimed' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                            shift.status === 'Open' ? 'bg-red-50 text-red-600 border-red-200' :
+                            'bg-slate-50 text-slate-600 border-slate-200'
+                          }`}>
+                            {shift.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
@@ -508,49 +452,50 @@ export default function SchedulingPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-black">
               <Zap className="h-5 w-5 text-primary" />
-              AI Deployment Engine
+              AI Deployment Suggester
             </DialogTitle>
             <DialogDescription>
-              Finding the optimal candidate for **{selectedShift?.siteName}** ({selectedShift?.role}).
+              Finding the optimal candidate for **{selectedShift?.siteName}**.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-6">
-            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-              <p className="text-[10px] font-black text-blue-600 uppercase mb-1">AI Logic Applied:</p>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
+              <Timer className="w-5 h-5 text-blue-600 mt-0.5" />
               <p className="text-[11px] text-blue-800 leading-tight">
-                Filtering for SIA-compliant officers within 10 miles, prioritized by lowest weekly hours to minimize overtime spend.
+                AI is prioritizing officers with the lowest current weekly hours to minimize overtime spend and fatigue risk.
               </p>
             </div>
 
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-6">Top Recommendations:</p>
-            {suggestions.length > 0 ? (
-              suggestions.map(guard => (
-                <div key={guard.id} className="flex items-center justify-between p-4 rounded-2xl border hover:border-primary transition-all cursor-pointer group bg-white shadow-sm" onClick={() => assignGuard(guard)}>
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">
-                      {guard.name.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-800">{guard.name}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-[9px] font-bold text-green-600 uppercase flex items-center gap-1">
-                          <UserCheck className="h-3 w-3" /> Ready
-                        </span>
-                        <span className={`text-[9px] font-bold uppercase ${guard.weeklyHours >= 40 ? 'text-red-500' : 'text-slate-400'}`}>
-                          {guard.weeklyHours}h / 40h
-                        </span>
+            <div className="space-y-3 mt-4">
+              {suggestions.length > 0 ? (
+                suggestions.map(guard => (
+                  <div key={guard.id} className="flex items-center justify-between p-4 rounded-2xl border hover:border-primary transition-all cursor-pointer group bg-white shadow-sm" onClick={() => assignGuard(guard)}>
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">
+                        {guard.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800">{guard.name}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[9px] font-bold text-green-600 uppercase flex items-center gap-1">
+                            <UserCheck className="h-3 w-3" /> SIA Compliant
+                          </span>
+                          <span className={`text-[9px] font-bold uppercase ${guard.weeklyHours >= 40 ? 'text-red-500' : 'text-slate-400'}`}>
+                            {guard.weeklyHours}h/40h
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <Button size="sm" variant="ghost" className="rounded-full group-hover:bg-primary group-hover:text-white font-black text-[10px]">DEPLOY</Button>
                   </div>
-                  <Button size="sm" variant="ghost" className="rounded-full group-hover:bg-primary group-hover:text-white font-black text-[10px]">DEPLOY</Button>
+                ))
+              ) : (
+                <div className="p-8 text-center text-muted-foreground italic border border-dashed rounded-2xl bg-slate-50">
+                  No compliant officers currently available.
                 </div>
-              ))
-            ) : (
-              <div className="p-8 text-center text-muted-foreground italic border border-dashed rounded-2xl bg-slate-50">
-                No compliant officers currently available within fatigue limits.
-              </div>
-            )}
+              )}
+            </div>
           </div>
           
           <DialogFooter>
@@ -561,3 +506,4 @@ export default function SchedulingPage() {
     </div>
   );
 }
+
