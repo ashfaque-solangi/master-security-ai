@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { 
   PieChart, 
   TrendingUp, 
@@ -23,6 +24,19 @@ import { Progress } from '@/components/ui/progress';
 import { sites, guards } from '@/lib/data';
 
 export default function AnalyticsPage() {
+  const [isMounted, setIsMounted] = useState(false);
+  const [siteMargins, setSiteMargins] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    setIsMounted(true);
+    // Generate stable random margins for this session on the client only
+    const margins: Record<string, number> = {};
+    sites.forEach(site => {
+      margins[site.id] = Math.random() * 40 + 60;
+    });
+    setSiteMargins(margins);
+  }, []);
+
   const totalRevenue = sites.reduce((acc, site) => acc + site.revenuePerMonth, 0);
   const avgPerformance = guards.reduce((acc, guard) => acc + guard.performanceScore, 0) / guards.length;
 
@@ -101,7 +115,7 @@ export default function AnalyticsPage() {
                   <span className="font-mono text-green-600 font-bold">${site.revenuePerMonth.toLocaleString()}</span>
                 </div>
                 <div className="flex gap-2 items-center">
-                  <Progress value={Math.random() * 40 + 60} className="h-2 flex-1" />
+                  <Progress value={siteMargins[site.id] || 0} className="h-2 flex-1" />
                   <span className="text-[10px] font-bold text-muted-foreground uppercase">Margin 38%</span>
                 </div>
               </div>
