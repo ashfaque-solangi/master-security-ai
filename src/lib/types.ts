@@ -1,4 +1,3 @@
-
 export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended';
 export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant';
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
@@ -17,6 +16,7 @@ export type Guard = {
   avatarUrl?: string;
   licenceExpiry: string;
   docsMissing: number;
+  performanceScore: number;
 };
 
 export type Site = {
@@ -29,6 +29,7 @@ export type Site = {
   activeGuardsCount: number;
   openShifts: number;
   healthScore: number;
+  revenuePerMonth: number;
 };
 
 export type Incident = {
@@ -66,4 +67,25 @@ export type Shift = {
   status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed';
   priority: 'Routine' | 'Urgent' | 'STAT';
   role: string;
+};
+
+export type Vehicle = {
+  id: string;
+  model: string;
+  plate: string;
+  status: 'Active' | 'Maintenance' | 'Available';
+  location: string;
+  fuelLevel: number;
+  nextService: string;
+};
+
+export type Visitor = {
+  id: string;
+  name: string;
+  company: string;
+  siteName: string;
+  checkIn: string;
+  checkOut?: string;
+  hostName: string;
+  status: 'Expected' | 'Checked In' | 'Checked Out';
 };

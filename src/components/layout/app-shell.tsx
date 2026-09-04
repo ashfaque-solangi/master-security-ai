@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -12,9 +11,6 @@ import {
   AlertTriangle,
   FileText,
   MessageSquare,
-  BarChart3,
-  Settings,
-  Briefcase,
   Zap,
   Clock,
   CreditCard,
@@ -26,6 +22,10 @@ import {
   Video,
   Link2,
   Lock,
+  Briefcase,
+  Settings,
+  Bell,
+  Search,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -53,11 +53,10 @@ const navGroups = [
   {
     label: 'Command & Control',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/tracking', label: 'Live Tracking', icon: Map },
+      { href: '/dashboard', label: 'Command Centre', icon: LayoutDashboard },
+      { href: '/patrols', label: 'Live Tracking', icon: Map },
       { href: '/scheduling', label: 'Scheduling', icon: Calendar },
       { href: '/incidents', label: 'Incidents & SOS', icon: AlertTriangle },
-      { href: '/patrols', label: 'Patrol Monitoring', icon: Shield },
     ],
   },
   {
@@ -72,6 +71,7 @@ const navGroups = [
   {
     label: 'Assets & Logistics',
     items: [
+      { href: '/sites', label: 'Sites & Contracts', icon: FileText },
       { href: '/fleet', label: 'Fleet & Equipment', icon: Truck },
       { href: '/visitors', label: 'Visitor Management', icon: UserCheck },
       { href: '/cctv', label: 'CCTV & Evidence', icon: Video },
@@ -81,7 +81,7 @@ const navGroups = [
     label: 'Finance & BI',
     items: [
       { href: '/attendance', label: 'Attendance', icon: Clock },
-      { href: '/finance', label: 'Payroll & Invoicing', icon: CreditCard },
+      { href: '/payroll', label: 'Payroll', icon: CreditCard },
       { href: '/analytics', label: 'CEO Dashboard', icon: PieChart },
       { href: '/ai-ops', label: 'AI Operations', icon: Sparkles },
     ],
@@ -102,19 +102,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="p-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <Shield className="w-8 h-8 text-accent" />
-            <span className="text-lg font-bold tracking-tight text-white group-data-[collapsible=icon]:hidden">
+      <Sidebar collapsible="icon" className="border-r-0">
+        <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border/50 bg-sidebar">
+          <Link href="/dashboard" className="flex items-center gap-3 w-full px-4">
+            <div className="bg-primary/20 p-1.5 rounded-lg border border-primary/30">
+              <Shield className="w-6 h-6 text-primary" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
               SecureGuard
             </span>
           </Link>
         </SidebarHeader>
-        <SidebarContent>
+        <SidebarContent className="bg-sidebar">
           {navGroups.map((group) => (
             <SidebarGroup key={group.label}>
-              <SidebarGroupLabel className="text-sidebar-foreground/50">
+              <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase font-bold tracking-wider px-4 mb-2">
                 {group.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -125,10 +127,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                         asChild
                         isActive={pathname === item.href}
                         tooltip={item.label}
+                        className="px-4 py-6 hover:bg-sidebar-accent/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary transition-colors"
                       >
                         <Link href={item.href}>
-                          <item.icon />
-                          <span>{item.label}</span>
+                          <item.icon className="w-5 h-5" />
+                          <span className="font-medium">{item.label}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -138,32 +141,32 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SidebarGroup>
           ))}
         </SidebarContent>
-        <SidebarFooter>
-          <div className="flex items-center gap-3 p-2 rounded-md bg-sidebar-accent/10">
-            <Avatar className="h-10 w-10 border border-sidebar-border">
+        <SidebarFooter className="bg-sidebar border-t border-sidebar-border/50 p-4">
+          <div className="flex items-center gap-3 p-2 rounded-xl bg-sidebar-accent/20 border border-sidebar-border/30">
+            <Avatar className="h-9 w-9 border-2 border-primary/20">
               {userAvatar && (
                 <AvatarImage
                   src={userAvatar.imageUrl}
                   alt="Dispatcher"
-                  width={40}
-                  height={40}
                 />
               )}
               <AvatarFallback>AD</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="font-semibold text-sm">Alex Dispatch</span>
-              <span className="text-xs text-sidebar-foreground/50">
+              <span className="font-bold text-sm tracking-tight">Alex Dispatch</span>
+              <span className="text-[10px] text-sidebar-foreground/50 uppercase font-bold">
                 Control Room
               </span>
             </div>
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset className="bg-background">
         <Header />
-        <main className="p-4 lg:p-6 bg-background min-h-full">
-          {children}
+        <main className="flex-1 overflow-auto p-6 lg:p-8">
+          <div className="mx-auto max-w-7xl">
+            {children}
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>

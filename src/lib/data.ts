@@ -1,6 +1,5 @@
-
-import type { Guard, Site, Incident, Shift, SOSAlert } from './types';
-import { addDays, subHours, subMinutes } from 'date-fns';
+import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor } from './types';
+import { addDays, subHours, subMinutes, subDays } from 'date-fns';
 
 const now = new Date();
 
@@ -16,6 +15,7 @@ export const guards: Guard[] = [
     lastLocationUpdate: subMinutes(now, 2).toISOString(),
     licenceExpiry: addDays(now, 240).toISOString(),
     docsMissing: 0,
+    performanceScore: 94,
   },
   {
     id: 'GRD-002',
@@ -28,6 +28,7 @@ export const guards: Guard[] = [
     lastLocationUpdate: subMinutes(now, 15).toISOString(),
     licenceExpiry: addDays(now, 15).toISOString(),
     docsMissing: 1,
+    performanceScore: 88,
   },
   {
     id: 'GRD-003',
@@ -40,6 +41,7 @@ export const guards: Guard[] = [
     lastLocationUpdate: subMinutes(now, 5).toISOString(),
     licenceExpiry: addDays(now, 180).toISOString(),
     docsMissing: 0,
+    performanceScore: 91,
   },
   {
     id: 'GRD-004',
@@ -50,6 +52,7 @@ export const guards: Guard[] = [
     lastLocationUpdate: subHours(now, 2).toISOString(),
     licenceExpiry: now.toISOString(),
     docsMissing: 3,
+    performanceScore: 72,
   }
 ];
 
@@ -64,6 +67,7 @@ export const sites: Site[] = [
     activeGuardsCount: 5,
     openShifts: 2,
     healthScore: 92,
+    revenuePerMonth: 45000,
   },
   {
     id: 'SITE-002',
@@ -75,6 +79,7 @@ export const sites: Site[] = [
     activeGuardsCount: 2,
     openShifts: 0,
     healthScore: 78,
+    revenuePerMonth: 12000,
   },
   {
     id: 'SITE-003',
@@ -86,6 +91,7 @@ export const sites: Site[] = [
     activeGuardsCount: 12,
     openShifts: 5,
     healthScore: 98,
+    revenuePerMonth: 85000,
   }
 ];
 
@@ -162,5 +168,47 @@ export const shifts: Shift[] = [
     status: 'Open',
     priority: 'STAT',
     role: 'Lead Supervisor'
+  }
+];
+
+export const vehicles: Vehicle[] = [
+  {
+    id: 'VH-101',
+    model: 'Toyota Hilux 4x4',
+    plate: 'SEC-001-HQ',
+    status: 'Active',
+    location: 'Sector A-12',
+    fuelLevel: 65,
+    nextService: addDays(now, 45).toISOString(),
+  },
+  {
+    id: 'VH-102',
+    model: 'Ford Ranger',
+    plate: 'SEC-002-HQ',
+    status: 'Maintenance',
+    location: 'Main Depot',
+    fuelLevel: 12,
+    nextService: subDays(now, 2).toISOString(),
+  }
+];
+
+export const visitors: Visitor[] = [
+  {
+    id: 'VIS-001',
+    name: 'Robert Miller',
+    company: 'Otis Elevators',
+    siteName: 'Tech Hub HQ',
+    checkIn: subHours(now, 2).toISOString(),
+    hostName: 'Admin Team',
+    status: 'Checked In',
+  },
+  {
+    id: 'VIS-002',
+    name: 'Alice Wong',
+    company: 'CleanCo Services',
+    siteName: 'Retail Park East',
+    checkIn: subHours(now, 1).toISOString(),
+    hostName: 'Site Supervisor',
+    status: 'Checked In',
   }
 ];
