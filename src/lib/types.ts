@@ -108,3 +108,12 @@ export type PayrollRecord = {
   amount: number;
   status: 'Pending' | 'Approved' | 'Paid';
 };
+
+export type Applicant = {
+  id: string;
+  name: string;
+  role: string;
+  appliedDate: string;
+  status: 'Applied' | 'Interview' | 'Background Check' | 'Hired' | 'Rejected';
+  experience: string;
+};

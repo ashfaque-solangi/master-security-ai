@@ -1,4 +1,4 @@
-import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor, Patrol, PayrollRecord } from './types';
+import type { Guard, Site, Incident, Shift, SOSAlert, Vehicle, Visitor, Patrol, PayrollRecord, Applicant } from './types';
 import { addDays, subHours, subMinutes, subDays } from 'date-fns';
 
 const now = new Date();
@@ -250,5 +250,32 @@ export const payrollRecords: PayrollRecord[] = [
     hours: 76,
     amount: 2850.00,
     status: 'Pending',
+  }
+];
+
+export const applicants: Applicant[] = [
+  {
+    id: 'APP-001',
+    name: 'John Doe',
+    role: 'Static Guard',
+    appliedDate: subDays(now, 2).toISOString(),
+    status: 'Applied',
+    experience: '5 years'
+  },
+  {
+    id: 'APP-002',
+    name: 'Jane Smith',
+    role: 'Patrol Officer',
+    appliedDate: subDays(now, 5).toISOString(),
+    status: 'Interview',
+    experience: '3 years'
+  },
+  {
+    id: 'APP-003',
+    name: 'Mike Brown',
+    role: 'Supervisor',
+    appliedDate: subDays(now, 10).toISOString(),
+    status: 'Background Check',
+    experience: '10 years'
   }
 ];

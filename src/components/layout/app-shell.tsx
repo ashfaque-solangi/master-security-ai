@@ -10,20 +10,16 @@ import {
   Calendar,
   AlertTriangle,
   FileText,
-  MessageSquare,
-  Zap,
-  Clock,
   CreditCard,
   Truck,
   UserCheck,
   Star,
   Sparkles,
   PieChart,
-  Video,
-  Link2,
   Lock,
   Briefcase,
   Settings,
+  Building,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -49,10 +45,12 @@ const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar');
 
 const navGroups = [
   {
-    label: 'Main',
+    label: 'Command Centre',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/analytics', label: 'CEO Analytics', icon: PieChart },
+      { href: '/dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
+      { href: '/recruitment', label: 'HR Dashboard', icon: Briefcase },
+      { href: '/analytics', label: 'Executive Analytics', icon: PieChart },
+      { href: '/client-portal', label: 'Client Portal', icon: Building },
     ],
   },
   {
@@ -65,28 +63,26 @@ const navGroups = [
     ],
   },
   {
-    label: 'Employees',
+    label: 'Workforce',
     items: [
       { href: '/workforce', label: 'Guard Registry', icon: Users },
-      { href: '/recruitment', label: 'Recruitment', icon: Briefcase },
-      { href: '/compliance', label: 'Compliance', icon: Zap },
+      { href: '/compliance', label: 'Compliance', icon: Sparkles },
       { href: '/performance', label: 'Performance', icon: Star },
     ],
   },
   {
-    label: 'Administration',
+    label: 'Business',
     items: [
-      { href: '/sites', label: 'Sites & Sites', icon: FileText },
-      { href: '/fleet', label: 'Assets & Fleet', icon: Truck },
-      { href: '/attendance', label: 'Attendance', icon: Clock },
+      { href: '/sites', label: 'Sites & Contracts', icon: FileText },
+      { href: '/fleet', label: 'Fleet & Assets', icon: Truck },
       { href: '/payroll', label: 'Payroll', icon: CreditCard },
     ],
   },
   {
-    label: 'Settings',
+    label: 'System',
     items: [
       { href: '/settings', label: 'Settings', icon: Settings },
-      { href: '/security', label: 'Security', icon: Lock },
+      { href: '/security', label: 'System Audit', icon: Lock },
     ],
   },
 ];
