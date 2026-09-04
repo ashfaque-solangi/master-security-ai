@@ -24,12 +24,43 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { messages } from '@/lib/data';
+import { useJsonStore } from '@/lib/store';
+import { Message } from '@/lib/types';
 import { format } from 'date-fns';
 
 export default function UnifiedInbox() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const store = useJsonStore();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedThread, setSelectedThread] = useState<Message | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    const msgs = store.getMessages();
+    setMessages(msgs);
+    if (msgs.length > 0) setSelectedThread(msgs[0]);
+  }, []);
+
+  const handleSend = () => {
+    if (!replyText.trim()) return;
+
+    // Simulate sending by updating the current thread's preview or adding a new message
+    const newMsg: Message = {
+      id: `MSG-${Date.now()}`,
+      senderName: 'You (Admin)',
+      preview: replyText,
+      timestamp: new Date().toISOString(),
+      status: 'read',
+      type: 'Internal'
+    };
+
+    const updated = store.addMessage(newMsg);
+    setMessages(updated);
+    setReplyText('');
+  };
+
+  if (!isMounted) return null;
 
   return (
     <div className="flex flex-col gap-6 h-[calc(100vh-140px)]">
@@ -57,11 +88,15 @@ export default function UnifiedInbox() {
           </CardHeader>
           <div className="flex-1 overflow-y-auto">
             {messages.map((msg) => (
-              <div key={msg.id} className="p-4 border-b hover:bg-slate-50 cursor-pointer transition-colors relative">
+              <div 
+                key={msg.id} 
+                onClick={() => setSelectedThread(msg)}
+                className={`p-4 border-b hover:bg-slate-50 cursor-pointer transition-colors relative ${selectedThread?.id === msg.id ? 'bg-slate-50' : ''}`}
+              >
                 <div className="flex justify-between items-start mb-1">
                   <h4 className="text-sm font-bold">{msg.senderName}</h4>
                   <span className="text-[10px] text-muted-foreground">
-                    {mounted ? format(new Date(msg.timestamp), 'HH:mm') : '...'}
+                    {format(new Date(msg.timestamp), 'HH:mm')}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-1">{msg.preview}</p>
@@ -78,49 +113,68 @@ export default function UnifiedInbox() {
 
         {/* Chat Detail */}
         <Card className="flex-1 flex flex-col shadow-sm border-none overflow-hidden bg-white">
-          <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 border shadow-sm">
-                MT
-              </div>
-              <div>
-                <CardTitle className="text-sm">Marcus Thorne</CardTitle>
-                <CardDescription className="text-xs text-green-500 flex items-center gap-1 font-medium">
-                  <Circle className="h-1.5 w-1.5 fill-green-500" /> Site: Tech Hub HQ
-                </CardDescription>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon"><Phone className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon"><User className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-            </div>
-          </CardHeader>
-          
-          <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-50/30">
-            <div className="flex flex-col gap-2 max-w-[80%]">
-              <div className="p-3 bg-white border rounded-2xl rounded-tl-none shadow-sm text-sm">
-                I have arrived at Checkpoint B. All secure. No unauthorized activity detected.
-              </div>
-              <span className="text-[10px] text-muted-foreground ml-1">Marcus • 10:15 AM</span>
-            </div>
+          {selectedThread ? (
+            <>
+              <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 border shadow-sm">
+                    {selectedThread.senderName.charAt(0)}
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm">{selectedThread.senderName}</CardTitle>
+                    <CardDescription className="text-xs text-green-500 flex items-center gap-1 font-medium">
+                      <Circle className="h-1.5 w-1.5 fill-green-500" /> Site Tracking Active
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="icon"><Phone className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon"><User className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                </div>
+              </CardHeader>
+              
+              <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-50/30">
+                <div className="flex flex-col gap-2 max-w-[80%]">
+                  <div className="p-3 bg-white border rounded-2xl rounded-tl-none shadow-sm text-sm">
+                    {selectedThread.preview}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground ml-1">{selectedThread.senderName} • {format(new Date(selectedThread.timestamp), 'HH:mm')}</span>
+                </div>
 
-            <div className="flex flex-col gap-2 max-w-[80%] self-end items-end">
-              <div className="p-3 bg-primary text-white rounded-2xl rounded-tr-none shadow-sm text-sm">
-                Copy that, Marcus. Continue with the perimeter sweep.
+                {/* Simulated Conversation History */}
+                <div className="flex flex-col gap-2 max-w-[80%] self-end items-end">
+                  <div className="p-3 bg-primary text-white rounded-2xl rounded-tr-none shadow-sm text-sm">
+                    Copy that. We are monitoring your location. Stay alert.
+                  </div>
+                  <span className="text-[10px] text-muted-foreground mr-1">Admin • {format(new Date(), 'HH:mm')}</span>
+                </div>
               </div>
-              <span className="text-[10px] text-muted-foreground mr-1">Admin • 10:17 AM</span>
-            </div>
-          </div>
 
-          <div className="p-4 border-t bg-white">
-            <div className="flex gap-2 items-center">
-              <Input placeholder="Type your message..." className="bg-slate-50 border-none" />
-              <Button size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-white shadow-md">
-                <Send className="h-4 w-4" />
-              </Button>
+              <div className="p-4 border-t bg-white">
+                <div className="flex gap-2 items-center">
+                  <Input 
+                    placeholder="Type your message..." 
+                    className="bg-slate-50 border-none"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  />
+                  <Button 
+                    size="icon" 
+                    className="rounded-full bg-primary hover:bg-primary/90 text-white shadow-md"
+                    onClick={handleSend}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground italic">
+              Select a thread to start messaging
             </div>
-          </div>
+          )}
         </Card>
       </div>
     </div>
