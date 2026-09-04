@@ -4,26 +4,25 @@ export type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Archived';
 export type IncidentType = 'Intrusion' | 'Fire' | 'Vandalism' | 'Medical' | 'Maintenance' | 'Observation';
 
 export type UserRole = 
-  | 'Super Admin' 
-  | 'Admin'
-  | 'Operations Manager' 
-  | 'Scheduler'
-  | 'Site Manager'
-  | 'Client'
-  | 'Guard'
-  | 'Subcontractor'
-  | 'HR/Compliance'
-  | 'Company Admin'
-  | 'Dispatcher'
-  | 'HR / Recruitment'
-  | 'Compliance Manager'
-  | 'Payroll / Finance'
-  | 'Client Admin';
+  | 'SUPER_ADMIN' 
+  | 'COMPANY_ADMIN'
+  | 'OPERATIONS_MANAGER' 
+  | 'DISPATCHER'
+  | 'SCHEDULER'
+  | 'SITE_MANAGER'
+  | 'HR_MANAGER'
+  | 'COMPLIANCE_MANAGER'
+  | 'FINANCE_MANAGER'
+  | 'GUARD'
+  | 'CLIENT_ADMIN'
+  | 'CLIENT_VIEWER'
+  | 'SUBCONTRACTOR_ADMIN';
 
 export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit';
 
 export type User = {
   id: string;
+  organizationId: string;
   name: string;
   email: string;
   role: UserRole;
@@ -35,19 +34,45 @@ export type User = {
   extraPermissions?: PermissionAction[];
 };
 
+export type DocumentType = 'SOP' | 'Post Order' | 'Risk Assessment' | 'Contract' | 'Licence' | 'Certificate';
+
+export type MockDocument = {
+  id: string;
+  name: string;
+  type: DocumentType;
+  version: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  status: 'Current' | 'Archived';
+  scope: 'Site' | 'Client' | 'Global';
+};
+
 export type Client = {
   id: string;
+  organizationId: string;
   name: string;
   contactPerson: string;
   email: string;
   phone: string;
   status: 'Active' | 'Inactive';
   industry: string;
-  settings?: Record<string, any>;
+  contracts?: Contract[];
+};
+
+export type Contract = {
+  id: string;
+  contractNumber: string;
+  startDate: string;
+  endDate: string;
+  status: 'Active' | 'Expired' | 'Pending';
+  billingRate: number;
+  guardRate: number;
+  kpis: string[];
 };
 
 export type Site = {
   id: string;
+  organizationId: string;
   name: string;
   code: string;
   clientId: string;
@@ -64,10 +89,12 @@ export type Site = {
   healthScore: number;
   revenuePerMonth: number;
   instructions?: string;
+  documents?: MockDocument[];
 };
 
 export type Subcontractor = {
   id: string;
+  organizationId: string;
   name: string;
   contactPerson?: string;
   companyReg?: string;
@@ -78,11 +105,12 @@ export type Subcontractor = {
   guardCount: number;
 };
 
-export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended' | 'Inactive' | 'On Leave';
+export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended' | 'Inactive' | 'On Leave' | 'Applicant';
 export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant';
 
 export type Guard = {
   id: string;
+  organizationId: string;
   name: string;
   email: string;
   phone?: string;
@@ -97,12 +125,17 @@ export type Guard = {
   isAvailable: boolean;
   preferredSites?: string[];
   unavailableDates?: string[];
+  recruitmentStage?: 'Shortlisted' | 'Interview' | 'Validation' | 'Contract' | 'Training' | 'Active';
 };
 
 export type ShiftAssignment = {
+  id: string;
   guardId: string;
   guardName: string;
-  role: string;
+  rolePerformed: string;
+  status: 'Assigned' | 'Confirmed' | 'In Transit' | 'On Site';
+  assignedAt: string;
+  assignedBy: string;
 };
 
 export type RoleRequirement = {
@@ -112,6 +145,7 @@ export type RoleRequirement = {
 
 export type Shift = {
   id: string;
+  organizationId: string;
   siteId: string;
   siteName: string;
   startTime: string; 
@@ -122,11 +156,12 @@ export type Shift = {
   priority: 'Routine' | 'Urgent' | 'STAT';
   requirements: RoleRequirement[];
   assignments: ShiftAssignment[];
-  role: string;
+  role: string; // Legacy/Primary role
 };
 
 export type Incident = {
   id: string;
+  organizationId: string;
   siteId: string;
   siteName: string;
   guardId: string;
@@ -140,6 +175,7 @@ export type Incident = {
 
 export type Visitor = {
   id: string;
+  siteId: string;
   name: string;
   company: string;
   siteName: string;
@@ -150,6 +186,7 @@ export type Visitor = {
 
 export type Invoice = {
   id: string;
+  organizationId: string;
   clientName: string;
   siteName: string;
   amount: number;
@@ -164,10 +201,12 @@ export type Applicant = {
   status: 'Applied' | 'Interview' | 'Background Check' | 'Hired' | 'Rejected';
   appliedDate: string;
   experience: string;
+  missingDocs: string[];
 };
 
 export type Patrol = {
   id: string;
+  siteId: string;
   siteName: string;
   guardName: string;
   startTime: string;
@@ -178,6 +217,7 @@ export type Patrol = {
 
 export type PayrollRecord = {
   id: string;
+  organizationId: string;
   guardName: string;
   period: string;
   hours: number;
@@ -201,7 +241,8 @@ export type AuditAction =
   | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'SHIFT_PUBLISHED'
   | 'GUARD_ASSIGNED' | 'GUARD_REMOVED' | 'GUARD_REPLACED'
   | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
-  | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED';
+  | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
+  | 'ASSIGNMENT_REJECTED';
 
 export type AuditRecord = {
   id: string;

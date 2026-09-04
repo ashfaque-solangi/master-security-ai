@@ -23,21 +23,21 @@ import {
 } from './types';
 
 const STORAGE_KEYS = {
-  GUARDS: 'sg_guards_p2_v3',
-  SITES: 'sg_sites_p2_v3',
-  USERS: 'sg_users_p2_v3',
-  CLIENTS: 'sg_clients_p2_v3',
-  SUBS: 'sg_subs_p2_v3',
-  SHIFTS: 'sg_shifts_p2_v3',
-  INCIDENTS: 'sg_incidents_p2_v3',
-  VISITORS: 'sg_visitors_p2_v3',
-  INVOICES: 'sg_invoices_p2_v3',
-  APPLICANTS: 'sg_applicants_p2_v3',
-  PATROLS: 'sg_patrols_p2_v3',
-  PAYROLL: 'sg_payroll_p2_v3',
-  FORMS: 'sg_forms_p2_v3',
-  AUDITS: 'sg_audits_p2_v3',
-  CURRENT_USER: 'sg_current_user_p2_v3',
+  GUARDS: 'sg_guards_p3_v1',
+  SITES: 'sg_sites_p3_v1',
+  USERS: 'sg_users_p3_v1',
+  CLIENTS: 'sg_clients_p3_v1',
+  SUBS: 'sg_subs_p3_v1',
+  SHIFTS: 'sg_shifts_p3_v1',
+  INCIDENTS: 'sg_incidents_p3_v1',
+  VISITORS: 'sg_visitors_p3_v1',
+  INVOICES: 'sg_invoices_p3_v1',
+  APPLICANTS: 'sg_applicants_p3_v1',
+  PATROLS: 'sg_patrols_p3_v1',
+  PAYROLL: 'sg_payroll_p3_v1',
+  FORMS: 'sg_forms_p3_v1',
+  AUDITS: 'sg_audits_p3_v1',
+  CURRENT_USER: 'sg_current_user_p3_v1',
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -70,7 +70,7 @@ export const useJsonStore = () => {
     metadata?: Record<string, any>;
     status?: AuditRecord['status'];
   }) => {
-    const user = getCurrentUser() || { id: 'SYSTEM', name: 'System Engine', role: 'Super Admin' as any };
+    const user = getCurrentUser() || { id: 'SYSTEM', name: 'System Engine', role: 'SUPER_ADMIN' as any };
     const newRecord: AuditRecord = {
       id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
@@ -118,21 +118,21 @@ export const useJsonStore = () => {
     addGuard: (g: Guard) => { 
       const updated = [g, ...getGuards()]; 
       setStored(STORAGE_KEYS.GUARDS, updated); 
-      logAudit({ action: 'GUARD_CREATED', entityType: 'guard', entityId: g.id, description: `New officer registered: ${g.name}`, newValues: g });
+      logAudit({ action: 'GUARD_CREATED', entityType: 'guard', entityId: g.id, description: `New profile registered: ${g.name}`, newValues: g });
       return updated; 
     },
     updateGuard: (g: Guard) => { 
       const old = getGuards().find(o => o.id === g.id);
       const updated = getGuards().map(old => old.id === g.id ? g : old); 
       setStored(STORAGE_KEYS.GUARDS, updated); 
-      logAudit({ action: 'GUARD_UPDATED', entityType: 'guard', entityId: g.id, description: `Officer details updated: ${g.name}`, oldValues: old, newValues: g });
+      logAudit({ action: 'GUARD_UPDATED', entityType: 'guard', entityId: g.id, description: `Profile updated: ${g.name}`, oldValues: old, newValues: g });
       return updated; 
     },
     deleteGuard: (id: string) => { 
       const old = getGuards().find(o => o.id === id);
       const updated = getGuards().filter(g => g.id !== id); 
       setStored(STORAGE_KEYS.GUARDS, updated); 
-      logAudit({ action: 'GUARD_UPDATED', entityType: 'guard', entityId: id, description: `Officer record archived: ${old?.name}`, status: 'warning' });
+      logAudit({ action: 'GUARD_STATUS_CHANGED', entityType: 'guard', entityId: id, description: `Profile archived: ${old?.name}`, status: 'warning' });
       return updated; 
     },
 
@@ -140,20 +140,20 @@ export const useJsonStore = () => {
     addSite: (s: Site) => { 
       const updated = [s, ...getStored<Site[]>(STORAGE_KEYS.SITES, initialSites)]; 
       setStored(STORAGE_KEYS.SITES, updated); 
-      logAudit({ action: 'SITE_CREATED', entityType: 'site', entityId: s.id, description: `New operational site registered: ${s.name}`, newValues: s });
+      logAudit({ action: 'SITE_CREATED', entityType: 'site', entityId: s.id, description: `New site registered: ${s.name}`, newValues: s });
       return updated; 
     },
     updateSite: (s: Site) => { 
       const old = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).find(o => o.id === s.id);
       const updated = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).map(old => old.id === s.id ? s : old); 
       setStored(STORAGE_KEYS.SITES, updated); 
-      logAudit({ action: 'SITE_UPDATED', entityType: 'site', entityId: s.id, description: `Site configuration changed: ${s.name}`, oldValues: old, newValues: s });
+      logAudit({ action: 'SITE_UPDATED', entityType: 'site', entityId: s.id, description: `Site modified: ${s.name}`, oldValues: old, newValues: s });
       return updated; 
     },
     deleteSite: (id: string) => { 
       const updated = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).filter(s => s.id !== id); 
       setStored(STORAGE_KEYS.SITES, updated); 
-      logAudit({ action: 'SITE_UPDATED', entityType: 'site', entityId: id, description: `Site removed from platform`, status: 'warning' });
+      logAudit({ action: 'SITE_UPDATED', entityType: 'site', entityId: id, description: `Site removed`, status: 'warning' });
       return updated; 
     },
 
@@ -161,20 +161,20 @@ export const useJsonStore = () => {
     addShift: (s: Shift) => { 
       const updated = [s, ...getShifts()]; 
       setStored(STORAGE_KEYS.SHIFTS, updated); 
-      logAudit({ action: 'SHIFT_CREATED', entityType: 'shift', entityId: s.id, description: `New deployment requirement created for ${s.siteName}`, newValues: s });
+      logAudit({ action: 'SHIFT_CREATED', entityType: 'shift', entityId: s.id, description: `Shift created at ${s.siteName}`, newValues: s });
       return updated; 
     },
     updateShift: (s: Shift) => { 
       const old = getShifts().find(o => o.id === s.id);
       const updated = getShifts().map(old => old.id === s.id ? s : old); 
       setStored(STORAGE_KEYS.SHIFTS, updated); 
-      logAudit({ action: 'SHIFT_UPDATED', entityType: 'shift', entityId: s.id, description: `Shift parameters modified for ${s.siteName}`, oldValues: old, newValues: s });
+      logAudit({ action: 'SHIFT_UPDATED', entityType: 'shift', entityId: s.id, description: `Shift modified at ${s.siteName}`, oldValues: old, newValues: s });
       return updated; 
     },
     deleteShift: (id: string) => { 
       const updated = getShifts().filter(s => s.id !== id); 
       setStored(STORAGE_KEYS.SHIFTS, updated); 
-      logAudit({ action: 'SHIFT_DELETED', entityType: 'shift', entityId: id, description: `Deployment record cancelled`, status: 'warning' });
+      logAudit({ action: 'SHIFT_DELETED', entityType: 'shift', entityId: id, description: `Shift cancelled`, status: 'warning' });
       return updated; 
     },
 
@@ -185,14 +185,14 @@ export const useJsonStore = () => {
     addUser: (u: User) => { 
       const updated = [u, ...getStored<User[]>(STORAGE_KEYS.USERS, initialUsers)]; 
       setStored(STORAGE_KEYS.USERS, updated); 
-      logAudit({ action: 'USER_CREATED', entityType: 'user', entityId: u.id, description: `New administrative user created: ${u.name}`, newValues: u });
+      logAudit({ action: 'USER_CREATED', entityType: 'user', entityId: u.id, description: `New user: ${u.name}`, newValues: u });
       return updated; 
     },
     updateUser: (u: User) => { 
       const old = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).find(o => o.id === u.id);
       const updated = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).map(old => old.id === u.id ? u : old); 
       setStored(STORAGE_KEYS.USERS, updated); 
-      logAudit({ action: 'USER_UPDATED', entityType: 'user', entityId: u.id, description: `User permissions or profile modified: ${u.name}`, oldValues: old, newValues: u });
+      logAudit({ action: 'USER_UPDATED', entityType: 'user', entityId: u.id, description: `User modified: ${u.name}`, oldValues: old, newValues: u });
       return updated; 
     },
     deleteUser: (id: string) => { 
@@ -213,15 +213,13 @@ export const useJsonStore = () => {
     autoFillAllShifts: () => {
       const allShifts = getShifts();
       const allGuards = getGuards();
-      let filledCount = 0;
-      
       logAudit({ action: 'AI_SCHEDULING_RUN', entityType: 'system', entityId: 'GLOBAL_AUTOFILL', description: `AI Auto-Fill triggered for ${allShifts.filter(s => s.status === 'Open').length} vacancies.` });
 
       const updated = allShifts.map(s => {
         if (s.status !== 'Open') return s;
         const newAssignments = [...(s.assignments || [])];
         s.requirements?.forEach(req => {
-          const currentCount = newAssignments.filter(a => a.role === req.role).length;
+          const currentCount = newAssignments.filter(a => a.rolePerformed === req.role).length;
           for (let i = currentCount; i < req.count; i++) {
             const candidate = allGuards.find(g => {
               const check = allShifts.some(existing => {
@@ -232,15 +230,7 @@ export const useJsonStore = () => {
             });
 
             if (candidate) {
-              newAssignments.push({ guardId: candidate.id, guardName: candidate.name, role: req.role });
-              filledCount++;
-              logAudit({ 
-                action: 'AI_ASSIGNMENT_PROPOSED', 
-                entityType: 'shift_assignment', 
-                entityId: s.id, 
-                description: `AI assigned ${candidate.name} to ${req.role} at ${s.siteName}`,
-                newValues: { guard: candidate.name, role: req.role }
-              });
+              newAssignments.push({ id: `ASG-${Date.now()}-${i}`, guardId: candidate.id, guardName: candidate.name, rolePerformed: req.role, status: 'Assigned', assignedAt: new Date().toISOString(), assignedBy: 'AI_ENGINE' });
             }
           }
         });
@@ -252,7 +242,6 @@ export const useJsonStore = () => {
 
     suggestReplacement: (shift: Shift, role: string) => {
       const allGuards = getGuards();
-      const allShifts = getShifts();
       return allGuards
         .filter(g => g.status === 'Active' && g.qualifiedRoles.includes(role))
         .sort((a, b) => a.weeklyHours - b.weeklyHours);
