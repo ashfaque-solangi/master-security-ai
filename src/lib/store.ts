@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview A persistent JSON-based local storage manager for the Security Workforce Platform.
- * Enhanced for Multi-Guard Shifts and Completed Shift Locking.
+ * Enhanced for Multi-Guard Shifts, Fatigue Monitoring, and AI Auto-Scheduling.
  */
 
 import { 
@@ -62,6 +62,32 @@ export const useJsonStore = () => {
         g.complianceStatus === 'Compliant' &&
         !existingIds.has(g.id)
       ).sort((a, b) => a.weeklyHours - b.weeklyHours);
+    },
+
+    autoFillAllShifts: () => {
+      const allShifts = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const allGuards = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
+      
+      const updatedShifts = allShifts.map((shift: Shift) => {
+        if (shift.status !== 'Open' || (shift.assignedGuards?.length || 0) > 0) return shift;
+        
+        // Find best candidate: Available, Compliant, Lowest Hours
+        const bestCandidate = allGuards
+          .filter((g: Guard) => g.isAvailable && g.complianceStatus === 'Compliant' && g.weeklyHours < 40)
+          .sort((a, b) => a.weeklyHours - b.weeklyHours)[0];
+
+        if (bestCandidate) {
+          return {
+            ...shift,
+            assignedGuards: [{ id: bestCandidate.id, name: bestCandidate.name }],
+            status: 'Claimed' as const
+          };
+        }
+        return shift;
+      });
+
+      setStored(STORAGE_KEYS.SHIFTS, updatedShifts);
+      return updatedShifts;
     },
 
     getCurrentUser: (): User | null => getStored<User>(STORAGE_KEYS.CURRENT_USER, null),

@@ -13,7 +13,9 @@ import {
   ArrowRight,
   Target,
   Sparkles,
-  MapPin
+  MapPin,
+  ShieldAlert,
+  Timer
 } from 'lucide-react';
 import {
   Card,
@@ -62,6 +64,7 @@ export default function DashboardPage() {
   const activeGuards = guards.filter(g => g.status === 'Active');
   const criticalIncidents = incidents.filter(i => i.severity === 'High' || i.severity === 'Critical');
   const openShiftsCount = shifts.filter(s => s.status === 'Open').length;
+  const fatiguedGuards = guards.filter(g => g.weeklyHours >= 38);
 
   const getGuardsForSite = (siteId: string) => {
     const activeShifts = shifts.filter(s => s.siteId === siteId && s.status === 'In Progress');
@@ -71,7 +74,7 @@ export default function DashboardPage() {
         s.assignedGuards.forEach(ag => team.push(ag.name));
       }
     });
-    return team;
+    return Array.from(new Set(team));
   };
 
   return (
@@ -169,92 +172,117 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {sosAlerts.length > 0 && (
-        <Card className="border-l-4 border-l-destructive shadow-lg bg-white overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between border-b bg-destructive/5 pb-4">
-            <div>
-              <CardTitle className="text-destructive text-lg flex items-center gap-2 font-black">
-                <Flame className="h-5 w-5 animate-pulse" />
-                EMERGENCY RESPONSE REQUIRED
-              </CardTitle>
-              <CardDescription className="text-destructive/80 font-medium">Critical SOS Alerts active in the field.</CardDescription>
-            </div>
-            <Button size="sm" variant="destructive" className="rounded-full px-6">View Command Map</Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            {sosAlerts.map(alert => (
-              <div key={alert.id} className="flex items-center justify-between p-6 border-b last:border-0 hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-6">
-                  <div className="h-14 w-14 rounded-full bg-destructive/10 border-2 border-destructive flex items-center justify-center text-destructive text-xl font-black">
-                    {alert.guardName.charAt(0)}
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-8">
+          {sosAlerts.length > 0 && (
+            <Card className="border-l-4 border-l-destructive shadow-lg bg-white overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between border-b bg-destructive/5 pb-4">
+                <div>
+                  <CardTitle className="text-destructive text-lg flex items-center gap-2 font-black">
+                    <Flame className="h-5 w-5 animate-pulse" />
+                    EMERGENCY RESPONSE REQUIRED
+                  </CardTitle>
+                  <CardDescription className="text-destructive/80 font-medium">Critical SOS Alerts active in the field.</CardDescription>
+                </div>
+                <Button size="sm" variant="destructive" className="rounded-full px-6">View Command Map</Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {sosAlerts.map(alert => (
+                  <div key={alert.id} className="flex items-center justify-between p-6 border-b last:border-0 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-6">
+                      <div className="h-14 w-14 rounded-full bg-destructive/10 border-2 border-destructive flex items-center justify-center text-destructive text-xl font-black">
+                        {alert.guardName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-lg font-black text-slate-800">{alert.guardName}</p>
+                        <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                          <span className="font-bold text-destructive underline">{alert.siteName}</span>
+                          <span>•</span>
+                          <span>{formatDistanceToNow(parseISO(alert.timestamp), { addSuffix: true })}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button size="sm" variant="outline" className="rounded-full border-destructive text-destructive hover:bg-destructive hover:text-white">Acknowledge</Button>
+                      <Button size="sm" className="bg-destructive text-white rounded-full px-6">Dispatch Now</Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-lg font-black text-slate-800">{alert.guardName}</p>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                      <span className="font-bold text-destructive underline">{alert.siteName}</span>
-                      <span>•</span>
-                      <span>{formatDistanceToNow(parseISO(alert.timestamp), { addSuffix: true })}</span>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-white border-b pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Live Incident Feed
+                </CardTitle>
+                <Button variant="link" className="text-primary text-xs font-bold">View History</Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {incidents.slice(0, 5).map((incident) => (
+                <div key={incident.id} className="flex items-start gap-4 p-6 border-b last:border-0 hover:bg-slate-50 transition-all cursor-pointer">
+                  <div className={`mt-1 p-2 rounded-lg ${
+                    incident.severity === 'Critical' || incident.severity === 'High' 
+                      ? 'bg-red-50 text-red-600' 
+                      : 'bg-orange-50 text-primary'
+                  }`}>
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-base font-bold text-slate-800">{incident.siteName} - {incident.type}</p>
+                      <Badge variant={incident.severity === 'High' ? 'destructive' : 'secondary'} className="rounded-full text-[10px]">
+                        {incident.severity}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                      {incident.description}
+                    </p>
+                    <div className="flex items-center gap-6 text-[10px] text-muted-foreground font-bold uppercase tracking-widest pt-1">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(parseISO(incident.timestamp), { addSuffix: true })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {incident.guardName}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <Button size="sm" variant="outline" className="rounded-full border-destructive text-destructive hover:bg-destructive hover:text-white">Acknowledge</Button>
-                  <Button size="sm" className="bg-destructive text-white rounded-full px-6">Dispatch Now</Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-8 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-none shadow-sm overflow-hidden">
-          <CardHeader className="bg-white border-b pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Activity className="h-5 w-5 text-primary" />
-                Live Incident Feed
-              </CardTitle>
-              <Button variant="link" className="text-primary text-xs font-bold">View History</Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {incidents.map((incident) => (
-              <div key={incident.id} className="flex items-start gap-4 p-6 border-b last:border-0 hover:bg-slate-50 transition-all cursor-pointer">
-                <div className={`mt-1 p-2 rounded-lg ${
-                  incident.severity === 'Critical' || incident.severity === 'High' 
-                    ? 'bg-red-50 text-red-600' 
-                    : 'bg-orange-50 text-primary'
-                }`}>
-                  <AlertCircle className="h-5 w-5" />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-base font-bold text-slate-800">{incident.siteName} - {incident.type}</p>
-                    <Badge variant={incident.severity === 'High' ? 'destructive' : 'secondary'} className="rounded-full text-[10px]">
-                      {incident.severity}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
-                    {incident.description}
-                  </p>
-                  <div className="flex items-center gap-6 text-[10px] text-muted-foreground font-bold uppercase tracking-widest pt-1">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(parseISO(incident.timestamp), { addSuffix: true })}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {incident.guardName}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="space-y-8">
+          <Card className="border-none shadow-sm overflow-hidden">
+            <CardHeader className="bg-white border-b pb-4">
+              <CardTitle className="text-lg font-bold flex items-center gap-2 text-red-600">
+                <ShieldAlert className="h-5 w-5" />
+                Fatigue Monitoring (Overtime Control)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              {fatiguedGuards.length > 0 ? fatiguedGuards.map(guard => (
+                <div key={guard.id} className="space-y-2">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-800">{guard.name}</span>
+                    <span className="text-red-600">{guard.weeklyHours}h / 40h</span>
+                  </div>
+                  <Progress value={(guard.weeklyHours / 40) * 100} className="h-1.5 [&>div]:bg-red-500" />
+                </div>
+              )) : (
+                <p className="text-xs text-muted-foreground italic">No guards currently nearing weekly limit.</p>
+              )}
+              <Button variant="outline" className="w-full text-xs font-bold mt-2">Manage Rosters</Button>
+            </CardContent>
+          </Card>
+
           <Card className="border-none shadow-sm overflow-hidden">
             <CardHeader className="bg-white border-b pb-4">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -263,7 +291,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              {sites.map((site) => {
+              {sites.slice(0, 5).map((site) => {
                 const siteGuards = getGuardsForSite(site.id);
                 return (
                   <div key={site.id} className="space-y-3">
@@ -310,9 +338,9 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-slate-300 leading-relaxed">
-                Consolidating overlapping patrols at <span className="text-primary font-bold">Tech Hub HQ</span> could reduce overtime spend by <span className="text-green-400 font-bold">$1,200/mo</span> without impacting risk score.
+                You have <span className="text-primary font-bold">{openShiftsCount} unassigned shifts</span> this week. Recommend running **AI Auto-Fill** to prevent coverage gaps.
               </p>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-full text-xs font-bold">Review Proposal</Button>
+              <Button className="w-full bg-primary hover:bg-primary/90 text-white rounded-full text-xs font-bold">Launch Auto-Scheduler</Button>
             </CardContent>
           </Card>
         </div>

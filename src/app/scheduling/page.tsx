@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -28,7 +27,8 @@ import {
   ExternalLink,
   Users,
   Lock,
-  Coffee
+  Coffee,
+  Loader2
 } from 'lucide-react';
 import {
   Card,
@@ -83,6 +83,7 @@ export default function SchedulingPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
   
   // Dialog States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -106,6 +107,19 @@ export default function SchedulingPage() {
   }, []);
 
   if (!isMounted) return null;
+
+  const handleAutoFill = () => {
+    setIsAutoFilling(true);
+    setTimeout(() => {
+      const updated = store.autoFillAllShifts();
+      setShifts(updated);
+      setIsAutoFilling(false);
+      toast({
+        title: "AI Optimization Complete",
+        description: "Unassigned shifts have been filled based on fatigue and compliance rules."
+      });
+    }, 1500);
+  };
 
   const handleAdd = () => {
     const site = sites.find(s => s.id === selectedSiteId);
@@ -254,8 +268,14 @@ export default function SchedulingPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6">
-            <Zap className="mr-2 h-4 w-4" /> AI Auto-Fill
+          <Button 
+            variant="outline" 
+            className="border-primary text-primary hover:bg-primary/5 rounded-full px-6"
+            onClick={handleAutoFill}
+            disabled={isAutoFilling}
+          >
+            {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+            {isAutoFilling ? 'OPTIMIZING...' : 'AI AUTO-FILL'}
           </Button>
           <Dialog open={isCreateOpen} onOpenChange={(val) => { setIsCreateOpen(val); if (!val) resetForm(); }}>
             <DialogTrigger asChild>
