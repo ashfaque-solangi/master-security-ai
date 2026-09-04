@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -25,7 +24,9 @@ import {
   Coffee,
   Loader2,
   History,
-  Info
+  Info,
+  XCircle,
+  TrendingDown
 } from 'lucide-react';
 import {
   Card,
@@ -79,12 +80,11 @@ export default function SchedulingPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSuggestOpen, setIsSuggestOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [targetRole, setTargetRole] = useState('');
-  const [suggestions, setSuggestions] = useState<Guard[]>([]);
+  const [suggestions, setSuggestions] = useState<{guard: Guard, validation: any}[]>([]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -103,38 +103,59 @@ export default function SchedulingPage() {
       setShifts(updated);
       setIsAutoFilling(false);
       setAudits(store.getAudits());
-      toast({ title: "AI Optimization Complete", description: "All site requirements have been filled with qualified personnel." });
-    }, 1500);
+      toast({ title: "AI Optimization Complete", description: "Global deployment plan optimized." });
+    }, 1200);
   };
 
   const openSuggest = (shift: Shift, role: string) => {
     if (shift.status === 'Completed') return;
     setSelectedShift(shift);
     setTargetRole(role);
-    const suggested = store.suggestReplacement(shift, role);
-    setSuggestions(suggested);
+    
+    // Propose candidates with validation status
+    const allGuards = store.getGuards();
+    const candidatePool = allGuards.map(g => ({
+      guard: g,
+      validation: validateGuardAssignment(g, shift, shifts, role)
+    })).sort((a, b) => {
+      // Sort valid ones to the top, then by fatigue
+      if (a.validation.isValid && !b.validation.isValid) return -1;
+      if (!a.validation.isValid && b.validation.isValid) return 1;
+      return a.guard.weeklyHours - b.guard.weeklyHours;
+    });
+
+    setSuggestions(candidatePool);
     setIsSuggestOpen(true);
   };
 
   const assignGuard = (guard: Guard) => {
     if (!selectedShift || !targetRole) return;
     const validation = validateGuardAssignment(guard, selectedShift, shifts, targetRole);
+    
     if (!validation.isValid) {
       store.logAudit({ 
-        action: 'CONFLICT_DETECTED', 
+        action: 'ASSIGNMENT_REJECTED', 
         entityType: 'shift_assignment', 
         entityId: selectedShift.id, 
-        description: `Manual assignment failed: ${validation.errors[0]}`,
+        description: `Manual override rejected: ${validation.message}`,
         status: 'error',
-        metadata: { guard: guard.name, reason: validation.errors }
+        metadata: { guard: guard.name, reason: validation.code }
       });
-      toast({ variant: "destructive", title: "Assignment Blocked", description: validation.errors[0] });
+      toast({ variant: "destructive", title: "Assignment Blocked", description: validation.message });
       return;
     }
 
     const updatedShift: Shift = {
       ...selectedShift,
-      assignments: [...(selectedShift.assignments || []), { guardId: guard.id, guardName: guard.name, role: targetRole }],
+      assignments: [...(selectedShift.assignments || []), { 
+        id: `ASG-${Date.now()}`,
+        guardId: guard.id, 
+        guardName: guard.name, 
+        rolePerformed: targetRole,
+        status: 'Assigned',
+        assignedAt: new Date().toISOString(),
+        assignedBy: store.getCurrentUser()?.id || 'SYSTEM'
+      }],
       status: 'Claimed'
     };
     const updated = store.updateShift(updatedShift);
@@ -176,11 +197,11 @@ export default function SchedulingPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6" onClick={handleAutoFill} disabled={isAutoFilling}>
+          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11" onClick={handleAutoFill} disabled={isAutoFilling}>
             {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
             AI AUTO-FILL
           </Button>
-          <Button className="bg-primary text-white rounded-full px-6 shadow-lg">
+          <Button className="bg-primary text-white rounded-full px-6 shadow-lg h-11">
             <Plus className="mr-2 h-4 w-4" /> Create Shift
           </Button>
         </div>
@@ -227,7 +248,7 @@ export default function SchedulingPage() {
                             {a.guardName}
                           </div>
                         ))}
-                        {shift.status === 'Open' && <Badge variant="outline" className="text-[7px] bg-red-50 text-red-500 border-red-100 uppercase py-0 px-1">VACANT</Badge>}
+                        {(shift.status === 'Open' || !shift.assignments?.length) && <Badge variant="outline" className="text-[7px] bg-red-50 text-red-500 border-red-100 uppercase py-0 px-1">VACANT</Badge>}
                       </div>
                     </div>
                   </Card>
@@ -268,7 +289,7 @@ export default function SchedulingPage() {
                   <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Users className="w-3 h-3" /> Team Capacity</h3>
                   <div className="space-y-2">
                     {selectedShift.requirements?.map(req => {
-                      const assigned = selectedShift.assignments.filter(a => a.role === req.role);
+                      const assigned = selectedShift.assignments?.filter(a => a.rolePerformed === req.role) || [];
                       const missing = req.count - assigned.length;
                       return (
                         <div key={req.role} className="flex items-center justify-between p-3 border rounded-xl bg-white shadow-sm">
@@ -302,9 +323,6 @@ export default function SchedulingPage() {
                       </div>
                     </div>
                   ))}
-                  {getEntityHistory(selectedShift.id).length === 0 && (
-                    <p className="text-[10px] text-muted-foreground italic text-center py-4">No recent audit logs for this deployment.</p>
-                  )}
                 </div>
               </div>
             </div>
@@ -316,37 +334,54 @@ export default function SchedulingPage() {
       </Dialog>
 
       <Dialog open={isSuggestOpen} onOpenChange={setIsSuggestOpen}>
-        <DialogContent className="max-w-md rounded-3xl">
-          <DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
             <DialogTitle className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" /> AI Candidate Pool
             </DialogTitle>
-            <DialogDescription className="text-xs font-bold text-muted-foreground uppercase">Finding qualified {targetRole}s with low fatigue.</DialogDescription>
+            <DialogDescription className="text-xs font-bold text-slate-400 uppercase">Proposing qualified {targetRole}s</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {suggestions.length > 0 ? (
-              suggestions.map(g => (
-                <div key={g.id} onClick={() => assignGuard(g)} className="flex items-center justify-between p-4 border rounded-2xl hover:border-primary transition-all cursor-pointer group bg-white shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-500">{g.name.charAt(0)}</div>
-                    <div>
-                      <p className="text-sm font-black text-slate-800">{g.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="outline" className={`text-[8px] font-black ${getFatigueScore(g, shifts) === 'LOW' ? 'text-green-500' : 'text-orange-500'}`}>
-                          {getFatigueScore(g, shifts)} FATIGUE
-                        </Badge>
-                        <p className="text-[9px] text-muted-foreground font-bold">{g.weeklyHours}h / week</p>
-                      </div>
+          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto bg-slate-50">
+            {suggestions.map(({ guard, validation }) => (
+              <div 
+                key={guard.id} 
+                onClick={() => validation.isValid && assignGuard(guard)} 
+                className={`flex items-center justify-between p-4 border rounded-2xl bg-white shadow-sm transition-all ${
+                  validation.isValid 
+                    ? 'hover:border-primary cursor-pointer group' 
+                    : 'opacity-50 grayscale cursor-not-allowed'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-500">{guard.name.charAt(0)}</div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800">{guard.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {validation.isValid ? (
+                        <>
+                          <Badge variant="outline" className={`text-[8px] font-black ${getFatigueScore(guard) === 'LOW' ? 'text-green-500' : 'text-orange-500'}`}>
+                            {getFatigueScore(guard)} FATIGUE
+                          </Badge>
+                          <p className="text-[9px] text-muted-foreground font-bold">{guard.weeklyHours}h week</p>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-1 text-[8px] font-black text-red-500 uppercase">
+                          <XCircle className="w-2.5 h-2.5" /> {validation.code.replace(/_/g, ' ')}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost" className="rounded-full font-black text-[10px] group-hover:bg-primary group-hover:text-white">ASSIGN</Button>
                 </div>
-              ))
-            ) : (
-              <div className="p-12 text-center text-muted-foreground italic border border-dashed rounded-3xl bg-slate-50">
-                No qualified personnel found meeting these requirements.
+                {validation.isValid && (
+                  <Button size="sm" variant="ghost" className="rounded-full font-black text-[10px] group-hover:bg-primary group-hover:text-white">DEPLOY</Button>
+                )}
               </div>
-            )}
+            ))}
+          </div>
+          <div className="p-4 bg-white border-t text-center">
+             <p className="text-[10px] text-muted-foreground font-bold flex items-center justify-center gap-1">
+                <Info className="w-3 h-3" /> Non-compliant candidates are automatically filtered.
+             </p>
           </div>
         </DialogContent>
       </Dialog>

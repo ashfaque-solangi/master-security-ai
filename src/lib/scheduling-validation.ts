@@ -1,23 +1,23 @@
-
 /**
  * @fileOverview Centralized Scheduling Validation Service (Rule Engine)
  * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), and Role Qualifications.
  */
 
 import { Shift, Guard, Site } from './types';
-import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast, isBefore, addDays } from 'date-fns';
+import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast } from 'date-fns';
 
 export type ValidationResult = {
   isValid: boolean;
-  code: string;
+  code: 'VALID' | 'SHIFT_OVERLAP' | 'DAILY_HOURS_EXCEEDED' | 'GUARD_UNAVAILABLE' | 'GUARD_ON_LEAVE' | 'ROLE_NOT_QUALIFIED' | 'CERTIFICATION_REQUIRED' | 'GUARD_INACTIVE' | 'SITE_REQUIREMENT_NOT_MET' | 'FATIGUE_LIMIT' | 'COMPLIANCE_BLOCK';
   message: string;
+  details?: any;
 };
 
 export const MAX_DAILY_HOURS = 16;
 
 /**
  * Calculates hours worked by a guard on a specific calendar day,
- * correctly splitting cross-midnight shifts.
+ * correctly splitting cross-midnight shifts (Rules 4 & 5).
  */
 export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift[]): number {
   const startOfTargetDay = startOfDay(day);
@@ -25,7 +25,7 @@ export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift
   let totalMinutes = 0;
 
   const relevantShifts = allShifts.filter(s => 
-    s.assignments.some(a => a.guardId === guardId) &&
+    s.assignments?.some(a => a.guardId === guardId) &&
     s.status !== 'Cancelled'
   );
 
@@ -33,7 +33,7 @@ export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift
     const shiftStart = parseISO(shift.startTime);
     const shiftEnd = parseISO(shift.endTime);
 
-    // Calculate intersection with the target day
+    // Intersection logic for cross-midnight precision
     const intersectionStart = shiftStart < startOfTargetDay ? startOfTargetDay : shiftStart;
     const intersectionEnd = shiftEnd > endOfTargetDay ? endOfTargetDay : shiftEnd;
 
@@ -46,15 +46,13 @@ export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift
 }
 
 /**
- * Validates if a guard can be assigned to a specific role in a shift.
- * Enforces Rules 1, 3, 4, 5, 6, and 13.
+ * Core validation for guard assignments. Enforces all Phase 2 business rules.
  */
 export function validateGuardAssignment(
   guard: Guard,
   targetShift: Shift,
   allShifts: Shift[],
-  targetRole?: string,
-  site?: Site
+  targetRole?: string
 ): ValidationResult {
   
   // RULE 13: Compliance Blocker (Expired/Missing Licence)
@@ -62,7 +60,7 @@ export function validateGuardAssignment(
     return {
       isValid: false,
       code: 'COMPLIANCE_BLOCK',
-      message: `Hard Block: ${guard.name}'s licence has expired or mandatory documents are missing.`
+      message: `Guard's licence has expired or mandatory documents are missing.`
     };
   }
 
@@ -70,7 +68,7 @@ export function validateGuardAssignment(
     return {
       isValid: false,
       code: 'GUARD_INACTIVE',
-      message: `Guard status is ${guard.status}.`
+      message: `Guard is currently marked as ${guard.status}.`
     };
   }
 
@@ -79,7 +77,7 @@ export function validateGuardAssignment(
     return {
       isValid: false,
       code: 'ROLE_NOT_QUALIFIED',
-      message: `${guard.name} is not qualified for the role: ${targetRole}.`
+      message: `Guard is not qualified for the role: ${targetRole}.`
     };
   }
 
@@ -91,7 +89,7 @@ export function validateGuardAssignment(
     return {
       isValid: false,
       code: 'GUARD_UNAVAILABLE',
-      message: `${guard.name} is marked as unavailable during this period.`
+      message: `Guard is marked as unavailable during this period.`
     };
   }
 
@@ -101,19 +99,19 @@ export function validateGuardAssignment(
     end: parseISO(targetShift.endTime)
   };
 
-  const hasOverlap = allShifts.some(s => {
+  const overlappingShift = allShifts.find(s => {
     if (s.id === targetShift.id || s.status === 'Cancelled') return false;
-    return s.assignments.some(a => a.guardId === guard.id) && areIntervalsOverlapping(targetInterval, {
+    return s.assignments?.some(a => a.guardId === guard.id) && areIntervalsOverlapping(targetInterval, {
       start: parseISO(s.startTime),
       end: parseISO(s.endTime)
     });
   });
 
-  if (hasOverlap) {
+  if (overlappingShift) {
     return {
       isValid: false,
       code: 'SHIFT_OVERLAP',
-      message: `Overlap Error: ${guard.name} is already assigned to another shift during this window.`
+      message: `Overlap Error: Guard already assigned to another shift during this window.`
     };
   }
 
@@ -122,7 +120,6 @@ export function validateGuardAssignment(
   const uniqueDays = Array.from(new Set(targetDays.map(d => d.toISOString()))).map(s => parseISO(s));
 
   for (const day of uniqueDays) {
-    // Existing hours on this day (excluding current target shift)
     const existingHours = calculateDailyHours(guard.id, day, allShifts.filter(s => s.id !== targetShift.id));
     
     // New hours contributed by this shift on this specific day
@@ -136,7 +133,7 @@ export function validateGuardAssignment(
       return {
         isValid: false,
         code: 'DAILY_HOURS_EXCEEDED',
-        message: `${guard.name} would exceed the 16-hour hard limit on ${day.toLocaleDateString()}. (Current: ${existingHours.toFixed(1)}h, Adding: ${contributionHours.toFixed(1)}h)`
+        message: `Exceeds 16-hour hard limit on ${day.toLocaleDateString()}. (Current: ${existingHours.toFixed(1)}h, Adding: ${contributionHours.toFixed(1)}h)`
       };
     }
   }
@@ -144,10 +141,7 @@ export function validateGuardAssignment(
   return { isValid: true, code: 'VALID', message: 'Assignment compliant.' };
 }
 
-/**
- * Rule 7: Fatigue Risk Scoring
- */
-export function getFatigueScore(guard: Guard, allShifts: Shift[]): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+export function getFatigueScore(guard: Guard): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
   const weeklyHours = guard.weeklyHours || 0;
   if (weeklyHours > 60) return 'CRITICAL';
   if (weeklyHours > 48) return 'HIGH';
