@@ -15,7 +15,8 @@ import type {
   FormDefinition,
   User,
   Client,
-  Subcontractor
+  Subcontractor,
+  AssignedGuard
 } from './types';
 import { addDays, subHours, subMinutes, subDays, set, format, startOfYear, endOfYear, eachDayOfInterval, getMonth, getYear } from 'date-fns';
 
@@ -65,7 +66,6 @@ export const guards: Guard[] = [
   { id: 'GRD-018', name: 'Isabella Garcia', email: 'i.garcia@security.com', status: 'Active', complianceStatus: 'Compliant', lastLocationUpdate: now.toISOString(), licenceExpiry: addDays(now, 720).toISOString(), docsMissing: 0, performanceScore: 93, weeklyHours: 28, isAvailable: true },
   { id: 'GRD-019', name: 'Noah Smith', email: 'n.smith@security.com', status: 'Off Duty', complianceStatus: 'Compliant', lastLocationUpdate: now.toISOString(), licenceExpiry: addDays(now, 330).toISOString(), docsMissing: 0, performanceScore: 86, weeklyHours: 12, isAvailable: true },
   { id: 'GRD-020', name: 'Emma Johnson', email: 'e.johnson@security.com', status: 'Active', complianceStatus: 'Compliant', lastLocationUpdate: now.toISOString(), licenceExpiry: addDays(now, 510).toISOString(), docsMissing: 0, performanceScore: 94, weeklyHours: 36, isAvailable: true },
-  // New September Batch
   { id: 'GRD-021', name: 'Sarah Connor', email: 's.connor@resistance.com', status: 'Active', complianceStatus: 'Compliant', lastLocationUpdate: now.toISOString(), licenceExpiry: addDays(now, 800).toISOString(), docsMissing: 0, performanceScore: 99, weeklyHours: 40, isAvailable: true },
   { id: 'GRD-022', name: 'Kyle Reese', email: 'k.reese@resistance.com', status: 'Active', complianceStatus: 'Compliant', lastLocationUpdate: now.toISOString(), licenceExpiry: addDays(now, 150).toISOString(), docsMissing: 0, performanceScore: 92, weeklyHours: 32, isAvailable: true },
   { id: 'GRD-023', name: 'Ellen Ripley', email: 'ripley@weyland.com', status: 'Active', complianceStatus: 'Compliant', lastLocationUpdate: now.toISOString(), licenceExpiry: addDays(now, 900).toISOString(), docsMissing: 0, performanceScore: 98, weeklyHours: 20, isAvailable: true },
@@ -89,7 +89,6 @@ export const sites: Site[] = [
   { id: 'SITE-008', name: 'Port Terminal 7', clientId: 'CL-005', clientName: 'National Energy', address: 'Bay View Harbor, Pier 7', riskLevel: 'High', activeGuardsCount: 6, openShifts: 3, healthScore: 84, revenuePerMonth: 55000 },
   { id: 'SITE-009', name: 'Greenwood Park', clientId: 'CL-002', clientName: 'Eastside Properties', address: '99 Corporate Plaza, Suburbia', riskLevel: 'Low', activeGuardsCount: 1, openShifts: 0, healthScore: 91, revenuePerMonth: 10000 },
   { id: 'SITE-010', name: 'City Hospital South', clientId: 'CL-004', clientName: 'Prestige Hospitality', address: '101 Health Ave, Downtown', riskLevel: 'Medium', activeGuardsCount: 4, openShifts: 2, healthScore: 87, revenuePerMonth: 28000 },
-  // New September Simulation Sites
   { id: 'SITE-011', name: 'Wayne Enterprises HQ', clientId: 'CL-001', clientName: 'Global Tech Corp', address: '1007 Mountain Drive, Gotham', riskLevel: 'Critical', activeGuardsCount: 8, openShifts: 4, healthScore: 99, revenuePerMonth: 120000 },
   { id: 'SITE-012', name: 'Nakatomi Plaza', clientId: 'CL-002', clientName: 'Eastside Properties', address: '2121 Avenue of the Stars, LA', riskLevel: 'High', activeGuardsCount: 6, openShifts: 10, healthScore: 45, revenuePerMonth: 95000 },
   { id: 'SITE-013', name: 'Stark Industries Fab', clientId: 'CL-001', clientName: 'Global Tech Corp', address: 'Industrial Sector 4, Malibu', riskLevel: 'Critical', activeGuardsCount: 15, openShifts: 2, healthScore: 95, revenuePerMonth: 200000 },
@@ -109,7 +108,6 @@ const generate2026Shifts = (): Shift[] => {
   });
 
   days.forEach((day, dIdx) => {
-    // September population logic
     const isSept = getMonth(day) === 8;
     const sitesToPopulate = isSept ? sites : sites.slice(0, 8); 
 
@@ -124,17 +122,25 @@ const generate2026Shifts = (): Shift[] => {
 
         const unassignedProbability = isSept ? 0.30 : 0.15;
         const unassigned = Math.random() < unassignedProbability;
-        const assignedGuard = unassigned ? null : guardPool[(dIdx + sIdx + s) % guardPool.length];
+        
+        const assignedGuards: AssignedGuard[] = [];
+        if (!unassigned) {
+          // Multi-guard simulation logic for large sites
+          const numGuards = site.riskLevel === 'Critical' ? 3 : site.riskLevel === 'High' ? 2 : 1;
+          for (let i = 0; i < numGuards; i++) {
+            const g = guardPool[(dIdx + sIdx + s + i) % guardPool.length];
+            assignedGuards.push({ id: g.id, name: g.name });
+          }
+        }
 
         shifts.push({
           id: `SHF-2026-${dIdx}-${site.id}-${s}`,
           siteId: site.id,
           siteName: site.name,
-          guardId: assignedGuard?.id,
-          guardName: assignedGuard?.name,
+          assignedGuards,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          status: unassigned ? 'Open' : 'Claimed',
+          status: unassigned ? 'Open' : (getMonth(day) < getMonth(now) ? 'Completed' : 'Claimed'),
           priority: priorities[Math.floor(Math.random() * priorities.length)],
           role: roles[Math.floor(Math.random() * roles.length)]
         });
@@ -146,7 +152,7 @@ const generate2026Shifts = (): Shift[] => {
 };
 
 export const shifts: Shift[] = [
-  { id: 'SHF-001', siteId: 'SITE-001', siteName: 'Tech Hub HQ', guardId: 'GRD-001', guardName: 'Marcus Thorne', startTime: subHours(now, 2).toISOString(), endTime: subHours(now, -6).toISOString(), status: 'In Progress', priority: 'Urgent', role: 'Armed Static Guard' },
+  { id: 'SHF-001', siteId: 'SITE-001', siteName: 'Tech Hub HQ', assignedGuards: [{ id: 'GRD-001', name: 'Marcus Thorne' }], startTime: subHours(now, 2).toISOString(), endTime: subHours(now, -6).toISOString(), status: 'In Progress', priority: 'Urgent', role: 'Armed Static Guard' },
   ...generate2026Shifts()
 ];
 

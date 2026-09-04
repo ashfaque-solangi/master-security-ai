@@ -50,6 +50,11 @@ export type Subcontractor = {
   rating: number;
 };
 
+export type AssignedGuard = {
+  id: string;
+  name: string;
+};
+
 export type Guard = {
   id: string;
   name: string;
@@ -108,8 +113,7 @@ export type Shift = {
   id: string;
   siteId: string;
   siteName: string;
-  guardId?: string;
-  guardName?: string;
+  assignedGuards: AssignedGuard[];
   startTime: string;
   endTime: string;
   status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Pending Swap';

@@ -26,9 +26,8 @@ import {
   ShieldAlert,
   User,
   ExternalLink,
-  CalendarDays,
-  CalendarRange,
-  Calendar as CalendarViewIcon
+  Users,
+  Lock
 } from 'lucide-react';
 import {
   Card,
@@ -53,7 +52,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { useJsonStore } from '@/lib/store';
-import { Shift, Severity, Guard, Site } from '@/lib/types';
+import { Shift, Severity, Guard, Site, AssignedGuard } from '@/lib/types';
 import { 
   format, 
   addHours, 
@@ -111,6 +110,7 @@ export default function SchedulingPage() {
       id: `SHF-${Date.now()}`,
       siteId: selectedSiteId,
       siteName: site?.name || 'Unknown Site',
+      assignedGuards: [],
       startTime: format(currentDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
       endTime: format(addHours(currentDate, 8), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
       status: 'Open',
@@ -125,6 +125,10 @@ export default function SchedulingPage() {
   };
 
   const openSuggest = (shift: Shift) => {
+    if (shift.status === 'Completed') {
+      toast({ title: "Locked", description: "Cannot reassign a completed shift.", variant: "destructive" });
+      return;
+    }
     setSelectedShift(shift);
     const suggested = store.suggestReplacement(shift);
     setSuggestions(suggested);
@@ -140,18 +144,22 @@ export default function SchedulingPage() {
     if (!selectedShift) return;
     const updatedShift: Shift = {
       ...selectedShift,
-      guardId: guard.id,
-      guardName: guard.name,
+      assignedGuards: [...selectedShift.assignedGuards, { id: guard.id, name: guard.name }],
       status: 'Claimed'
     };
     const updated = store.updateShift(updatedShift);
     setShifts(updated);
     setIsSuggestOpen(false);
     setIsDetailOpen(false);
-    toast({ title: "Officer Assigned", description: `${guard.name} has been deployed.` });
+    toast({ title: "Officer Added", description: `${guard.name} has been deployed to the team.` });
   };
 
   const deleteShift = (id: string) => {
+    const shift = shifts.find(s => s.id === id);
+    if (shift?.status === 'Completed') {
+      toast({ title: "Locked", description: "Audit trail prevents deletion of completed shifts.", variant: "destructive" });
+      return;
+    }
     const updated = store.deleteShift(id);
     setShifts(updated);
     setIsDetailOpen(false);
@@ -189,6 +197,10 @@ export default function SchedulingPage() {
   const daysToRender = getDays();
 
   const moveShiftToDate = (shift: Shift, targetDate: Date) => {
+    if (shift.status === 'Completed') {
+      toast({ title: "Restricted", description: "Historical data cannot be moved.", variant: "destructive" });
+      return;
+    }
     const currentStart = parseISO(shift.startTime);
     const currentEnd = parseISO(shift.endTime);
     const dayDiff = differenceInDays(targetDate, currentStart);
@@ -203,6 +215,10 @@ export default function SchedulingPage() {
 
   // Drag and Drop
   const onDragStart = (e: React.DragEvent, shift: Shift) => {
+    if (shift.status === 'Completed') {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('shiftId', shift.id);
   };
   const onDragOver = (e: React.DragEvent) => {
@@ -221,7 +237,7 @@ export default function SchedulingPage() {
   };
 
   const getSelectedSite = () => sites.find(s => s.id === selectedShift?.siteId);
-  const getSelectedGuard = () => guards.find(g => g.id === selectedShift?.guardId);
+  const getSelectedGuard = (id: string) => guards.find(g => g.id === id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -229,7 +245,7 @@ export default function SchedulingPage() {
         <div className="space-y-1">
           <h1 className="text-3xl font-black tracking-tight text-slate-800">Operational Scheduling</h1>
           <p className="text-muted-foreground font-medium flex items-center gap-2">
-            <Building2 className="w-4 h-4" /> Multi-View Deployment Dashboard
+            <Building2 className="w-4 h-4" /> Team Deployment Intelligence
           </p>
         </div>
         <div className="flex gap-2">
@@ -245,7 +261,7 @@ export default function SchedulingPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>New Deployment</DialogTitle>
-                <DialogDescription>Manually create a new shift for a site.</DialogDescription>
+                <DialogDescription>Manually create a new shift requirements for a site.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -258,11 +274,11 @@ export default function SchedulingPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold">Role</label>
+                  <label className="text-sm font-bold">Role Requirement</label>
                   <Input value={role} onChange={(e) => setRole(e.target.value)} />
                 </div>
               </div>
-              <DialogFooter><Button onClick={handleAdd}>Publish</Button></DialogFooter>
+              <DialogFooter><Button onClick={handleAdd}>Publish Requirement</Button></DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
@@ -345,46 +361,61 @@ export default function SchedulingPage() {
                     {dayShifts.map(shift => (
                       <Card 
                         key={shift.id} 
-                        draggable
+                        draggable={shift.status !== 'Completed'}
                         onDragStart={(e) => onDragStart(e, shift)}
                         onClick={() => openDetail(shift)}
                         className={`group relative border-none shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing overflow-hidden rounded-lg ${
                           viewMode === 'month' ? 'p-1.5' : 'p-3 pt-4'
-                        } ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/50' : 'bg-white'}`}
+                        } ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/50' : shift.status === 'Completed' ? 'bg-slate-50 opacity-80' : 'bg-white'}`}
                       >
                         <div className={`absolute top-0 left-0 w-1 h-full ${
+                          shift.status === 'Completed' ? 'bg-slate-400' :
                           shift.priority === 'STAT' ? 'bg-red-600' : 
                           shift.priority === 'Urgent' ? 'bg-orange-500' : 'bg-primary'
                         }`} />
                         {viewMode === 'month' ? (
                           <div className="flex flex-col gap-0.5">
-                            <p className="text-[8px] font-black text-slate-800 uppercase truncate leading-none">{shift.siteName}</p>
-                            <p className="text-[7px] text-muted-foreground truncate">{shift.guardName || 'UNASSIGNED'}</p>
+                            <p className="text-[8px] font-black text-slate-800 uppercase truncate leading-none flex items-center gap-1">
+                              {shift.status === 'Completed' && <Lock className="w-2 h-2" />}
+                              {shift.siteName}
+                            </p>
+                            <p className="text-[7px] text-muted-foreground truncate">
+                              {shift.assignedGuards.length > 0 ? `${shift.assignedGuards.length} Officers` : 'UNASSIGNED'}
+                            </p>
                           </div>
                         ) : (
                           <div className="space-y-3">
                             <div className="flex justify-between items-start">
                                <div className="space-y-0.5">
-                                 <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{shift.siteName}</p>
+                                 <p className="text-[10px] font-black text-slate-800 uppercase leading-none flex items-center gap-1">
+                                   {shift.status === 'Completed' && <Lock className="w-2.5 h-2.5 text-slate-400" />}
+                                   {shift.siteName}
+                                 </p>
                                  <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-bold italic">
                                    <Clock className="w-2.5 h-2.5" />
                                    {format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}
                                  </div>
                                </div>
-                               <button onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                               {shift.status !== 'Completed' && (
+                                 <button onClick={(e) => { e.stopPropagation(); deleteShift(shift.id); }} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                               )}
                             </div>
                             <div className="flex flex-col gap-2">
-                              {shift.guardName ? (
-                                <div className="flex items-center gap-2 p-1.5 bg-slate-50 rounded-lg border">
-                                  <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center text-[9px] font-black text-primary">{shift.guardName.charAt(0)}</div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] font-black text-slate-700 truncate leading-none">{shift.guardName}</p>
-                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{shift.role}</p>
-                                  </div>
+                              {shift.assignedGuards.length > 0 ? (
+                                <div className="space-y-1">
+                                  {shift.assignedGuards.slice(0, 2).map(g => (
+                                    <div key={g.id} className="flex items-center gap-2 p-1 bg-slate-50 rounded border border-slate-100">
+                                      <div className="h-4 w-4 rounded bg-primary/10 flex items-center justify-center text-[7px] font-black text-primary">{g.name.charAt(0)}</div>
+                                      <p className="text-[8px] font-bold text-slate-700 truncate">{g.name}</p>
+                                    </div>
+                                  ))}
+                                  {shift.assignedGuards.length > 2 && (
+                                    <p className="text-[7px] text-center font-bold text-muted-foreground">+{shift.assignedGuards.length - 2} more</p>
+                                  )}
                                 </div>
                               ) : (
                                 <Button variant="ghost" className="h-7 w-full text-[8px] font-black bg-red-100 text-red-600 rounded-lg" onClick={(e) => { e.stopPropagation(); openSuggest(shift); }}>
-                                  <Zap className="w-2.5 h-2.5 mr-1" /> ASSIGN AI
+                                  <Zap className="w-2.5 h-2.5 mr-1" /> ASSIGN TEAM
                                 </Button>
                               )}
                             </div>
@@ -423,7 +454,7 @@ export default function SchedulingPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50/50 border-b">
-                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Officer & Role</th>
+                      <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Personnel Team</th>
                       <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Site Location</th>
                       <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Interval</th>
                       <th className="text-left p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
@@ -435,10 +466,14 @@ export default function SchedulingPage() {
                         <td className="p-6">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20">
-                              {shift.guardName?.charAt(0) || '?'}
+                              {shift.assignedGuards.length}
                             </div>
                             <div>
-                              <p className="font-black text-slate-800">{shift.guardName || 'UNASSIGNED'}</p>
+                              <p className="font-black text-slate-800">
+                                {shift.assignedGuards.length > 0 
+                                  ? shift.assignedGuards.map(g => g.name).join(', ') 
+                                  : 'UNASSIGNED'}
+                              </p>
                               <p className="text-[10px] font-bold text-muted-foreground uppercase">{shift.role}</p>
                             </div>
                           </div>
@@ -459,6 +494,7 @@ export default function SchedulingPage() {
                         </td>
                         <td className="p-6">
                           <Badge variant="outline" className={`text-[9px] font-black uppercase rounded-full ${
+                            shift.status === 'Completed' ? 'bg-slate-100 text-slate-500 border-slate-300' :
                             shift.status === 'In Progress' ? 'bg-green-50 text-green-600 border-green-200' : 
                             shift.status === 'Claimed' ? 'bg-blue-50 text-blue-600 border-blue-200' :
                             shift.status === 'Open' ? 'bg-red-50 text-red-600 border-red-200' :
@@ -477,17 +513,17 @@ export default function SchedulingPage() {
         </TabsContent>
       </Tabs>
 
-      {/* AI Suggestion Dialog */}
+      {/* AI Team Builder Dialog */}
       <Dialog open={isSuggestOpen} onOpenChange={setIsSuggestOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-black"><Zap className="h-5 w-5 text-primary" /> AI Deployment Suggester</DialogTitle>
-            <DialogDescription>Finding the optimal candidate for **{selectedShift?.siteName}**.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2 text-xl font-black"><Zap className="h-5 w-5 text-primary" /> Team Capacity Builder</DialogTitle>
+            <DialogDescription>Assign additional personnel to the team at **{selectedShift?.siteName}**.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
               <Timer className="w-5 h-5 text-blue-600 mt-0.5" />
-              <p className="text-[11px] text-blue-800 leading-tight">AI is prioritizing officers with the lowest current weekly hours to minimize overtime spend.</p>
+              <p className="text-[11px] text-blue-800 leading-tight">AI is filtering available officers who are not yet assigned to this team and have low weekly hours.</p>
             </div>
             <div className="space-y-3 mt-4">
               {suggestions.length > 0 ? suggestions.map(guard => (
@@ -499,9 +535,9 @@ export default function SchedulingPage() {
                       <p className="text-[9px] font-bold text-green-600 uppercase flex items-center gap-1"><UserCheck className="h-3 w-3" /> SIA Compliant</p>
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost" className="rounded-full group-hover:bg-primary group-hover:text-white font-black text-[10px]">DEPLOY</Button>
+                  <Button size="sm" variant="ghost" className="rounded-full group-hover:bg-primary group-hover:text-white font-black text-[10px]">ADD TO TEAM</Button>
                 </div>
-              )) : <div className="p-8 text-center text-muted-foreground italic border border-dashed rounded-2xl bg-slate-50">No available officers.</div>}
+              )) : <div className="p-8 text-center text-muted-foreground italic border border-dashed rounded-2xl bg-slate-50">No additional compatible officers found.</div>}
             </div>
           </div>
         </DialogContent>
@@ -512,11 +548,12 @@ export default function SchedulingPage() {
         <DialogContent className="max-w-2xl overflow-hidden p-0 rounded-3xl border-none shadow-2xl">
           <DialogHeader className="sr-only">
             <DialogTitle>Deployment Intelligence</DialogTitle>
-            <DialogDescription>Full operational breakdown of the selected shift, site, and personnel.</DialogDescription>
+            <DialogDescription>Full operational breakdown of the selected shift, site, and personnel team.</DialogDescription>
           </DialogHeader>
           {selectedShift && (
             <div className="flex flex-col">
               <div className={`p-8 text-white relative overflow-hidden ${
+                selectedShift.status === 'Completed' ? 'bg-slate-700' :
                 selectedShift.priority === 'STAT' ? 'bg-red-600' : 
                 selectedShift.priority === 'Urgent' ? 'bg-orange-500' : 'bg-slate-900'
               }`}>
@@ -525,6 +562,7 @@ export default function SchedulingPage() {
                   <div className="flex items-center gap-2">
                     <Badge className="bg-white/20 text-white border-none font-black text-[10px] uppercase tracking-widest px-3">{selectedShift.priority} DEPLOYMENT</Badge>
                     <Badge variant="outline" className="text-white border-white/30 text-[10px] uppercase font-bold">{selectedShift.status}</Badge>
+                    {selectedShift.status === 'Completed' && <Badge className="bg-green-500/20 text-green-300 border-none font-black text-[10px] uppercase tracking-widest flex items-center gap-1"><Lock className="w-3 h-3" /> ARCHIVED</Badge>}
                   </div>
                   <h2 className="text-3xl font-black tracking-tighter pt-2">{selectedShift.siteName}</h2>
                 </div>
@@ -554,46 +592,51 @@ export default function SchedulingPage() {
                    </div>
                    <Separator />
                    <div className="space-y-2">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Post Role</p>
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Primary Post Role</p>
                       <p className="text-xl font-black text-slate-800 italic">{selectedShift.role}</p>
                    </div>
                 </div>
 
                 <div className="space-y-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-                   <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2"><User className="w-3 h-3" /> Personnel Assigned</h3>
-                   {selectedShift.guardName ? (
+                   <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2"><Users className="w-3 h-3" /> Assigned Team</h3>
+                   {selectedShift.assignedGuards.length > 0 ? (
                      <div className="space-y-6">
-                        <div className="flex items-center gap-4">
-                           <div className="h-16 w-16 rounded-2xl bg-white shadow-sm border-2 border-primary/20 flex items-center justify-center text-2xl font-black text-primary">{selectedShift.guardName.charAt(0)}</div>
-                           <div>
-                              <p className="text-xl font-black text-slate-800 leading-none">{selectedShift.guardName}</p>
-                              <div className="flex items-center gap-2 mt-2">
-                                 <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 text-[9px] font-black uppercase"><CheckCircle2 className="w-2.5 h-2.5 mr-1" /> SIA Compliant</Badge>
-                              </div>
-                           </div>
-                        </div>
                         <div className="space-y-3">
-                           <div className="flex justify-between text-[10px] font-black uppercase">
-                              <span className="text-slate-500">Fatigue Counter</span>
-                              <span className={getSelectedGuard()?.weeklyHours! >= 40 ? 'text-red-500' : 'text-primary'}>{getSelectedGuard()?.weeklyHours}h / 40h</span>
-                           </div>
-                           <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                              <div className={`h-full transition-all ${getSelectedGuard()?.weeklyHours! >= 40 ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${Math.min((getSelectedGuard()?.weeklyHours! / 40) * 100, 100)}%` }} />
-                           </div>
+                          {selectedShift.assignedGuards.map(ag => (
+                            <div key={ag.id} className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">{ag.name.charAt(0)}</div>
+                              <div className="flex-1">
+                                <p className="text-xs font-black text-slate-800">{ag.name}</p>
+                                <p className="text-[9px] font-bold text-green-600 uppercase">SIA Compliant</p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <Button className="w-full bg-slate-900 text-white rounded-xl font-black text-xs h-10" onClick={() => openSuggest(selectedShift)}>SWAP OFFICER</Button>
+                        
+                        {selectedShift.status !== 'Completed' && (
+                          <Button className="w-full bg-slate-900 text-white rounded-xl font-black text-xs h-10" onClick={() => openSuggest(selectedShift)}>ADD TEAM MEMBER</Button>
+                        )}
                      </div>
                    ) : (
                      <div className="text-center py-8 space-y-4">
                         <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center"><AlertTriangle className="w-8 h-8 text-red-600" /></div>
                         <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Post Unfilled</p>
-                        <Button className="w-full bg-primary text-white rounded-xl font-black text-xs h-12" onClick={() => openSuggest(selectedShift)}><Zap className="w-4 h-4 mr-2" /> AUTO-ASSIGN NOW</Button>
+                        {selectedShift.status !== 'Completed' && (
+                          <Button className="w-full bg-primary text-white rounded-xl font-black text-xs h-12" onClick={() => openSuggest(selectedShift)}><Zap className="w-4 h-4 mr-2" /> AUTO-ASSIGN NOW</Button>
+                        )}
                      </div>
                    )}
                 </div>
               </div>
               <div className="p-4 px-8 border-t bg-slate-50/80 flex items-center justify-between">
-                <Button variant="ghost" className="text-red-600 font-black text-[10px] uppercase" onClick={() => deleteShift(selectedShift.id)}><Trash2 className="w-3.5 h-3.5 mr-1" /> Delete Record</Button>
+                <Button 
+                  variant="ghost" 
+                  className={`font-black text-[10px] uppercase ${selectedShift.status === 'Completed' ? 'text-slate-400' : 'text-red-600'}`} 
+                  onClick={() => deleteShift(selectedShift.id)}
+                  disabled={selectedShift.status === 'Completed'}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete Record
+                </Button>
                 <Button className="bg-slate-900 text-white rounded-full px-6 font-black text-[10px] uppercase h-9" onClick={() => setIsDetailOpen(false)}>Dismiss</Button>
               </div>
             </div>

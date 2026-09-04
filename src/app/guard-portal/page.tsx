@@ -55,11 +55,13 @@ export default function GuardPortal() {
         setCurrentGuard(guardRecord);
         
         const allShifts = store.getShifts();
-        const personalShifts = allShifts.filter((s: Shift) => s.guardName === guardRecord.name);
+        const personalShifts = allShifts.filter((s: Shift) => 
+          s.assignedGuards.some(ag => ag.id === guardRecord.id)
+        );
         setMyShifts(personalShifts);
         
         const allIncidents = store.getIncidents();
-        setMyIncidents(allIncidents.filter((i: Incident) => i.guardName === guardRecord.name));
+        setMyIncidents(allIncidents.filter((i: Incident) => i.guardId === guardRecord.id));
 
         const allPayroll = getPayrollRecords(guardRecord.name);
         setMyPayroll(allPayroll);
@@ -71,10 +73,7 @@ export default function GuardPortal() {
     }
   }, []);
 
-  // Helper to fetch payroll (using a mock filter since we don't have a specific store method yet)
   const getPayrollRecords = (name: string) => {
-    // In a real app, this would come from store.getPayrollByGuard(name)
-    // For now, we simulate filtering the mock data
     return [
       { id: 'PAY-001', guardName: 'Marcus Thorne', period: 'Feb 01 - Feb 15', hours: 84, amount: 3250.50, status: 'Paid' as any },
       { id: 'PAY-PREV', guardName: 'Marcus Thorne', period: 'Jan 15 - Jan 31', hours: 80, amount: 3000.00, status: 'Paid' as any },
@@ -86,7 +85,7 @@ export default function GuardPortal() {
 
   const activeShift = myShifts.find(s => s.status === 'In Progress');
   const upcomingShifts = myShifts.filter(s => isFuture(new Date(s.startTime)) && s.status !== 'Completed');
-  const pastShifts = myShifts.filter(s => isPast(new Date(s.endTime)) || s.status === 'Completed');
+  const pastShifts = myShifts.filter(s => s.status === 'Completed');
 
   return (
     <div className="flex flex-col gap-8">
@@ -110,7 +109,6 @@ export default function GuardPortal() {
           <TabsTrigger value="payroll" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6 font-bold">Payroll</TabsTrigger>
         </TabsList>
 
-        {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-8">
           <div className="grid gap-6 md:grid-cols-3">
             <Card className="command-gradient border-none text-white shadow-xl">
@@ -191,7 +189,7 @@ export default function GuardPortal() {
                     </div>
                   ) : (
                     <div className="text-center py-10">
-                      <p className="text-slate-400 italic">You have no active shift. Next shift in 14 hours.</p>
+                      <p className="text-slate-400 italic">You have no active shift. Next shift soon.</p>
                       <Button className="mt-4 bg-white text-slate-900 font-bold px-8 rounded-full">View Roster</Button>
                     </div>
                   )}
@@ -220,7 +218,6 @@ export default function GuardPortal() {
           </div>
         </TabsContent>
 
-        {/* ROSTER & ATTENDANCE TAB */}
         <TabsContent value="roster" className="space-y-8">
           <div className="grid gap-8 lg:grid-cols-2">
             <Card className="border-none shadow-sm">
@@ -286,7 +283,6 @@ export default function GuardPortal() {
           </div>
         </TabsContent>
 
-        {/* MY SITES TAB */}
         <TabsContent value="sites" className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {mySites.map(site => (
@@ -320,7 +316,6 @@ export default function GuardPortal() {
           </div>
         </TabsContent>
 
-        {/* PAYROLL TAB */}
         <TabsContent value="payroll" className="space-y-8">
           <div className="grid gap-6 md:grid-cols-4">
             <Card className="shadow-sm border-l-4 border-l-green-500">

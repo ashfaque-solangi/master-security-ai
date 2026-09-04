@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -66,9 +67,12 @@ export default function DashboardPage() {
 
   // Helper to get guards currently at a site via shifts
   const getGuardsForSite = (siteId: string) => {
-    return shifts
-      .filter(s => s.siteId === siteId && s.status === 'In Progress' && s.guardName)
-      .map(s => s.guardName);
+    const activeShifts = shifts.filter(s => s.siteId === siteId && s.status === 'In Progress');
+    const team: string[] = [];
+    activeShifts.forEach(s => {
+      s.assignedGuards.forEach(ag => team.push(ag.name));
+    });
+    return team;
   };
 
   return (

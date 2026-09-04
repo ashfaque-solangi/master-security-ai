@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -141,8 +142,11 @@ export default function WorkforcePage() {
   if (!isMounted) return null;
 
   // Helper to find guard's current shift
-  const getCurrentShift = (guardName: string) => {
-    return shifts.find(s => s.guardName === guardName && s.status === 'In Progress');
+  const getCurrentShift = (guardId: string) => {
+    return shifts.find(s => 
+      s.assignedGuards.some(ag => ag.id === guardId) && 
+      s.status === 'In Progress'
+    );
   };
 
   return (
@@ -217,7 +221,7 @@ export default function WorkforcePage() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 max-sm:hidden">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search officers..." className="pl-10 h-10 rounded-xl bg-white border-none shadow-sm" />
         </div>
@@ -226,7 +230,7 @@ export default function WorkforcePage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {guards.map((guard) => {
-          const currentShift = getCurrentShift(guard.name);
+          const currentShift = getCurrentShift(guard.id);
           return (
             <Card key={guard.id} className="relative overflow-hidden group border-none shadow-sm hover:shadow-md transition-all">
               <div className={`absolute top-0 left-0 w-full h-1.5 ${
