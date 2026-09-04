@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -144,7 +143,7 @@ export default function SchedulingPage() {
     if (!selectedShift) return;
     const updatedShift: Shift = {
       ...selectedShift,
-      assignedGuards: [...selectedShift.assignedGuards, { id: guard.id, name: guard.name }],
+      assignedGuards: [...(selectedShift.assignedGuards || []), { id: guard.id, name: guard.name }],
       status: 'Claimed'
     };
     const updated = store.updateShift(updatedShift);
@@ -172,7 +171,6 @@ export default function SchedulingPage() {
     setSelectedShift(null);
   };
 
-  // Time Navigation
   const navigate = (direction: 'prev' | 'next') => {
     const amount = direction === 'next' ? 1 : -1;
     if (viewMode === 'month') setCurrentDate(addMonths(currentDate, amount));
@@ -180,7 +178,6 @@ export default function SchedulingPage() {
     else setCurrentDate(addDays(currentDate, amount));
   };
 
-  // View Mode Intervals
   const getDays = () => {
     if (viewMode === 'month') {
       const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
@@ -213,7 +210,6 @@ export default function SchedulingPage() {
     toast({ title: "Rescheduled", description: `Moved to ${format(targetDate, 'MMM dd')}` });
   };
 
-  // Drag and Drop
   const onDragStart = (e: React.DragEvent, shift: Shift) => {
     if (shift.status === 'Completed') {
       e.preventDefault();
@@ -237,7 +233,6 @@ export default function SchedulingPage() {
   };
 
   const getSelectedSite = () => sites.find(s => s.id === selectedShift?.siteId);
-  const getSelectedGuard = (id: string) => guards.find(g => g.id === id);
 
   return (
     <div className="flex flex-col gap-8">
@@ -380,7 +375,7 @@ export default function SchedulingPage() {
                               {shift.siteName}
                             </p>
                             <p className="text-[7px] text-muted-foreground truncate">
-                              {shift.assignedGuards.length > 0 ? `${shift.assignedGuards.length} Officers` : 'UNASSIGNED'}
+                              {(shift.assignedGuards?.length || 0) > 0 ? `${shift.assignedGuards.length} Officers` : 'UNASSIGNED'}
                             </p>
                           </div>
                         ) : (
@@ -401,7 +396,7 @@ export default function SchedulingPage() {
                                )}
                             </div>
                             <div className="flex flex-col gap-2">
-                              {shift.assignedGuards.length > 0 ? (
+                              {(shift.assignedGuards?.length || 0) > 0 ? (
                                 <div className="space-y-1">
                                   {shift.assignedGuards.slice(0, 2).map(g => (
                                     <div key={g.id} className="flex items-center gap-2 p-1 bg-slate-50 rounded border border-slate-100">
@@ -466,11 +461,11 @@ export default function SchedulingPage() {
                         <td className="p-6">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs border border-primary/20">
-                              {shift.assignedGuards.length}
+                              {(shift.assignedGuards?.length || 0)}
                             </div>
                             <div>
                               <p className="font-black text-slate-800">
-                                {shift.assignedGuards.length > 0 
+                                {(shift.assignedGuards?.length || 0) > 0 
                                   ? shift.assignedGuards.map(g => g.name).join(', ') 
                                   : 'UNASSIGNED'}
                               </p>
@@ -513,7 +508,6 @@ export default function SchedulingPage() {
         </TabsContent>
       </Tabs>
 
-      {/* AI Team Builder Dialog */}
       <Dialog open={isSuggestOpen} onOpenChange={setIsSuggestOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -543,7 +537,6 @@ export default function SchedulingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* SHIFT DETAIL MODAL */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-2xl overflow-hidden p-0 rounded-3xl border-none shadow-2xl">
           <DialogHeader className="sr-only">
@@ -599,7 +592,7 @@ export default function SchedulingPage() {
 
                 <div className="space-y-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2"><Users className="w-3 h-3" /> Assigned Team</h3>
-                   {selectedShift.assignedGuards.length > 0 ? (
+                   {(selectedShift.assignedGuards?.length || 0) > 0 ? (
                      <div className="space-y-6">
                         <div className="space-y-3">
                           {selectedShift.assignedGuards.map(ag => (

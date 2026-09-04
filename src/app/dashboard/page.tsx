@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -38,7 +37,6 @@ export default function DashboardPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   
-  // Mock SOS alerts for dashboard display
   const sosAlerts: SOSAlert[] = [
     {
       id: 'SOS-001',
@@ -65,12 +63,13 @@ export default function DashboardPage() {
   const criticalIncidents = incidents.filter(i => i.severity === 'High' || i.severity === 'Critical');
   const openShiftsCount = shifts.filter(s => s.status === 'Open').length;
 
-  // Helper to get guards currently at a site via shifts
   const getGuardsForSite = (siteId: string) => {
     const activeShifts = shifts.filter(s => s.siteId === siteId && s.status === 'In Progress');
     const team: string[] = [];
     activeShifts.forEach(s => {
-      s.assignedGuards.forEach(ag => team.push(ag.name));
+      if (s.assignedGuards) {
+        s.assignedGuards.forEach(ag => team.push(ag.name));
+      }
     });
     return team;
   };

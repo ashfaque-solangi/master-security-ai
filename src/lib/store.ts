@@ -1,4 +1,3 @@
-
 'use client';
 
 /**
@@ -54,12 +53,9 @@ function setStored<T>(key: string, data: T) {
 
 export const useJsonStore = () => {
   return {
-    // AI & Smart Logic Helpers
     suggestReplacement: (shift: Shift): Guard[] => {
       const allGuards = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
-      // Logic: Filter available guards with < 40 hours and compliant SIA
-      // Also ensure they aren't already on the shift
-      const existingIds = new Set(shift.assignedGuards.map(g => g.id));
+      const existingIds = new Set((shift.assignedGuards || []).map(g => g.id));
       return allGuards.filter((g: Guard) => 
         g.isAvailable && 
         g.weeklyHours < 40 && 
@@ -68,7 +64,6 @@ export const useJsonStore = () => {
       ).sort((a, b) => a.weeklyHours - b.weeklyHours);
     },
 
-    // Authentication
     getCurrentUser: (): User | null => getStored<User>(STORAGE_KEYS.CURRENT_USER, null),
     setCurrentUser: (user: User | null) => setStored(STORAGE_KEYS.CURRENT_USER, user),
     login: (email: string, password: string) => {
@@ -82,7 +77,6 @@ export const useJsonStore = () => {
     },
     logout: () => setStored(STORAGE_KEYS.CURRENT_USER, null),
 
-    // Standard CRUD
     getGuards: () => getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards),
     addGuard: (item: Guard) => {
       const data = getStored<Guard>(STORAGE_KEYS.GUARDS, initialGuards);
@@ -106,22 +100,13 @@ export const useJsonStore = () => {
     getShifts: () => getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts),
     addShift: (item: Shift) => {
       const data = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
-      const updated = [item, ...data];
+      const updated = [{ ...item, assignedGuards: item.assignedGuards || [] }, ...data];
       setStored(STORAGE_KEYS.SHIFTS, updated);
       return updated;
     },
     updateShift: (item: Shift) => {
-      // Completed shifts are locked
-      if (item.status === 'Completed') {
-        const existing = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts).find((s: Shift) => s.id === item.id);
-        if (existing && existing.status === 'Completed') {
-          // Cannot modify core fields of a shift that is already completed
-          // but we can allow status updates if they are accidental (demo logic)
-          // For strictly following user request, we just return if completed
-        }
-      }
       const data = getStored<Shift>(STORAGE_KEYS.SHIFTS, initialShifts);
-      const updated = data.map((s: Shift) => s.id === item.id ? item : s);
+      const updated = data.map((s: Shift) => s.id === item.id ? { ...item, assignedGuards: item.assignedGuards || [] } : s);
       setStored(STORAGE_KEYS.SHIFTS, updated);
       return updated;
     },
@@ -143,7 +128,6 @@ export const useJsonStore = () => {
     getVisitors: () => getStored<Visitor>(STORAGE_KEYS.VISITORS, initialVisitors),
     getMessages: () => getStored<Message>(STORAGE_KEYS.MESSAGES, initialMessages),
 
-    // Advanced Permission Management
     addUser: (item: User) => {
       const data = getStored<User>(STORAGE_KEYS.USERS, initialUsers);
       const updated = [item, ...data];
