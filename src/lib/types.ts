@@ -116,6 +116,8 @@ export type Shift = {
   assignedGuards: AssignedGuard[];
   startTime: string;
   endTime: string;
+  breakStartTime?: string;
+  breakEndTime?: string;
   status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Pending Swap';
   priority: 'Routine' | 'Urgent' | 'STAT';
   role: string;

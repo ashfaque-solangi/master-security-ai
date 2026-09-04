@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -26,7 +27,8 @@ import {
   User,
   ExternalLink,
   Users,
-  Lock
+  Lock,
+  Coffee
 } from 'lucide-react';
 import {
   Card,
@@ -93,6 +95,8 @@ export default function SchedulingPage() {
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [role, setRole] = useState('Security Officer');
   const [priority, setPriority] = useState<Severity>('Low');
+  const [breakStart, setBreakStart] = useState('');
+  const [breakEnd, setBreakEnd] = useState('');
 
   useEffect(() => {
     setIsMounted(true);
@@ -112,6 +116,8 @@ export default function SchedulingPage() {
       assignedGuards: [],
       startTime: format(currentDate, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
       endTime: format(addHours(currentDate, 8), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+      breakStartTime: breakStart ? new Date(breakStart).toISOString() : undefined,
+      breakEndTime: breakEnd ? new Date(breakEnd).toISOString() : undefined,
       status: 'Open',
       priority: priority === 'Critical' ? 'STAT' : priority === 'High' ? 'Urgent' : 'Routine',
       role
@@ -168,6 +174,8 @@ export default function SchedulingPage() {
     setSelectedSiteId('');
     setRole('Security Officer');
     setPriority('Low');
+    setBreakStart('');
+    setBreakEnd('');
     setSelectedShift(null);
   };
 
@@ -204,7 +212,9 @@ export default function SchedulingPage() {
     const updated = store.updateShift({ 
       ...shift, 
       startTime: addDays(currentStart, dayDiff).toISOString(), 
-      endTime: addDays(currentEnd, dayDiff).toISOString() 
+      endTime: addDays(currentEnd, dayDiff).toISOString(),
+      breakStartTime: shift.breakStartTime ? addDays(parseISO(shift.breakStartTime), dayDiff).toISOString() : undefined,
+      breakEndTime: shift.breakEndTime ? addDays(parseISO(shift.breakEndTime), dayDiff).toISOString() : undefined,
     });
     setShifts(updated);
     toast({ title: "Rescheduled", description: `Moved to ${format(targetDate, 'MMM dd')}` });
@@ -253,7 +263,7 @@ export default function SchedulingPage() {
                 <Plus className="mr-2 h-4 w-4" /> Create Shift
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>New Deployment</DialogTitle>
                 <DialogDescription>Manually create a new shift requirements for a site.</DialogDescription>
@@ -271,6 +281,16 @@ export default function SchedulingPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-bold">Role Requirement</label>
                   <Input value={role} onChange={(e) => setRole(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break Start</label>
+                    <Input type="time" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break End</label>
+                    <Input type="time" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} />
+                  </div>
                 </div>
               </div>
               <DialogFooter><Button onClick={handleAdd}>Publish Requirement</Button></DialogFooter>
@@ -574,6 +594,17 @@ export default function SchedulingPage() {
                               <p className="text-lg font-black text-primary">{format(parseISO(selectedShift.startTime), 'HH:mm')} - {format(parseISO(selectedShift.endTime), 'HH:mm')}</p>
                            </div>
                         </div>
+                        {selectedShift.breakStartTime && (
+                          <div className="flex items-start gap-4">
+                            <div className="bg-orange-50 p-2.5 rounded-xl border border-orange-100"><Coffee className="w-5 h-5 text-orange-600" /></div>
+                            <div>
+                               <p className="text-xs font-bold text-orange-500 uppercase">Scheduled Break</p>
+                               <p className="text-sm font-black text-slate-700">
+                                 {format(parseISO(selectedShift.breakStartTime), 'HH:mm')} - {format(parseISO(selectedShift.breakEndTime!), 'HH:mm')}
+                               </p>
+                            </div>
+                          </div>
+                        )}
                         <div className="flex items-start gap-4">
                            <div className="bg-slate-50 p-2.5 rounded-xl border"><MapPin className="w-5 h-5 text-primary" /></div>
                            <div>

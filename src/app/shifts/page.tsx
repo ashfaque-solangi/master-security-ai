@@ -19,7 +19,8 @@ import {
   ShieldAlert,
   ArrowRight,
   Zap,
-  Lock
+  Lock,
+  Coffee
 } from 'lucide-react';
 import {
   Card,
@@ -51,7 +52,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
 import { Shift, Site, Guard, AssignedGuard } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, set, getHours, getMinutes } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ShiftsManagement() {
@@ -74,6 +75,8 @@ export default function ShiftsManagement() {
   const [status, setStatus] = useState<Shift['status']>('Open');
   const [startTime, setStartTime] = useState(format(new Date(), "yyyy-MM-dd'T'08:00"));
   const [endTime, setEndTime] = useState(format(new Date(), "yyyy-MM-dd'T'16:00"));
+  const [breakStart, setBreakStart] = useState('');
+  const [breakEnd, setBreakEnd] = useState('');
 
   useEffect(() => {
     setIsMounted(true);
@@ -85,6 +88,16 @@ export default function ShiftsManagement() {
   const handleAdd = () => {
     if (!selectedSiteId) return;
     const site = sites.find(s => s.id === selectedSiteId);
+    
+    let bStart, bEnd;
+    if (breakStart && breakEnd) {
+      const baseDate = new Date(startTime);
+      const [sh, sm] = breakStart.split(':').map(Number);
+      const [eh, em] = breakEnd.split(':').map(Number);
+      bStart = set(baseDate, { hours: sh, minutes: sm }).toISOString();
+      bEnd = set(baseDate, { hours: eh, minutes: em }).toISOString();
+    }
+
     const newShift: Shift = {
       id: `SHF-${Date.now()}`,
       siteId: selectedSiteId,
@@ -92,6 +105,8 @@ export default function ShiftsManagement() {
       assignedGuards: [],
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
+      breakStartTime: bStart,
+      breakEndTime: bEnd,
       status: 'Open',
       priority: 'Routine',
       role
@@ -106,6 +121,16 @@ export default function ShiftsManagement() {
   const handleUpdate = () => {
     if (!selectedShift) return;
     const site = sites.find(s => s.id === selectedSiteId);
+    
+    let bStart, bEnd;
+    if (breakStart && breakEnd) {
+      const baseDate = new Date(startTime);
+      const [sh, sm] = breakStart.split(':').map(Number);
+      const [eh, em] = breakEnd.split(':').map(Number);
+      bStart = set(baseDate, { hours: sh, minutes: sm }).toISOString();
+      bEnd = set(baseDate, { hours: eh, minutes: em }).toISOString();
+    }
+
     const updatedShift: Shift = {
       ...selectedShift,
       siteId: selectedSiteId,
@@ -114,6 +139,8 @@ export default function ShiftsManagement() {
       status,
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
+      breakStartTime: bStart,
+      breakEndTime: bEnd,
     };
     const updated = store.updateShift(updatedShift);
     setShifts(updated);
@@ -144,6 +171,13 @@ export default function ShiftsManagement() {
     setStatus(shift.status);
     setStartTime(format(parseISO(shift.startTime), "yyyy-MM-dd'T'HH:mm"));
     setEndTime(format(parseISO(shift.endTime), "yyyy-MM-dd'T'HH:mm"));
+    if (shift.breakStartTime && shift.breakEndTime) {
+      setBreakStart(format(parseISO(shift.breakStartTime), "HH:mm"));
+      setBreakEnd(format(parseISO(shift.breakEndTime), "HH:mm"));
+    } else {
+      setBreakStart('');
+      setBreakEnd('');
+    }
     setIsEditOpen(true);
   };
 
@@ -153,6 +187,8 @@ export default function ShiftsManagement() {
     setStatus('Open');
     setStartTime(format(new Date(), "yyyy-MM-dd'T'08:00"));
     setEndTime(format(new Date(), "yyyy-MM-dd'T'16:00"));
+    setBreakStart('');
+    setBreakEnd('');
     setSelectedShift(null);
   };
 
@@ -182,7 +218,7 @@ export default function ShiftsManagement() {
                 <Plus className="mr-2 h-4 w-4" /> Create Requirement
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>New Shift Requirement</DialogTitle>
                 <DialogDescription>Define a new operational shift for a site.</DialogDescription>
@@ -205,6 +241,16 @@ export default function ShiftsManagement() {
                   <div className="space-y-2">
                     <label className="text-sm font-bold">End Time</label>
                     <Input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break Start</label>
+                    <Input type="time" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break End</label>
+                    <Input type="time" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -262,6 +308,12 @@ export default function ShiftsManagement() {
                       {format(parseISO(shift.startTime), 'MMM dd, HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}
                     </span>
                   </div>
+                  {shift.breakStartTime && (
+                    <div className="flex justify-between text-xs text-orange-600 font-bold">
+                      <span className="uppercase flex items-center gap-1"><Coffee className="w-3 h-3" /> Break</span>
+                      <span>{format(parseISO(shift.breakStartTime), 'HH:mm')} - {format(parseISO(shift.breakEndTime!), 'HH:mm')}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -307,6 +359,7 @@ export default function ShiftsManagement() {
               <TableRow>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest px-6">Site & Deployment</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Time Window</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest">Scheduled Break</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Assigned Team</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Status</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-right px-6">Actions</TableHead>
@@ -331,6 +384,16 @@ export default function ShiftsManagement() {
                       <p className="text-xs font-black text-slate-700">{format(parseISO(shift.startTime), 'EEEE, MMM dd')}</p>
                       <p className="text-[10px] font-bold text-muted-foreground">{format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}</p>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {shift.breakStartTime ? (
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full w-fit">
+                        <Coffee className="w-3 h-3" />
+                        {format(parseISO(shift.breakStartTime), 'HH:mm')} - {format(parseISO(shift.breakEndTime!), 'HH:mm')}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">None</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1 max-w-[200px]">
@@ -379,7 +442,7 @@ export default function ShiftsManagement() {
 
       {/* Edit Shift Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Modify Deployment Record</DialogTitle>
             <DialogDescription>Updating details for deployment ID: {selectedShift?.id}</DialogDescription>
@@ -416,6 +479,16 @@ export default function ShiftsManagement() {
                   <Input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break Start</label>
+                    <Input type="time" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break End</label>
+                    <Input type="time" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} />
+                  </div>
+                </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold">Guard Role</label>
                 <Input value={role} onChange={(e) => setRole(e.target.value)} />
