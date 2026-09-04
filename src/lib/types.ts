@@ -88,25 +88,26 @@ export type Guard = {
   phone?: string;
   status: GuardStatus;
   complianceStatus: ComplianceStatus;
-  roles?: string[]; 
-  skills?: string[];
-  qualifications?: string[];
+  qualifiedRoles: string[]; // Rule 3: Validated roles
+  skills: string[];
   licenceExpiry: string;
   docsMissing: number;
   performanceScore: number;
   weeklyHours: number;
   isAvailable: boolean;
-  currentSiteId?: string;
-  currentSiteName?: string;
-  lastLocationUpdate?: string;
-  subcontractorId?: string;
-  avatarUrl?: string;
+  preferredSites?: string[];
+  unavailableDates?: string[];
 };
 
 export type ShiftAssignment = {
   guardId: string;
   guardName: string;
   role: string;
+};
+
+export type RoleRequirement = {
+  role: string;
+  count: number;
 };
 
 export type Shift = {
@@ -119,8 +120,9 @@ export type Shift = {
   breakEndTime?: string;
   status: 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Published';
   priority: 'Routine' | 'Urgent' | 'STAT';
-  requiredGuards: number;
+  requirements: RoleRequirement[]; // Rule 2: team breakdown
   assignments: ShiftAssignment[];
+  role: string; // Primary role for display
 };
 
 export type Incident = {
