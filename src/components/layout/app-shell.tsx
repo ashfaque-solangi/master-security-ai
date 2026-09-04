@@ -24,7 +24,8 @@ import {
   Building,
   MessageSquare,
   ClipboardList,
-  Receipt
+  Receipt,
+  User as UserIcon
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -53,6 +54,7 @@ const navGroups = [
     label: 'Command Centre',
     items: [
       { href: '/dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
+      { href: '/guard-portal', label: 'My Portal', icon: UserIcon },
       { href: '/recruitment', label: 'HR Dashboard', icon: Briefcase },
       { href: '/analytics', label: 'Executive AI', icon: PieChart },
       { href: '/client-portal', label: 'Client Portal', icon: Building },

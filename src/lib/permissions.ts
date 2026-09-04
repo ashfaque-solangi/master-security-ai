@@ -1,10 +1,10 @@
 
 import { UserRole } from './types';
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client';
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard';
 
 const rolePermissions: Record<UserRole, PermissionAction[]> = {
-  'Super Admin': ['view', 'manage', 'finance', 'hr', 'client'],
+  'Super Admin': ['view', 'manage', 'finance', 'hr', 'client', 'guard'],
   'Company Admin': ['view', 'manage', 'finance', 'hr'],
   'Operations Manager': ['view', 'manage'],
   'Dispatcher': ['view'],
@@ -12,6 +12,7 @@ const rolePermissions: Record<UserRole, PermissionAction[]> = {
   'Compliance Manager': ['view', 'hr'],
   'Payroll / Finance': ['view', 'finance'],
   'Client Admin': ['client'],
+  'Guard': ['guard'],
 };
 
 export function hasPermission(role: UserRole, action: PermissionAction): boolean {
@@ -20,6 +21,7 @@ export function hasPermission(role: UserRole, action: PermissionAction): boolean
 
 export const navItemPermissions: Record<string, PermissionAction> = {
   '/dashboard': 'view',
+  '/guard-portal': 'guard',
   '/recruitment': 'hr',
   '/analytics': 'manage',
   '/client-portal': 'client',

@@ -13,7 +13,8 @@ export type UserRole =
   | 'HR / Recruitment' 
   | 'Compliance Manager' 
   | 'Payroll / Finance' 
-  | 'Client Admin';
+  | 'Client Admin'
+  | 'Guard';
 
 export type User = {
   id: string;

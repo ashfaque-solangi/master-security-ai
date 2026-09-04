@@ -19,9 +19,16 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // If already logged in, go to dashboard
-    if (store.getCurrentUser()) {
-      router.push('/dashboard');
+    // If already logged in, redirect based on role
+    const user = store.getCurrentUser();
+    if (user) {
+      if (user.role === 'Guard') {
+        router.push('/guard-portal');
+      } else if (user.role === 'Client Admin') {
+        router.push('/client-portal');
+      } else {
+        router.push('/dashboard');
+      }
     }
   }, []);
 
@@ -33,12 +40,20 @@ export default function LoginPage() {
     setTimeout(() => {
       const result = store.login(email, password);
       
-      if (result.success) {
+      if (result.success && result.user) {
         toast({
           title: "Welcome back!",
           description: `Logged in as ${result.user?.name}`,
         });
-        router.push('/dashboard');
+        
+        // Role-based redirection
+        if (result.user.role === 'Guard') {
+          router.push('/guard-portal');
+        } else if (result.user.role === 'Client Admin') {
+          router.push('/client-portal');
+        } else {
+          router.push('/dashboard');
+        }
       } else {
         toast({
           variant: "destructive",
@@ -131,9 +146,9 @@ export default function LoginPage() {
           <p className="text-[10px] font-bold text-primary uppercase mb-2">Demo Credentials:</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] text-slate-400 font-medium">
             <div>Admin: <span className="text-white">admin@secureguard.com</span></div>
-            <div>Pass: <span className="text-white">password123</span></div>
-            <div>Ops: <span className="text-white">ops@secureguard.com</span></div>
-            <div>Pass: <span className="text-white">password123</span></div>
+            <div>Guard: <span className="text-white">m.thorne@security.com</span></div>
+            <div>Client: <span className="text-white">client@secureguard.com</span></div>
+            <div>Pass (All): <span className="text-white">password123</span></div>
           </div>
         </div>
       </div>

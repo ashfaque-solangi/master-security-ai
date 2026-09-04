@@ -25,6 +25,7 @@ export const users: User[] = [
   { id: 'USR-003', name: 'James Wilson', email: 'dispatcher@secureguard.com', role: 'Dispatcher', status: 'Active', password: 'password123' },
   { id: 'USR-004', name: 'Emma Davis', email: 'hr@secureguard.com', role: 'HR / Recruitment', status: 'Active', password: 'password123' },
   { id: 'USR-005', name: 'Client X', email: 'client@secureguard.com', role: 'Client Admin', status: 'Active', password: 'password123' },
+  { id: 'USR-006', name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'Guard', status: 'Active', password: 'password123' },
 ];
 
 export const guards: Guard[] = [
