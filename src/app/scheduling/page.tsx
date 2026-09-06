@@ -5,32 +5,22 @@ import { useState, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
-  Building2,
-  Clock,
-  Sparkles,
-  ArrowRight,
-  Trash2,
-  Pencil,
-  AlertTriangle,
-  UserCheck,
-  Timer,
-  Zap,
-  CheckCircle2,
-  MapPin,
-  ChevronLeft,
-  ChevronRight,
+  Clock, 
+  Sparkles, 
+  Zap, 
+  ChevronLeft, 
+  ChevronRight, 
   ShieldAlert,
   Users,
-  Lock,
   Coffee,
   Loader2,
   History,
   Info,
-  XCircle
+  XCircle,
+  CheckCircle2
 } from 'lucide-react';
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -46,7 +36,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
 import { Shift, Guard, Site, AuditRecord } from '@/lib/types';
 import { 
@@ -241,7 +230,7 @@ export default function SchedulingPage() {
                       <p className="text-[10px] font-black uppercase truncate text-slate-800">{shift.siteName}</p>
                       <div className="flex flex-wrap gap-1">
                         {shift.assignments?.map(a => (
-                          <div key={a.guardId} className="bg-slate-100 text-[8px] font-bold px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[80px]">
+                          <div key={a.id} className="bg-slate-100 text-[8px] font-bold px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[80px]">
                             {a.guardName}
                           </div>
                         ))}
@@ -327,9 +316,6 @@ export default function SchedulingPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="p-4 bg-slate-50 border-t">
-            <Button variant="ghost" className="text-red-600 font-black text-[10px] uppercase" onClick={() => setIsDetailOpen(false)}>Close</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

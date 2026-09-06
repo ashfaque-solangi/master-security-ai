@@ -13,19 +13,12 @@ import {
   Filter, 
   LayoutGrid, 
   List,
-  AlertCircle,
-  CheckCircle2,
-  Calendar,
-  ShieldAlert,
-  ArrowRight,
-  Zap,
   Lock,
   Coffee
 } from 'lucide-react';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -51,8 +44,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { Shift, Site, Guard, AssignedGuard } from '@/lib/types';
-import { format, parseISO, set, getHours, getMinutes } from 'date-fns';
+import { Shift, Site, Guard } from '@/lib/types';
+import { format, parseISO, set } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ShiftsManagement() {
@@ -100,16 +93,18 @@ export default function ShiftsManagement() {
 
     const newShift: Shift = {
       id: `SHF-${Date.now()}`,
+      organizationId: 'ORG-GLOBAL-001',
       siteId: selectedSiteId,
       siteName: site?.name || 'Unknown Site',
-      assignedGuards: [],
+      assignments: [],
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
       breakStartTime: bStart,
       breakEndTime: bEnd,
       status: 'Open',
       priority: 'Routine',
-      role
+      requirements: [{ role: role, count: 1 }],
+      role: role
     };
     const updated = store.addShift(newShift);
     setShifts(updated);
@@ -199,7 +194,7 @@ export default function ShiftsManagement() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black tracking-tight text-slate-800">Shift Registry</h1>
-          <p className="text-muted-foreground font-medium">Manage all past, present, and future deployment records.</p>
+          <p className="text-muted-foreground font-medium">Manage all deployment records across the organization.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -243,16 +238,6 @@ export default function ShiftsManagement() {
                     <Input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break Start</label>
-                    <Input type="time" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break End</label>
-                    <Input type="time" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} />
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold">Operational Role</label>
                   <Input value={role} onChange={(e) => setRole(e.target.value)} />
@@ -265,14 +250,6 @@ export default function ShiftsManagement() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
-
-      <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search shifts by site, guard or role..." className="pl-10 border-none bg-slate-50" />
-        </div>
-        <Button variant="ghost" className="text-slate-500 font-bold"><Filter className="w-4 h-4 mr-2" /> Advanced Filter</Button>
       </div>
 
       {viewMode === 'grid' ? (
@@ -321,9 +298,9 @@ export default function ShiftsManagement() {
                     <Users className="h-3 w-3" /> Personnel Team
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {shift.assignedGuards?.length ? shift.assignedGuards.map(g => (
+                    {shift.assignments?.length ? shift.assignments.map(g => (
                       <Badge key={g.id} variant="secondary" className="bg-blue-50 text-blue-700 border-none font-bold text-[10px]">
-                        {g.name}
+                        {g.guardName}
                       </Badge>
                     )) : (
                       <Badge variant="outline" className="border-red-200 text-red-500 bg-red-50 text-[10px] font-black uppercase">UNASSIGNED</Badge>
@@ -397,8 +374,8 @@ export default function ShiftsManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1 max-w-[200px]">
-                      {shift.assignedGuards?.length ? shift.assignedGuards.map(g => (
-                        <div key={g.id} className="text-[9px] font-bold bg-slate-100 px-2 py-0.5 rounded border">{g.name}</div>
+                      {shift.assignments?.length ? shift.assignments.map(g => (
+                        <div key={g.id} className="text-[9px] font-bold bg-slate-100 px-2 py-0.5 rounded border">{g.guardName}</div>
                       )) : <span className="text-[10px] text-red-500 font-black italic">Unfilled Post</span>}
                     </div>
                   </TableCell>
@@ -439,67 +416,6 @@ export default function ShiftsManagement() {
           </Table>
         </Card>
       )}
-
-      {/* Edit Shift Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Modify Deployment Record</DialogTitle>
-            <DialogDescription>Updating details for deployment ID: {selectedShift?.id}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-             <div className="space-y-2">
-                <label className="text-sm font-bold">Operational Status</label>
-                <Select value={status} onValueChange={(v) => setStatus(v as Shift['status'])}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Open">Open (Vacant)</SelectItem>
-                    <SelectItem value="Claimed">Claimed (Ready)</SelectItem>
-                    <SelectItem value="In Progress">In Progress (Live)</SelectItem>
-                    <SelectItem value="Completed">Completed (Finalized)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold">Target Site</label>
-                <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {sites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold">Start Window</label>
-                  <Input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold">End Window</label>
-                  <Input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break Start</label>
-                    <Input type="time" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-1"><Coffee className="w-3 h-3" /> Break End</label>
-                    <Input type="time" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} />
-                  </div>
-                </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold">Guard Role</label>
-                <Input value={role} onChange={(e) => setRole(e.target.value)} />
-              </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} className="bg-primary text-white">Apply Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

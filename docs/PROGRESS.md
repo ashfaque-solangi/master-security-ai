@@ -1,6 +1,7 @@
+
 # SecureGuard Command - Progress Report
 
-This document outlines the final state of the platform, specifically the completion of **Phase 1 (Platform Foundation)** and **Phase 2 (Smart Scheduling)**.
+This document outlines the state of the platform after completing **Phase 1 (Platform Foundation)** and **Phase 2 (Smart Scheduling)**.
 
 ## 🚀 Phase 1: Platform Foundation (100% Complete)
 
@@ -8,6 +9,7 @@ This document outlines the final state of the platform, specifically the complet
 - **Live Command Centre (WEB-01)**: Real-time operational oversight for Guards, Incidents, SOS Alerts, and Site Health.
 - **Admin Dashboard**: Dynamic aggregation of active personnel, open vacancies, and compliance warnings.
 - **User & RBAC (WEB-02)**: Granular Role-Based Access Control with support for Super Admins, Dispatchers, and Client users.
+- **Tenant Isolation**: Secure data scoping for Clients and Subcontractors.
 
 ### 2. Workforce & Entity Management
 - **Guard Workforce (WEB-03)**: Complete lifecycle management from Recruitment Pipeline (Shortlisted -> Training -> Onboarding) to active duty status.
@@ -26,7 +28,7 @@ This document outlines the final state of the platform, specifically the complet
 
 ### 2. Smart Operations (UX)
 - **Multi-Guard Teams (Rule 2)**: Support for building team deployments with specific role requirements (e.g., "1 Supervisor, 2 Guards").
-- **AI Auto-Scheduling**: Global "One-Click" optimization that fills vacancies using candidate match scores.
+- **AI Auto-Scheduling**: Global "One-Click" optimization that fills vacancies using candidate match scores and compliance checks.
 - **AI Candidate Pool**: Intelligent replacement suggester that ranks guards by fatigue, qualification, and compliance status.
 - **Break Management**: Integrated scheduled break windows with visual indicators in the registry.
 
@@ -44,6 +46,7 @@ This document outlines the final state of the platform, specifically the complet
 ---
 
 ### Architectural Foundation
+- **Normalized Data Model**: Consolidated `assignments` structure preventing property-access runtime errors.
 - **StorageService**: Clean LocalStorage abstraction enabling persistent operations across page refreshes.
 - **Validation Layer**: Decoupled business logic used consistently by UI components and automated engines.
 

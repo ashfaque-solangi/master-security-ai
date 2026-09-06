@@ -264,8 +264,7 @@ export const useJsonStore = () => {
       const updatedShifts = allShifts.map(s => {
         if (s.status === 'Completed' || s.status === 'In Progress') return s;
         
-        const currentAssignments = [...(s.assignments || [])];
-        const updatedAssignments: ShiftAssignment[] = [...currentAssignments];
+        const updatedAssignments: ShiftAssignment[] = [...(s.assignments || [])];
 
         s.requirements?.forEach(req => {
           const filledCount = updatedAssignments.filter(a => a.rolePerformed === req.role).length;
@@ -294,7 +293,7 @@ export const useJsonStore = () => {
                 action: 'AI_ASSIGNMENT_PROPOSED', 
                 entityType: 'shift_assignment', 
                 entityId: assignment.id, 
-                description: `AI assigned ${bestCandidate.name} to ${s.siteName} based on optimal compliance scores.`,
+                description: `AI assigned ${bestCandidate.name} to ${s.siteName} for role ${req.role}.`,
                 newValues: assignment
               });
             }

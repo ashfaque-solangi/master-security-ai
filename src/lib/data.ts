@@ -4,16 +4,16 @@ import {
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
   MockDocument
 } from './types';
-import { addHours, addDays, subDays, getMonth, set } from 'date-fns';
+import { addHours, addDays, subDays, set } from 'date-fns';
 
 const now = new Date();
 const orgId = 'ORG-GLOBAL-001';
 
 export const users: User[] = [
-  { id: 'USR-001', organizationId: orgId, name: 'Alex Thompson', email: 'admin@secureguard.com', role: 'SUPER_ADMIN', status: 'Active', password: 'password123' },
-  { id: 'USR-002', organizationId: orgId, name: 'Sarah Miller', email: 'ops@secureguard.com', role: 'OPERATIONS_MANAGER', status: 'Active', password: 'password123' },
-  { id: 'USR-005', organizationId: orgId, name: 'Global Tech Admin', email: 'client@secureguard.com', role: 'CLIENT_ADMIN', status: 'Active', password: 'password123', clientId: 'CL-001' },
-  { id: 'USR-006', organizationId: orgId, name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'GUARD', status: 'Active', password: 'password123' },
+  { id: 'USR-001', organizationId: orgId, name: 'Alex Thompson', email: 'admin@secureguard.com', role: 'Super Admin', status: 'Active', password: 'password123' },
+  { id: 'USR-002', organizationId: orgId, name: 'Sarah Miller', email: 'ops@secureguard.com', role: 'Operations Manager', status: 'Active', password: 'password123' },
+  { id: 'USR-005', organizationId: orgId, name: 'Global Tech Admin', email: 'client@secureguard.com', role: 'Client Admin', status: 'Active', password: 'password123', clientId: 'CL-001' },
+  { id: 'USR-006', organizationId: orgId, name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'Guard', status: 'Active', password: 'password123' },
 ];
 
 const mockSOPs: MockDocument[] = [
@@ -80,7 +80,6 @@ export const sites: Site[] = [
   },
 ];
 
-// Generate 30+ realistic guards
 export const guards: Guard[] = [
   { 
     id: 'GRD-001', organizationId: orgId, name: 'Marcus Thorne', email: 'm.thorne@security.com', phone: '555-0001', status: 'Active', complianceStatus: 'Compliant',
@@ -98,7 +97,6 @@ export const guards: Guard[] = [
     id: 'GRD-004', organizationId: orgId, name: 'Ahmed Khan', email: 'a.khan@security.com', status: 'Active', complianceStatus: 'Compliant',
     licenceExpiry: subDays(now, 5).toISOString(), docsMissing: 0, performanceScore: 95, weeklyHours: 0, isAvailable: true, qualifiedRoles: ['Team Leader', 'Supervisor'], skills: ['Leadership']
   },
-  // Adding more for demo volume
   ...Array.from({ length: 26 }, (_, i) => ({
     id: `GRD-10${i}`,
     organizationId: orgId,
