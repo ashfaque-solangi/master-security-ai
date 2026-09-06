@@ -4,19 +4,19 @@ export type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Archived';
 export type IncidentType = 'Intrusion' | 'Fire' | 'Vandalism' | 'Medical' | 'Maintenance' | 'Observation';
 
 export type UserRole = 
-  | 'Super Admin' 
-  | 'Company Admin'
-  | 'Operations Manager' 
-  | 'Dispatcher'
-  | 'Scheduler'
-  | 'Site Manager'
-  | 'HR / Recruitment'
-  | 'Compliance Manager'
-  | 'Payroll / Finance'
-  | 'Guard'
-  | 'Client Admin'
-  | 'Client Viewer'
-  | 'Subcontractor Admin';
+  | 'SUPER_ADMIN' 
+  | 'COMPANY_ADMIN'
+  | 'OPERATIONS_MANAGER' 
+  | 'DISPATCHER'
+  | 'SCHEDULER'
+  | 'SITE_MANAGER'
+  | 'HR_MANAGER'
+  | 'COMPLIANCE_MANAGER'
+  | 'FINANCE_MANAGER'
+  | 'GUARD'
+  | 'CLIENT_ADMIN'
+  | 'CLIENT_VIEWER'
+  | 'SUBCONTRACTOR_ADMIN';
 
 export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit';
 
@@ -30,7 +30,9 @@ export type User = {
   status: 'Active' | 'Inactive';
   password?: string;
   clientId?: string; 
+  siteIds?: string[];
   subcontractorId?: string;
+  guardId?: string;
   extraPermissions?: PermissionAction[];
 };
 
@@ -242,7 +244,9 @@ export type AuditAction =
   | 'GUARD_ASSIGNED' | 'GUARD_REMOVED' | 'GUARD_REPLACED'
   | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
   | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
-  | 'ASSIGNMENT_REJECTED';
+  | 'ASSIGNMENT_REJECTED'
+  | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED'
+  | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED';
 
 export type AuditRecord = {
   id: string;
@@ -251,11 +255,12 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance';
   entityId: string;
   description: string;
   oldValues: any | null;
   newValues: any | null;
   metadata?: Record<string, any>;
-  status: 'success' | 'warning' | 'error' | 'info';
+  status: 'success' | 'warning' | 'error' | 'info' | 'REJECTED';
+  organizationId: string;
 };

@@ -22,6 +22,7 @@ import {
   AuditRecord, AuditAction, ShiftAssignment
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
+import { AccessControlService } from './access-control';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards_p4_v1',
@@ -56,11 +57,8 @@ function setStored<T>(key: string, data: T) {
 }
 
 export const useJsonStore = () => {
-  const getShifts = () => getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
-  const getGuards = () => getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
-  const getAudits = () => getStored<AuditRecord[]>(STORAGE_KEYS.AUDITS, []);
   const getCurrentUser = (): User | null => getStored<User | null>(STORAGE_KEYS.CURRENT_USER, null);
-
+  
   const logAudit = (params: {
     action: AuditAction;
     entityType: AuditRecord['entityType'];
@@ -71,7 +69,7 @@ export const useJsonStore = () => {
     metadata?: Record<string, any>;
     status?: AuditRecord['status'];
   }) => {
-    const user = getCurrentUser() || { id: 'SYSTEM', name: 'AI Planner', role: 'Super Admin' as any };
+    const user = getCurrentUser() || { id: 'SYSTEM', name: 'AI Planner', role: 'SUPER_ADMIN' as any, organizationId: 'SYSTEM' };
     const newRecord: AuditRecord = {
       id: `AUD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
@@ -85,10 +83,37 @@ export const useJsonStore = () => {
       oldValues: params.oldValues || null,
       newValues: params.newValues || null,
       metadata: params.metadata,
-      status: params.status || 'success'
+      status: params.status || 'success',
+      organizationId: user.organizationId
     };
-    const updated = [newRecord, ...getAudits()];
+    const updated = [newRecord, ...getStored<AuditRecord[]>(STORAGE_KEYS.AUDITS, [])];
     setStored(STORAGE_KEYS.AUDITS, updated);
+  };
+
+  /**
+   * Protected Data Access with Scope Enforcement
+   */
+  const getProtectedData = <T>(key: string, defaultValue: T, entityType: string): T => {
+    const user = getCurrentUser();
+    const data = getStored<T[]>(key, defaultValue as any[]);
+    if (!user) return [] as any;
+    return AccessControlService.filterByScope(user, entityType, data) as any;
+  };
+
+  const assertWrite = (action: PermissionAction, entityType: string, record?: any): boolean => {
+    const user = getCurrentUser();
+    if (!user) return false;
+    if (!AccessControlService.assertMutation(user, action, entityType, record)) {
+      logAudit({
+        action: 'ACCESS_DENIED',
+        entityType: entityType as any,
+        entityId: record?.id || 'NEW',
+        description: `Unauthorized ${action} attempt on ${entityType}`,
+        status: 'REJECTED'
+      });
+      return false;
+    }
+    return true;
   };
 
   return {
@@ -100,215 +125,111 @@ export const useJsonStore = () => {
     getCurrentUser,
     setCurrentUser: (user: User | null) => setStored(STORAGE_KEYS.CURRENT_USER, user),
     login: (email: string, password: string) => {
-      const users = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers);
-      const user = users.find(u => u.email === email && u.password === (password || 'password123'));
+      const usersList = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers);
+      const user = usersList.find(u => u.email === email && u.password === (password || 'password123'));
       if (user) {
         setStored(STORAGE_KEYS.CURRENT_USER, user);
-        logAudit({ action: 'ROLE_ASSIGNED', entityType: 'user', entityId: user.id, description: `Authentication successful for ${user.name}` });
+        logAudit({ action: 'USER_LOGIN', entityType: 'user', entityId: user.id, description: `Login successful for ${user.name}` });
         return { success: true, user };
       }
       return { success: false, error: 'Invalid credentials' };
     },
     logout: () => {
       const user = getCurrentUser();
-      if (user) logAudit({ action: 'ROLE_ASSIGNED', entityType: 'user', entityId: user.id, description: `User session terminated` });
+      if (user) logAudit({ action: 'USER_LOGOUT', entityType: 'user', entityId: user.id, description: `User session terminated` });
       setStored(STORAGE_KEYS.CURRENT_USER, null);
     },
 
-    getGuards,
-    addGuard: (g: Guard) => { 
-      const updated = [g, ...getGuards()]; 
-      setStored(STORAGE_KEYS.GUARDS, updated); 
-      logAudit({ action: 'GUARD_CREATED', entityType: 'guard', entityId: g.id, description: `New officer profile: ${g.name}`, newValues: g });
-      return updated; 
+    getGuards: () => getProtectedData<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards, 'guard'),
+    addGuard: (g: Guard) => {
+      if (!assertWrite('manage', 'guard')) return [];
+      const user = getCurrentUser()!;
+      const record = { ...g, organizationId: user.organizationId };
+      const updated = [record, ...getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards)];
+      setStored(STORAGE_KEYS.GUARDS, updated);
+      logAudit({ action: 'GUARD_CREATED', entityType: 'guard', entityId: record.id, description: `New officer profile: ${record.name}`, newValues: record });
+      return updated;
     },
-    updateGuard: (g: Guard) => { 
-      const old = getGuards().find(o => o.id === g.id);
-      const updated = getGuards().map(old => old.id === g.id ? g : old); 
-      setStored(STORAGE_KEYS.GUARDS, updated); 
+    updateGuard: (g: Guard) => {
+      if (!assertWrite('manage', 'guard', g)) return [];
+      const all = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const old = all.find(o => o.id === g.id);
+      const updated = all.map(o => o.id === g.id ? g : o);
+      setStored(STORAGE_KEYS.GUARDS, updated);
       logAudit({ action: 'GUARD_UPDATED', entityType: 'guard', entityId: g.id, description: `Profile modified: ${g.name}`, oldValues: old, newValues: g });
-      return updated; 
-    },
-    deleteGuard: (id: string) => { 
-      const updated = getGuards().filter(g => g.id !== id); 
-      setStored(STORAGE_KEYS.GUARDS, updated); 
-      logAudit({ action: 'GUARD_STATUS_CHANGED', entityType: 'guard', entityId: id, description: `Profile archived`, status: 'warning' });
-      return updated; 
+      return updated;
     },
 
-    getSites: () => getStored<Site[]>(STORAGE_KEYS.SITES, initialSites),
-    addSite: (s: Site) => { 
-      const updated = [s, ...getStored<Site[]>(STORAGE_KEYS.SITES, initialSites)]; 
-      setStored(STORAGE_KEYS.SITES, updated); 
-      logAudit({ action: 'SITE_CREATED', entityType: 'site', entityId: s.id, description: `New operational site registered`, newValues: s });
-      return updated; 
-    },
-    updateSite: (s: Site) => { 
-      const old = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).find(o => o.id === s.id);
-      const updated = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).map(old => old.id === s.id ? s : old); 
-      setStored(STORAGE_KEYS.SITES, updated); 
-      logAudit({ action: 'SITE_UPDATED', entityType: 'site', entityId: s.id, description: `Site configuration updated`, oldValues: old, newValues: s });
-      return updated; 
-    },
-    deleteSite: (id: string) => {
-      const updated = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).filter(s => s.id !== id);
+    getSites: () => getProtectedData<Site[]>(STORAGE_KEYS.SITES, initialSites, 'site'),
+    addSite: (s: Site) => {
+      if (!assertWrite('manage', 'site')) return [];
+      const user = getCurrentUser()!;
+      const record = { ...s, organizationId: user.organizationId };
+      const updated = [record, ...getStored<Site[]>(STORAGE_KEYS.SITES, initialSites)];
       setStored(STORAGE_KEYS.SITES, updated);
+      logAudit({ action: 'SITE_CREATED', entityType: 'site', entityId: record.id, description: `New site: ${record.name}`, newValues: record });
       return updated;
     },
 
-    getShifts,
-    addShift: (s: Shift) => { 
-      const updated = [s, ...getShifts()]; 
-      setStored(STORAGE_KEYS.SHIFTS, updated); 
-      logAudit({ action: 'SHIFT_CREATED', entityType: 'shift', entityId: s.id, description: `Shift created at ${s.siteName}`, newValues: s });
-      return updated; 
-    },
-    updateShift: (s: Shift) => { 
-      const old = getShifts().find(o => o.id === s.id);
-      const updated = getShifts().map(old => old.id === s.id ? s : old); 
-      setStored(STORAGE_KEYS.SHIFTS, updated); 
-      logAudit({ action: 'SHIFT_UPDATED', entityType: 'shift', entityId: s.id, description: `Shift deployment updated`, oldValues: old, newValues: s });
-      return updated; 
-    },
-    deleteShift: (id: string) => { 
-      const updated = getShifts().filter(s => s.id !== id); 
-      setStored(STORAGE_KEYS.SHIFTS, updated); 
-      logAudit({ action: 'SHIFT_DELETED', entityType: 'shift', entityId: id, description: `Shift cancelled`, status: 'warning' });
-      return updated; 
-    },
-
-    getUsers: () => getStored<User[]>(STORAGE_KEYS.USERS, initialUsers),
-    addUser: (u: User) => {
-      const updated = [u, ...getStored<User[]>(STORAGE_KEYS.USERS, initialUsers)];
-      setStored(STORAGE_KEYS.USERS, updated);
-      logAudit({ action: 'USER_CREATED', entityType: 'user', entityId: u.id, description: `New user profile: ${u.name}`, newValues: u });
-      return updated;
-    },
-    updateUser: (u: User) => {
-      const old = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).find(o => o.id === u.id);
-      const updated = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).map(old => old.id === u.id ? u : old);
-      setStored(STORAGE_KEYS.USERS, updated);
-      logAudit({ action: 'USER_UPDATED', entityType: 'user', entityId: u.id, description: `User profile modified`, oldValues: old, newValues: u });
-      return updated;
-    },
-    deleteUser: (id: string) => {
-      const updated = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers).filter(u => u.id !== id);
-      setStored(STORAGE_KEYS.USERS, updated);
-      logAudit({ action: 'USER_DELETED', entityType: 'user', entityId: id, description: `User removed from platform`, status: 'warning' });
+    getShifts: () => getProtectedData<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts, 'shift'),
+    updateShift: (s: Shift) => {
+      if (!assertWrite('schedule', 'shift', s)) return [];
+      const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const old = all.find(o => o.id === s.id);
+      const updated = all.map(o => o.id === s.id ? s : o);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      logAudit({ action: 'SHIFT_UPDATED', entityType: 'shift', entityId: s.id, description: `Deployment updated at ${s.siteName}`, oldValues: old, newValues: s });
       return updated;
     },
 
-    getClients: () => getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients),
-    addClient: (c: Client) => {
-      const updated = [c, ...getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients)];
-      setStored(STORAGE_KEYS.CLIENTS, updated);
-      return updated;
-    },
-    updateClient: (c: Client) => {
-      const updated = getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients).map(old => old.id === c.id ? c : old);
-      setStored(STORAGE_KEYS.CLIENTS, updated);
-      return updated;
-    },
-    deleteClient: (id: string) => {
-      const updated = getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients).filter(c => c.id !== id);
-      setStored(STORAGE_KEYS.CLIENTS, updated);
-      return updated;
-    },
+    getIncidents: () => getProtectedData<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents, 'incident'),
+    getInvoices: () => getProtectedData<Invoice[]>(STORAGE_KEYS.INVOICES, initialInvoices, 'finance'),
+    getPayroll: () => getProtectedData<PayrollRecord[]>(STORAGE_KEYS.PAYROLL, initialPayroll, 'finance'),
+    getAudits: () => getProtectedData<AuditRecord[]>(STORAGE_KEYS.AUDITS, [], 'audit'),
+    getUsers: () => getProtectedData<User[]>(STORAGE_KEYS.USERS, initialUsers, 'user'),
+    getClients: () => getProtectedData<Client[]>(STORAGE_KEYS.CLIENTS, initialClients, 'client'),
+    getSubcontractors: () => getProtectedData<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors, 'subcontractor'),
 
-    getSubcontractors: () => getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors),
-    addSubcontractor: (s: Subcontractor) => {
-      const updated = [s, ...getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors)];
-      setStored(STORAGE_KEYS.SUBS, updated);
-      return updated;
-    },
-    updateSubcontractor: (s: Subcontractor) => {
-      const updated = getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors).map(old => old.id === s.id ? s : old);
-      setStored(STORAGE_KEYS.SUBS, updated);
-      return updated;
-    },
-    deleteSubcontractor: (id: string) => {
-      const updated = getStored<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors).filter(s => s.id !== id);
-      setStored(STORAGE_KEYS.SUBS, updated);
-      return updated;
-    },
-
-    getIncidents: () => getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents),
-    addIncident: (i: Incident) => {
-      const updated = [i, ...getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents)];
-      setStored(STORAGE_KEYS.INCIDENTS, updated);
-      return updated;
-    },
-    updateIncident: (i: Incident) => {
-      const updated = getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents).map(old => old.id === i.id ? i : old);
-      setStored(STORAGE_KEYS.INCIDENTS, updated);
-      return updated;
-    },
-    deleteIncident: (id: string) => {
-      const updated = getStored<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents).filter(i => i.id !== id);
-      setStored(STORAGE_KEYS.INCIDENTS, updated);
-      return updated;
-    },
-
-    getVisitors: () => getStored<Visitor[]>(STORAGE_KEYS.VISITORS, initialVisitors),
-    getInvoices: () => getStored<Invoice[]>(STORAGE_KEYS.INVOICES, initialInvoices),
-    getApplicants: () => getStored<Applicant[]>(STORAGE_KEYS.APPLICANTS, initialApplicants),
-    getForms: () => getStored<FormDefinition[]>(STORAGE_KEYS.FORMS, initialForms),
-    getAudits,
     logAudit,
-    
     autoFillAllShifts: () => {
-      const allShifts = getShifts();
-      const allGuards = getGuards();
-      logAudit({ action: 'AI_SCHEDULING_RUN', entityType: 'system', entityId: 'GLOBAL_PLAN', description: `AI global optimization engine executed.` });
+      const user = getCurrentUser();
+      if (!user) return [];
+      const allShifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const myShifts = AccessControlService.filterByScope(user, 'shift', allShifts);
+      const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const myGuards = AccessControlService.filterByScope(user, 'guard', allGuards);
+
+      logAudit({ action: 'AI_SCHEDULING_RUN', entityType: 'system', entityId: 'GLOBAL_PLAN', description: `AI optimization Pass` });
 
       const updatedShifts = allShifts.map(s => {
+        if (!myShifts.some(ms => ms.id === s.id)) return s; // Skip shifts outside user's scope
         if (s.status === 'Completed' || s.status === 'In Progress') return s;
         
         const updatedAssignments: ShiftAssignment[] = [...(s.assignments || [])];
-
         s.requirements?.forEach(req => {
           const filledCount = updatedAssignments.filter(a => a.rolePerformed === req.role).length;
           const needed = req.count - filledCount;
-
           for (let i = 0; i < needed; i++) {
-            const bestCandidate = allGuards.find(g => {
+            const bestCandidate = myGuards.find(g => {
               if (g.status !== 'Active' || g.complianceStatus !== 'Compliant') return false;
               const validation = validateGuardAssignment(g, s, allShifts, req.role);
               return validation.isValid;
             });
-
             if (bestCandidate) {
-              const assignment: ShiftAssignment = { 
+              updatedAssignments.push({ 
                 id: `ASG-${Date.now()}-${Math.random()}`, 
-                guardId: bestCandidate.id, 
-                guardName: bestCandidate.name, 
-                rolePerformed: req.role, 
-                status: 'Assigned', 
-                assignedAt: new Date().toISOString(), 
-                assignedBy: 'AI_PLANNER' 
-              };
-              updatedAssignments.push(assignment);
-              
-              logAudit({ 
-                action: 'AI_ASSIGNMENT_PROPOSED', 
-                entityType: 'shift_assignment', 
-                entityId: assignment.id, 
-                description: `AI assigned ${bestCandidate.name} to ${s.siteName} for role ${req.role}.`,
-                newValues: assignment
+                guardId: bestCandidate.id, guardName: bestCandidate.name, 
+                rolePerformed: req.role, status: 'Assigned', 
+                assignedAt: new Date().toISOString(), assignedBy: 'AI_PLANNER' 
               });
             }
           }
         });
-
-        return { 
-          ...s, 
-          assignments: updatedAssignments, 
-          status: updatedAssignments.length > 0 ? 'Claimed' : 'Open' 
-        };
+        return { ...s, assignments: updatedAssignments, status: updatedAssignments.length > 0 ? 'Claimed' : 'Open' };
       });
 
       setStored(STORAGE_KEYS.SHIFTS, updatedShifts);
-      return updatedShifts;
+      return AccessControlService.filterByScope(user, 'shift', updatedShifts);
     }
   };
 };
