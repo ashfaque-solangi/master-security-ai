@@ -8,7 +8,6 @@ import {
   Calendar, 
   Building, 
   DollarSign, 
-  PieChart, 
   Sparkles, 
   ShieldAlert,
   User
@@ -18,7 +17,7 @@ export const DASHBOARDS: DashboardDefinition[] = [
   {
     id: 'executive',
     title: 'Executive Dashboard',
-    description: 'Company-wide high-level operational and financial oversight.',
+    description: 'High-level operational and financial oversight.',
     allowedRoles: ['SUPER_ADMIN', 'COMPANY_ADMIN'],
     icon: LayoutDashboard,
     priority: 1
@@ -34,7 +33,7 @@ export const DASHBOARDS: DashboardDefinition[] = [
   {
     id: 'command-centre',
     title: 'Live Command Centre',
-    description: 'Mission-critical real-time event feed and emergency monitoring.',
+    description: 'Mission-critical event feed and emergency monitoring.',
     allowedRoles: ['DISPATCHER', 'OPERATIONS_MANAGER', 'SUPER_ADMIN', 'COMPANY_ADMIN'],
     icon: Radio,
     priority: 3
@@ -42,7 +41,7 @@ export const DASHBOARDS: DashboardDefinition[] = [
   {
     id: 'hr',
     title: 'HR Dashboard',
-    description: 'Workforce metrics, onboarding status, and leave management.',
+    description: 'Workforce metrics, onboarding, and leave management.',
     allowedRoles: ['HR_MANAGER', 'SUPER_ADMIN', 'COMPANY_ADMIN'],
     icon: Users,
     priority: 4
@@ -50,7 +49,7 @@ export const DASHBOARDS: DashboardDefinition[] = [
   {
     id: 'recruitment',
     title: 'Recruitment Hub',
-    description: 'Talent pipeline, interviews, and candidate verification.',
+    description: 'Talent pipeline and candidate verification.',
     allowedRoles: ['HR_MANAGER', 'SUPER_ADMIN', 'COMPANY_ADMIN'],
     icon: Briefcase,
     priority: 5
@@ -58,7 +57,7 @@ export const DASHBOARDS: DashboardDefinition[] = [
   {
     id: 'compliance',
     title: 'Compliance Dashboard',
-    description: 'SIA licensing, document expiry, and certification health.',
+    description: 'SIA licensing and certification health.',
     allowedRoles: ['COMPLIANCE_MANAGER', 'HR_MANAGER', 'SUPER_ADMIN', 'COMPANY_ADMIN'],
     icon: ShieldCheck,
     priority: 6
@@ -66,15 +65,15 @@ export const DASHBOARDS: DashboardDefinition[] = [
   {
     id: 'finance',
     title: 'Finance Dashboard',
-    description: 'Revenue, payroll estimates, and site profitability.',
+    description: 'Revenue, payroll, and site profitability.',
     allowedRoles: ['FINANCE_MANAGER', 'SUPER_ADMIN', 'COMPANY_ADMIN'],
     icon: DollarSign,
     priority: 7
   },
   {
     id: 'client',
-    title: 'Client Service Portal',
-    description: 'Visibility into contracted sites and service performance.',
+    title: 'Client Portal',
+    description: 'Visibility into contracted sites and performance.',
     allowedRoles: ['CLIENT_ADMIN', 'CLIENT_VIEWER'],
     icon: Building,
     priority: 8
@@ -82,15 +81,15 @@ export const DASHBOARDS: DashboardDefinition[] = [
   {
     id: 'guard',
     title: 'Officer Hub',
-    description: 'My shift schedule, attendance, and personal compliance.',
+    description: 'My schedule, attendance, and compliance.',
     allowedRoles: ['GUARD'],
     icon: User,
     priority: 9
   },
   {
     id: 'ai-insights',
-    title: 'AI Operations Center',
-    description: 'Predictive staffing analytics and risk detection.',
+    title: 'AI Center',
+    description: 'Predictive analytics and risk detection.',
     allowedRoles: ['SUPER_ADMIN', 'COMPANY_ADMIN', 'OPERATIONS_MANAGER'],
     requiredPermissions: ['ai'],
     icon: Sparkles,
@@ -98,8 +97,8 @@ export const DASHBOARDS: DashboardDefinition[] = [
   },
   {
     id: 'system',
-    title: 'System Administration',
-    description: 'Organization health, audit logs, and security controls.',
+    title: 'System Admin',
+    description: 'Organization health and audit controls.',
     allowedRoles: ['SUPER_ADMIN'],
     icon: ShieldAlert,
     priority: 11
@@ -112,7 +111,7 @@ export function getAuthorizedDashboards(role: UserRole, permissions: string[] = 
     if (!hasRole) return false;
     
     if (db.requiredPermissions) {
-      return db.requiredPermissions.every(p => permissions.includes(p));
+      return db.requiredPermissions.every(p => permissions.includes(p as any));
     }
     
     return true;

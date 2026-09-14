@@ -8,7 +8,6 @@ import {
   DollarSign, 
   TrendingUp, 
   MapPin,
-  Clock,
   History
 } from 'lucide-react';
 import { KPICard } from './kpi-card';
@@ -23,7 +22,6 @@ export function ExecutiveDashboard() {
   const guards = store.getGuards();
   const sites = store.getSites();
   const shifts = store.getShifts();
-  const incidents = store.getIncidents();
   const audits = store.getAudits();
 
   const activeStaff = shifts.filter(s => s.status === 'In Progress').reduce((acc, s) => acc + (s.assignments?.length || 0), 0);
@@ -141,7 +139,7 @@ export function ExecutiveDashboard() {
           <Card className="border shadow-sm rounded-3xl overflow-hidden bg-white">
             <CardHeader className="border-b px-6 py-4 bg-slate-50/50">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                <History className="h-3 w-3" /> Recent System Audit
+                <History className="h-3 w-3" /> Recent Audit
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -153,7 +151,7 @@ export function ExecutiveDashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-[10px] font-bold text-slate-800 truncate">{log.description}</p>
-                      <p className="text-[8px] font-black text-slate-400 uppercase">{format(new Date(log.timestamp), 'HH:mm')} • {log.userRole}</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase">{format(new Date(log.timestamp), 'HH:mm')}</p>
                     </div>
                   </div>
                 ))}

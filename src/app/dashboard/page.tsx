@@ -6,24 +6,14 @@ import {
   LayoutDashboard, 
   ChevronRight, 
   Plus, 
-  Bell, 
-  Search,
-  Sparkles,
-  ShieldCheck,
-  Zap,
+  ChevronDown,
   Activity,
-  User as UserIcon,
-  Loader2,
-  Settings,
-  MoreVertical,
-  Radio,
-  History
+  Loader2
 } from 'lucide-react';
 import { useJsonStore } from '@/lib/store';
-import { User, DashboardDefinition } from '@/lib/types';
+import { User } from '@/lib/types';
 import { getAuthorizedDashboards, getDefaultDashboard } from '@/lib/dashboard-config';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ExecutiveDashboard } from '@/components/dashboard/executive-dashboard';
 import { OperationsDashboard } from '@/components/dashboard/operations-dashboard';
 import { HRDashboard } from '@/components/dashboard/hr-dashboard';
@@ -36,7 +26,6 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 
-// Placeholder components for dashboards not yet fully componentized
 const PlaceholderDashboard = ({ title }: { title: string }) => (
   <div className="p-20 text-center flex flex-col items-center gap-4 bg-slate-50 rounded-[3rem] border border-dashed">
      <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center shadow-sm">
@@ -94,7 +83,6 @@ function DashboardContent() {
 
   return (
     <div className="flex flex-col gap-10 pb-20">
-      {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
@@ -116,11 +104,11 @@ function DashboardContent() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="rounded-2xl font-black text-xs h-12 px-6 uppercase italic tracking-tighter border-slate-200 shadow-sm bg-white">
-                  Switch Dashboard <ChevronRight className="ml-2 h-4 w-4" />
+                  Switch Dashboard <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 rounded-3xl p-3 shadow-2xl border-none">
-                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest pb-3">Available Intelligence Views</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest pb-3">Available Views</DropdownMenuLabel>
                 <DropdownMenuSeparator className="mb-2" />
                 {dashboards.map(db => (
                   <DropdownMenuItem 

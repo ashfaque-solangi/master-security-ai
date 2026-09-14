@@ -22,10 +22,8 @@ import {
   Settings,
   Lock,
   History,
-  ClipboardList,
   MessageSquare,
   UserCheck,
-  PieChart,
   User as UserIcon,
   Users2
 } from 'lucide-react';
