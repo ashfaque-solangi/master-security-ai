@@ -22,6 +22,7 @@ import { WarRoom } from '@/components/dashboard/war-room';
 import { FinanceDashboard } from '@/components/dashboard/finance-dashboard';
 import { ComplianceDashboard } from '@/components/dashboard/compliance-dashboard';
 import { AIDashboard } from '@/components/dashboard/ai-dashboard';
+import { RecruitmentDashboard } from '@/components/dashboard/recruitment-dashboard';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -82,6 +83,7 @@ function DashboardContent() {
       case 'finance': return <FinanceDashboard />;
       case 'compliance': return <ComplianceDashboard />;
       case 'ai-insights': return <AIDashboard />;
+      case 'recruitment': return <RecruitmentDashboard />;
       default: return <PlaceholderDashboard title={activeDashboard?.title || 'Dashboard'} />;
     }
   };

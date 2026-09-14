@@ -43,6 +43,7 @@ This document outlines the total work completed for the **SecureGuard Command** 
 - **Operations Dashboard**: Focuses on daily field deployment, staffing gaps, and fatigue risk monitoring.
 - **HR Dashboard**: Visual recruitment funnel and document collection status.
 - **Guard Portal**: A simplified, high-focus interface for field officers to manage their shifts, claims, and compliance.
+- **Recruitment Dashboard**: Specialized pipeline visualization with candidate velocity and growth forecasting.
 
 ### 2. Premium Enterprise UI
 - **White Enterprise Theme**: Shifted the entire application to a high-fidelity light theme inspired by modern SaaS platforms.
