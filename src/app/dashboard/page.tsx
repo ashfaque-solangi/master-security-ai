@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { 
   Users, UserCheck, ShieldAlert, AlertTriangle, Radio, Navigation, 
   CloudSun, Zap, Activity, Clock, ShieldCheck, MapPin, 
-  MessageSquare, Briefcase, TrendingUp, Search
+  MessageSquare, Briefcase, TrendingUp, Search, CheckCircle2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
