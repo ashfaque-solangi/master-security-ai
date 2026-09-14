@@ -16,7 +16,8 @@ import {
   History,
   Info,
   XCircle,
-  CheckCircle2
+  CheckCircle2,
+  GripVertical
 } from 'lucide-react';
 import {
   Card,
@@ -47,7 +48,8 @@ import {
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
-  addMonths
+  addMonths,
+  differenceInHours
 } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { validateGuardAssignment, getFatigueScore } from '@/lib/scheduling-validation';
@@ -72,6 +74,9 @@ export default function SchedulingPage() {
   const [targetRole, setTargetRole] = useState('');
   const [suggestions, setSuggestions] = useState<{guard: Guard, validation: any}[]>([]);
 
+  // Drag & Drop State
+  const [draggedShiftId, setDraggedShiftId] = useState<string | null>(null);
+
   useEffect(() => {
     setIsMounted(true);
     setShifts(store.getShifts());
@@ -81,6 +86,72 @@ export default function SchedulingPage() {
   }, []);
 
   if (!isMounted) return null;
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedShiftId(id);
+    e.dataTransfer.setData('shiftId', id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetDay: Date) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('shiftId');
+    const shift = shifts.find(s => s.id === id);
+    
+    if (!shift) return;
+
+    // Calculate new start/end based on target day
+    const oldStart = parseISO(shift.startTime);
+    const oldEnd = parseISO(shift.endTime);
+    const duration = differenceInHours(oldEnd, oldStart);
+
+    const newStart = new Date(targetDay);
+    newStart.setHours(oldStart.getHours(), oldStart.getMinutes());
+    
+    const newEnd = new Date(newStart);
+    newEnd.setHours(newStart.getHours() + duration);
+
+    // Validate if guards assigned
+    if (shift.assignments?.length > 0) {
+      for (const asg of shift.assignments) {
+        const guard = guards.find(g => g.id === asg.guardId);
+        if (guard) {
+          const validation = validateGuardAssignment(guard, { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() }, shifts, asg.rolePerformed);
+          if (!validation.isValid) {
+            toast({
+              variant: "destructive",
+              title: "Move Blocked",
+              description: `${guard.name}: ${validation.message}`
+            });
+            return;
+          }
+        }
+      }
+    }
+
+    const updatedShift: Shift = {
+      ...shift,
+      startTime: newStart.toISOString(),
+      endTime: newEnd.toISOString()
+    };
+
+    const updated = store.updateShift(updatedShift);
+    setShifts(updated);
+    store.logAudit({
+      action: 'SHIFT_RESCHEDULED',
+      entityType: 'shift',
+      entityId: shift.id,
+      description: `Shift moved to ${format(newStart, 'MMM dd, HH:mm')}`,
+      oldValues: { start: shift.startTime, end: shift.endTime },
+      newValues: { start: updatedShift.startTime, end: updatedShift.endTime }
+    });
+
+    toast({
+      title: "Shift Moved",
+      description: `New window: ${format(newStart, 'HH:mm')} - ${format(newEnd, 'HH:mm')}`
+    });
+    setDraggedShiftId(null);
+  };
 
   const handleAutoFill = () => {
     setIsAutoFilling(true);
@@ -214,7 +285,13 @@ export default function SchedulingPage() {
           const isOtherMonth = viewMode === 'month' && !isSameMonth(day, currentDate);
 
           return (
-            <div key={idx} className={`flex flex-col min-h-[160px] bg-white transition-colors ${isOtherMonth ? 'bg-slate-50/50' : ''}`}>
+            <div 
+              key={idx} 
+              className={`flex flex-col min-h-[160px] bg-white transition-colors ${isOtherMonth ? 'bg-slate-50/50' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-primary/5'); }}
+              onDragLeave={(e) => e.currentTarget.classList.remove('bg-primary/5')}
+              onDrop={(e) => { e.currentTarget.classList.remove('bg-primary/5'); handleDrop(e, day); }}
+            >
               <div className={`p-2 text-center border-b sticky top-0 z-10 bg-white/95 backdrop-blur-sm ${isToday ? 'bg-primary/5' : ''}`}>
                 <p className={`text-[9px] font-black uppercase ${isToday ? 'text-primary' : 'text-slate-400'}`}>{format(day, 'EEE')}</p>
                 <div className={`mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${isToday ? 'bg-primary text-white shadow-md' : 'text-slate-800'}`}>{format(day, 'dd')}</div>
@@ -222,10 +299,19 @@ export default function SchedulingPage() {
 
               <div className="flex-1 p-2 space-y-2">
                 {dayShifts.map(shift => (
-                  <Card key={shift.id} onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} className={`group relative border-none shadow-sm hover:shadow-md cursor-pointer overflow-hidden rounded-xl p-2 ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/50' : 'bg-white'}`}>
+                  <Card 
+                    key={shift.id} 
+                    draggable={shift.status !== 'Completed'}
+                    onDragStart={(e) => handleDragStart(e, shift.id)}
+                    onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} 
+                    className={`group relative border-none shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing overflow-hidden rounded-xl p-2 ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/50' : 'bg-white'} ${draggedShiftId === shift.id ? 'opacity-30' : ''}`}
+                  >
                     <div className={`absolute left-0 top-0 w-1 h-full ${shift.status === 'Completed' ? 'bg-slate-400' : shift.priority === 'STAT' ? 'bg-red-600' : 'bg-primary'}`} />
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase truncate text-slate-800">{shift.siteName}</p>
+                      <div className="flex items-center justify-between">
+                         <p className="text-[10px] font-black uppercase truncate text-slate-800 flex-1">{shift.siteName}</p>
+                         <GripVertical className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100" />
+                      </div>
                       <div className="flex flex-wrap gap-1">
                         {shift.assignments?.map(a => (
                           <div key={a.id} className="bg-slate-100 text-[8px] font-bold px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[80px]">
@@ -234,6 +320,7 @@ export default function SchedulingPage() {
                         ))}
                         {(shift.status === 'Open' || !shift.assignments?.length) && <Badge variant="outline" className="text-[7px] bg-red-50 text-red-500 border-red-100 uppercase py-0 px-1">VACANT</Badge>}
                       </div>
+                      <p className="text-[8px] text-slate-400 font-bold">{format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}</p>
                     </div>
                   </Card>
                 ))}

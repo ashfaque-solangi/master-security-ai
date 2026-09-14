@@ -32,28 +32,28 @@ import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
 
 const STORAGE_KEYS = {
-  GUARDS: 'sg_guards_p5_v1',
-  SITES: 'sg_sites_p5_v1',
-  USERS: 'sg_users_p5_v1',
-  CLIENTS: 'sg_clients_p5_v1',
-  SUBS: 'sg_subs_p5_v1',
-  SHIFTS: 'sg_shifts_p5_v1',
-  INCIDENTS: 'sg_incidents_p5_v1',
-  VISITORS: 'sg_visitors_p5_v1',
-  INVOICES: 'sg_invoices_p5_v1',
-  APPLICANTS: 'sg_applicants_p5_v1',
-  PATROLS: 'sg_patrols_p5_v1',
-  PAYROLL: 'sg_payroll_p5_v1',
-  FORMS: 'sg_forms_p5_v1',
-  AUDITS: 'sg_audits_p5_v1',
-  CURRENT_USER: 'sg_current_user_p5_v1',
-  SOS: 'sg_sos_p5_v1',
-  ALARMS: 'sg_alarms_p5_v1',
-  VEHICLES: 'sg_vehicles_p5_v1',
-  DOCS: 'sg_docs_p5_v1',
-  CONTRACTS: 'sg_contracts_p5_v1',
-  LEAVE: 'sg_leave_p5_v1',
-  EVENTS: 'sg_events_p5_v1'
+  GUARDS: 'sg_guards_p6_v1',
+  SITES: 'sg_sites_p6_v1',
+  USERS: 'sg_users_p6_v1',
+  CLIENTS: 'sg_clients_p6_v1',
+  SUBS: 'sg_subs_p6_v1',
+  SHIFTS: 'sg_shifts_p6_v1',
+  INCIDENTS: 'sg_incidents_p6_v1',
+  VISITORS: 'sg_visitors_p6_v1',
+  INVOICES: 'sg_invoices_p6_v1',
+  APPLICANTS: 'sg_applicants_p6_v1',
+  PATROLS: 'sg_patrols_p6_v1',
+  PAYROLL: 'sg_payroll_p6_v1',
+  FORMS: 'sg_forms_p6_v1',
+  AUDITS: 'sg_audits_p6_v1',
+  CURRENT_USER: 'sg_current_user_p6_v1',
+  SOS: 'sg_sos_p6_v1',
+  ALARMS: 'sg_alarms_p6_v1',
+  VEHICLES: 'sg_vehicles_p6_v1',
+  DOCS: 'sg_docs_p6_v1',
+  CONTRACTS: 'sg_contracts_p6_v1',
+  LEAVE: 'sg_leave_p6_v1',
+  EVENTS: 'sg_events_p6_v1'
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -166,6 +166,7 @@ export const useJsonStore = () => {
     getSubcontractors: () => getProtectedData<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors, 'subcontractor'),
     getMessages: () => getStored<any[]>(STORAGE_KEYS.EVENTS, []),
     getLiveEvents: () => getStored<OperationalEvent[]>(STORAGE_KEYS.EVENTS, []),
+    getInvoices: () => getProtectedData<Invoice[]>(STORAGE_KEYS.INVOICES, initialInvoices, 'finance'),
 
     addSite: (s: Site) => {
       if (!assertWrite('manage', 'site')) return [];
@@ -345,6 +346,18 @@ export const useJsonStore = () => {
     logAudit,
     resetToDemo: () => {
       Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+      window.location.reload();
+    },
+    loadDemoDataset: () => {
+      setStored(STORAGE_KEYS.GUARDS, initialGuards);
+      setStored(STORAGE_KEYS.SITES, initialSites);
+      setStored(STORAGE_KEYS.CLIENTS, initialClients);
+      setStored(STORAGE_KEYS.SHIFTS, initialShifts);
+      setStored(STORAGE_KEYS.INCIDENTS, initialIncidents);
+      setStored(STORAGE_KEYS.APPLICANTS, initialApplicants);
+      setStored(STORAGE_KEYS.CONTRACTS, initialContracts);
+      setStored(STORAGE_KEYS.INVOICES, initialInvoices);
+      logAudit({ action: 'SYSTEM_UPDATED', entityType: 'system', entityId: 'DEMO', description: 'Comprehensive demo dataset loaded.' });
       window.location.reload();
     }
   };

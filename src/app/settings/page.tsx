@@ -12,7 +12,11 @@ import {
   CheckCircle2,
   XCircle,
   Pencil,
-  ShieldAlert
+  ShieldAlert,
+  Database,
+  RefreshCw,
+  Zap,
+  Info
 } from 'lucide-react';
 import {
   Card,
@@ -46,6 +50,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useJsonStore } from '@/lib/store';
 import { User, UserRole, PermissionAction } from '@/lib/types';
 import { ALL_PERMISSIONS } from '@/lib/permissions';
+import { useToast } from '@/hooks/use-toast';
 
 const roles: UserRole[] = [
   'SUPER_ADMIN',
@@ -60,6 +65,7 @@ const roles: UserRole[] = [
 
 export default function SettingsPage() {
   const store = useJsonStore();
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [mounted, setMounted] = useState(false);
   
@@ -143,6 +149,16 @@ export default function SettingsPage() {
     );
   };
 
+  const handleResetData = () => {
+    store.resetToDemo();
+    toast({ title: "Data Reset", description: "All local overrides cleared. System restored to default." });
+  };
+
+  const handleLoadDemo = () => {
+    store.loadDemoDataset();
+    toast({ title: "Demo Dataset Loaded", description: "80+ Shifts and 40+ Guards relationally linked for testing." });
+  };
+
   if (!mounted) return null;
 
   return (
@@ -155,7 +171,61 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-8">
+          <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
+            <CardHeader className="bg-slate-50 border-b pb-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg font-black flex items-center gap-2">
+                    <Database className="h-5 w-5 text-primary" />
+                    DEMO ENVIRONMENT CONTROLS
+                  </CardTitle>
+                  <CardDescription>Administrative actions for QA and deterministic testing.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleResetData} className="rounded-xl border-red-200 text-red-600 hover:bg-red-50">
+                    <RefreshCw className="mr-2 h-4 w-4" /> RESET SYSTEM
+                  </Button>
+                  <Button size="sm" onClick={handleLoadDemo} className="bg-primary text-white rounded-xl shadow-lg shadow-primary/20">
+                    <Zap className="mr-2 h-4 w-4" /> LOAD DEMO DATASET
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+               <div className="grid md:grid-cols-2 gap-6">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Info className="h-3 w-3" /> Current Dataset Context</p>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-2xl font-black text-slate-800 italic">Org A/B</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">Tenant Scopes</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-black text-slate-800 italic">40+</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">Guards Seeded</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-black text-slate-800 italic">80+</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">Interactive Shifts</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-black text-slate-800 italic">11</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">Funnel Stages</p>
+                        </div>
+                     </div>
+                  </div>
+                  <div className="space-y-4">
+                     <p className="text-xs font-medium text-slate-600 leading-relaxed">
+                        Loading the demo dataset generates relationally linked records across Organizations, Clients, Sites, Guards, and Shifts. 
+                        Use the <strong>Scheduling Command</strong> to test drag-and-drop validation rules (overlaps, 16h limit).
+                     </p>
+                     <Badge className="bg-green-100 text-green-600 border-none font-black text-[9px]">DETERMINISTIC SEEDING ACTIVE</Badge>
+                  </div>
+               </div>
+            </CardContent>
+          </Card>
+
           <Card className="border-none shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
               <div>

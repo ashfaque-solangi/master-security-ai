@@ -21,7 +21,9 @@ import {
   ArrowRight,
   TrendingUp,
   XCircle,
-  Radio
+  Radio,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import {
   Card,
@@ -119,6 +121,52 @@ export default function GuardPortal() {
       title: "Shift Claimed",
       description: `You are now assigned to ${shift.siteName}.`
     });
+    refreshData();
+  };
+
+  const handleCheckIn = (shift: Shift) => {
+    const updatedAssignments = shift.assignments.map(a => 
+      a.guardId === currentGuard?.id ? { ...a, status: 'On Site', checkInTime: new Date().toISOString() } : a
+    );
+    const updatedShift: Shift = { ...shift, assignments: updatedAssignments, status: 'In Progress' };
+    store.updateShift(updatedShift);
+    
+    // Update guard status
+    if (currentGuard) {
+      store.updateGuard({ ...currentGuard, status: 'Active' });
+    }
+
+    store.logAudit({
+      action: 'ATTENDANCE_CHECK_IN',
+      entityType: 'shift',
+      entityId: shift.id,
+      description: `Officer ${currentGuard?.name} checked in at ${shift.siteName}`
+    });
+
+    toast({ title: "Checked In", description: "Your status is now ACTIVE at " + shift.siteName });
+    refreshData();
+  };
+
+  const handleCheckOut = (shift: Shift) => {
+    const updatedAssignments = shift.assignments.map(a => 
+      a.guardId === currentGuard?.id ? { ...a, status: 'Confirmed', checkOutTime: new Date().toISOString() } : a
+    );
+    const updatedShift: Shift = { ...shift, assignments: updatedAssignments, status: 'Completed' };
+    store.updateShift(updatedShift);
+    
+    // Update guard status
+    if (currentGuard) {
+      store.updateGuard({ ...currentGuard, status: 'Off Duty' });
+    }
+
+    store.logAudit({
+      action: 'ATTENDANCE_CHECK_OUT',
+      entityType: 'shift',
+      entityId: shift.id,
+      description: `Officer ${currentGuard?.name} checked out from ${shift.siteName}`
+    });
+
+    toast({ title: "Checked Out", description: "Shift completed. Data logged for payroll." });
     refreshData();
   };
 
@@ -230,7 +278,21 @@ export default function GuardPortal() {
                     </div>
                   </div>
                   <div className="flex gap-4">
-                    <Button className="flex-1 bg-primary hover:bg-primary/90 text-white font-black h-16 rounded-[1.5rem] text-lg uppercase italic tracking-tighter shadow-xl shadow-primary/20">START PATROL</Button>
+                    {activeShift.assignments.find(a => a.guardId === currentGuard.id)?.status !== 'On Site' ? (
+                      <Button 
+                        onClick={() => handleCheckIn(activeShift)}
+                        className="flex-1 bg-primary hover:bg-primary/90 text-white font-black h-16 rounded-[1.5rem] text-lg uppercase italic tracking-tighter shadow-xl shadow-primary/20"
+                      >
+                        <LogIn className="mr-2 h-6 w-6" /> CHECK IN
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={() => handleCheckOut(activeShift)}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black h-16 rounded-[1.5rem] text-lg uppercase italic tracking-tighter shadow-xl shadow-red-500/20"
+                      >
+                        <LogOut className="mr-2 h-6 w-6" /> CHECK OUT
+                      </Button>
+                    )}
                     <Button variant="outline" className="flex-1 border-white/10 text-white hover:bg-white/5 h-16 rounded-[1.5rem] text-lg uppercase italic tracking-tighter">INCIDENT REPORT</Button>
                   </div>
                 </div>

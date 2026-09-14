@@ -173,28 +173,6 @@ export type Applicant = {
   notes: string;
 };
 
-export type JobPost = {
-  id: string;
-  organizationId: string;
-  siteId: string;
-  title: string;
-  requiredRoles: string[];
-  count: number;
-  status: 'Open' | 'Closed';
-  closingDate: string;
-};
-
-export type Interview = {
-  id: string;
-  applicantId: string;
-  date: string;
-  interviewer: string;
-  type: 'Phone' | 'F2F' | 'Technical';
-  score: number;
-  result: 'Pass' | 'Fail' | 'Pending';
-  notes: string;
-};
-
 export type ShiftAssignment = {
   id: string;
   guardId: string;
@@ -203,6 +181,8 @@ export type ShiftAssignment = {
   status: 'Assigned' | 'Confirmed' | 'In Transit' | 'On Site';
   assignedAt: string;
   assignedBy: string;
+  checkInTime?: string;
+  checkOutTime?: string;
 };
 
 export type RoleRequirement = {
@@ -267,7 +247,7 @@ export type Vehicle = {
   id: string;
   organizationId: string;
   name: string;
-  status: 'Active' | 'Idle' | 'Maintenance';
+  status: 'Active' | 'Idle' | 'Maintenance' | 'Offline';
   siteId?: string;
   lastUpdate: string;
 };
@@ -290,7 +270,7 @@ export type Invoice = {
   siteName: string;
   amount: number;
   date: string;
-  status: 'Paid' | 'Pending' | 'Overdue';
+  status: 'Paid' | 'Pending' | 'Overdue' | 'Draft';
 };
 
 export type Patrol = {
@@ -301,7 +281,7 @@ export type Patrol = {
   startTime: string;
   completion: number;
   checkpoints: number;
-  status: 'In Progress' | 'Completed' | 'Alert';
+  status: 'In Progress' | 'Completed' | 'Alert' | 'Scheduled' | 'Delayed' | 'Missed';
 };
 
 export type PayrollRecord = {
@@ -325,7 +305,7 @@ export type FormDefinition = {
 export type LeaveRecord = {
   id: string;
   guardId: string;
-  type: 'Sick' | 'Annual' | 'Compassionate';
+  type: 'Sick' | 'Annual' | 'Compassionate' | 'Emergency Leave';
   startDate: string;
   endDate: string;
   status: 'Pending' | 'Approved' | 'Rejected';
@@ -337,7 +317,7 @@ export type AuditAction =
   | 'GUARD_CREATED' | 'GUARD_UPDATED' | 'GUARD_STATUS_CHANGED'
   | 'CLIENT_CREATED' | 'CLIENT_UPDATED'
   | 'SITE_CREATED' | 'SITE_UPDATED'
-  | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'SHIFT_PUBLISHED'
+  | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'SHIFT_PUBLISHED' | 'SHIFT_RESCHEDULED'
   | 'GUARD_ASSIGNED' | 'GUARD_REMOVED' | 'GUARD_REPLACED'
   | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
   | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
@@ -345,7 +325,8 @@ export type AuditAction =
   | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED'
   | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED'
   | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED'
-  | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'CONTRACT_UPDATED';
+  | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'CONTRACT_UPDATED'
+  | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT';
 
 export type AuditRecord = {
   id: string;
