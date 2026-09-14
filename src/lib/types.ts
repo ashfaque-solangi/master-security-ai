@@ -263,14 +263,6 @@ export type Vehicle = {
   lastUpdate: string;
 };
 
-export type Weather = {
-  temp: number;
-  condition: string;
-  wind: string;
-  visibility: string;
-  risk: 'Low' | 'Moderate' | 'High';
-};
-
 export type Visitor = {
   id: string;
   siteId: string;
@@ -361,4 +353,15 @@ export type AuditRecord = {
   metadata?: Record<string, any>;
   status: 'success' | 'warning' | 'error' | 'info' | 'REJECTED';
   organizationId: string;
+};
+
+export type OperationalEvent = {
+  id: string;
+  timestamp: string;
+  type: 'GUARD_CHECKED_IN' | 'GUARD_CHECKED_OUT' | 'SOS_TRIGGERED' | 'INCIDENT_CREATED' | 'PATROL_STARTED' | 'ALARM_TRIGGERED' | 'VEHICLE_UPDATED';
+  siteId: string;
+  siteName: string;
+  description: string;
+  severity: Severity;
+  metadata?: any;
 };

@@ -28,7 +28,7 @@ import {
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
   AuditRecord, AuditAction, ShiftAssignment, JobPost, Interview, 
-  SOSAlert, Alarm, Vehicle, MockDocument, Contract, LeaveRecord
+  SOSAlert, Alarm, Vehicle, MockDocument, Contract, LeaveRecord, OperationalEvent
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
@@ -56,7 +56,8 @@ const STORAGE_KEYS = {
   VEHICLES: 'sg_vehicles_p5_v1',
   DOCS: 'sg_docs_p5_v1',
   CONTRACTS: 'sg_contracts_p5_v1',
-  LEAVE: 'sg_leave_p5_v1'
+  LEAVE: 'sg_leave_p5_v1',
+  EVENTS: 'sg_events_p5_v1'
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -153,7 +154,7 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.CURRENT_USER, null);
     },
 
-    // Entity Handlers with Scoping
+    // Protected Entity Handlers
     getGuards: () => getProtectedData<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards, 'guard'),
     getSites: () => getProtectedData<Site[]>(STORAGE_KEYS.SITES, initialSites, 'site'),
     getClients: () => getProtectedData<Client[]>(STORAGE_KEYS.CLIENTS, initialClients, 'client'),
@@ -169,8 +170,9 @@ export const useJsonStore = () => {
     getDocs: () => getProtectedData<MockDocument[]>(STORAGE_KEYS.DOCS, initialDocs, 'document'),
     getContracts: () => getProtectedData<Contract[]>(STORAGE_KEYS.CONTRACTS, initialContracts, 'contract'),
     getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'guard'),
+    getLiveEvents: () => getStored<OperationalEvent[]>(STORAGE_KEYS.EVENTS, []),
 
-    // Mutation Wrappers
+    // Scoped Mutations
     addSite: (s: Site) => {
       if (!assertWrite('manage', 'site')) return [];
       const user = getCurrentUser()!;
@@ -181,17 +183,56 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    updateUser: (u: User) => {
-      if (!assertWrite('manage', 'user', u)) return [];
-      const all = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers);
-      const old = all.find(o => o.id === u.id);
-      const updated = all.map(o => o.id === u.id ? u : o);
-      setStored(STORAGE_KEYS.USERS, updated);
-      logAudit({ action: 'USER_UPDATED', entityType: 'user', entityId: u.id, description: `User modified: ${u.name}`, oldValues: old, newValues: u });
+    updateGuard: (g: Guard) => {
+      if (!assertWrite('hr', 'guard', g)) return [];
+      const all = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const old = all.find(o => o.id === g.id);
+      const updated = all.map(o => o.id === g.id ? g : o);
+      setStored(STORAGE_KEYS.GUARDS, updated);
+      logAudit({ action: 'GUARD_UPDATED', entityType: 'guard', entityId: g.id, description: `Guard profile updated: ${g.name}`, oldValues: old, newValues: g });
       return updated;
     },
 
-    // AI and Aggregations
+    updateRecruitmentStage: (applicantId: string, stage: RecruitmentStage) => {
+      const all = getStored<Applicant[]>(STORAGE_KEYS.APPLICANTS, initialApplicants);
+      const applicant = all.find(a => a.id === applicantId);
+      if (!applicant || !assertWrite('hr', 'guard', applicant)) return all;
+      
+      const oldStage = applicant.currentStage;
+      const updated = all.map(a => a.id === applicantId ? { ...a, currentStage: stage } : a);
+      setStored(STORAGE_KEYS.APPLICANTS, updated);
+      logAudit({ action: 'SCOPE_CHANGED', entityType: 'guard', entityId: applicantId, description: `Applicant ${applicant.name} moved: ${oldStage} -> ${stage}`, metadata: { stage } });
+      
+      // If Active, create Guard Record
+      if (stage === 'ACTIVE') {
+        const guard: Guard = {
+          id: `GRD-${applicantId.split('-')[1]}`,
+          organizationId: applicant.organizationId,
+          name: applicant.name,
+          email: applicant.email,
+          status: 'Active',
+          complianceStatus: 'Compliant',
+          licenceExpiry: new Date(Date.now() + 31536000000).toISOString(),
+          docsMissing: 0,
+          performanceScore: 100,
+          weeklyHours: 0,
+          isAvailable: true,
+          qualifiedRoles: ['Security Guard'],
+          skills: []
+        };
+        const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+        setStored(STORAGE_KEYS.GUARDS, [guard, ...allGuards]);
+      }
+      return updated;
+    },
+
+    addLiveEvent: (event: OperationalEvent) => {
+      const events = getStored<OperationalEvent[]>(STORAGE_KEYS.EVENTS, []);
+      const updated = [event, ...events].slice(0, 50);
+      setStored(STORAGE_KEYS.EVENTS, updated);
+      return updated;
+    },
+
     autoFillAllShifts: () => {
       const user = getCurrentUser();
       if (!user || !AccessControlService.can(user, 'schedule')) return [];
