@@ -34,7 +34,7 @@ import {
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
   AuditRecord, AuditAction, 
   SOSAlert, Alarm, Vehicle, Contract, 
-  RecruitmentStage, UserSession, MockDocument, LeaveRecord
+  RecruitmentStage, UserSession, MockDocument, LeaveRecord, ShiftAssignment
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
@@ -292,6 +292,30 @@ export const useJsonStore = () => {
       return updated;
     },
 
+    addShiftAssignment: (shiftId: string, assignment: ShiftAssignment) => {
+      const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = all.find(s => s.id === shiftId);
+      if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
+
+      const updatedShift: Shift = {
+        ...shift,
+        assignments: [...shift.assignments, assignment],
+        status: 'Claimed'
+      };
+      const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, finalShifts);
+      
+      logAudit({ 
+        action: 'GUARD_ASSIGNED', 
+        entityType: 'shift_assignment', 
+        entityId: assignment.id, 
+        description: `Assigned ${assignment.guardName} to ${shift.siteName} as ${assignment.rolePerformed}`,
+        newValues: assignment
+      });
+
+      return finalShifts;
+    },
+
     swapShiftAssignment: (shiftId: string, assignmentId: string, newGuard: Guard) => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
@@ -409,8 +433,9 @@ export const useJsonStore = () => {
           performanceScore: 100,
           weeklyHours: 0,
           isAvailable: true,
-          qualifiedRoles: ['Security Guard'],
-          skills: []
+          qualifiedRoles: ['SECURITY_GUARD'],
+          skills: [],
+          primaryRole: 'SECURITY_GUARD'
         };
         const currentGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
         setStored(STORAGE_KEYS.GUARDS, [newGuard, ...currentGuards]);

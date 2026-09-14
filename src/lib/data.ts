@@ -28,7 +28,7 @@ export const sites: Site[] = [
   { 
     id: 'SITE-001', organizationId: ORG_A, name: 'Northgate Mall', code: 'NG-01', clientId: 'CL-001', clientName: 'Northgate Retail Group',
     address: '100 Mall Street, London', contactInfo: 'Desk: 020 7123 0001', status: 'Active', operatingHours: '24/7', 
-    requiredGuardCount: 4, requiredRoles: ['Security Guard', 'CCTV Operator'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Medium', activeGuardsCount: 0, healthScore: 92, revenuePerMonth: 18500, openShifts: 0
+    requiredGuardCount: 4, requiredRoles: ['SECURITY_GUARD', 'CCTV_OPERATOR'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Medium', activeGuardsCount: 0, healthScore: 92, revenuePerMonth: 18500, openShifts: 0
   }
 ];
 
@@ -36,17 +36,22 @@ export const guards: Guard[] = [
   {
     id: 'GRD-001', organizationId: ORG_A, name: 'Marcus Thorne', email: 'm.thorne@security.com', status: 'Active', complianceStatus: 'Compliant',
     licenceExpiry: addDays(now, 200).toISOString(), docsMissing: 0, performanceScore: 98, weeklyHours: 32, isAvailable: true,
-    qualifiedRoles: ['Security Guard', 'First Aid Responder'], skills: ['First Aid']
+    qualifiedRoles: ['SECURITY_GUARD', 'FIRST_AID_RESPONDER', 'MOBILE_PATROL'], skills: ['First Aid'], primaryRole: 'SECURITY_GUARD'
   },
   {
     id: 'GRD-002', organizationId: ORG_A, name: 'Sarah Jenkins', email: 's.jenkins@security.com', status: 'Active', complianceStatus: 'Compliant',
     licenceExpiry: addDays(now, 150).toISOString(), docsMissing: 0, performanceScore: 95, weeklyHours: 24, isAvailable: true,
-    qualifiedRoles: ['Security Guard', 'CCTV Operator'], skills: ['CCTV License']
+    qualifiedRoles: ['SECURITY_GUARD', 'CCTV_OPERATOR'], skills: ['CCTV License'], primaryRole: 'CCTV_OPERATOR'
   },
   {
     id: 'GRD-003', organizationId: ORG_A, name: 'Ahmed Khan', email: 'ahmed@security.com', status: 'Active', complianceStatus: 'Compliant',
     licenceExpiry: addDays(now, 300).toISOString(), docsMissing: 0, performanceScore: 92, weeklyHours: 10, isAvailable: true,
-    qualifiedRoles: ['Security Guard', 'Door Supervisor'], skills: []
+    qualifiedRoles: ['SECURITY_GUARD', 'DOOR_SUPERVISOR'], skills: [], primaryRole: 'SECURITY_GUARD'
+  },
+  {
+    id: 'GRD-004', organizationId: ORG_A, name: 'Leo Varga', email: 'leo@security.com', status: 'Active', complianceStatus: 'Compliant',
+    licenceExpiry: addDays(now, 365).toISOString(), docsMissing: 0, performanceScore: 99, weeklyHours: 40, isAvailable: true,
+    qualifiedRoles: ['SECURITY_GUARD', 'SITE_LEAD', 'FIRST_AID_RESPONDER'], skills: ['First Aid'], primaryRole: 'SITE_LEAD'
   }
 ];
 
@@ -55,12 +60,13 @@ export const shifts: Shift[] = [
     id: 'SHF-001', organizationId: ORG_A, siteId: 'SITE-001', siteName: 'Northgate Mall',
     startTime: createTimestamp(0, 8), endTime: createTimestamp(0, 16), status: 'Claimed', priority: 'Routine',
     requirements: [
-      { role: 'Security Guard', count: 2 },
-      { role: 'CCTV Operator', count: 1 }
+      { role: 'SECURITY_GUARD', count: 2 },
+      { role: 'CCTV_OPERATOR', count: 1 },
+      { role: 'FIRST_AID_RESPONDER', count: 1 }
     ],
     assignments: [
-      { id: 'ASG-1', guardId: 'GRD-001', guardName: 'Marcus Thorne', rolePerformed: 'Security Guard', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' },
-      { id: 'ASG-2', guardId: 'GRD-002', guardName: 'Sarah Jenkins', rolePerformed: 'CCTV Operator', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' }
+      { id: 'ASG-1', guardId: 'GRD-001', guardName: 'Marcus Thorne', rolePerformed: 'SECURITY_GUARD', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' },
+      { id: 'ASG-2', guardId: 'GRD-002', guardName: 'Sarah Jenkins', rolePerformed: 'CCTV_OPERATOR', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' }
     ],
     role: 'Team Deployment'
   }

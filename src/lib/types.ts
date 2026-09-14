@@ -17,6 +17,24 @@ export type UserRole =
   | 'CLIENT_VIEWER'
   | 'SUBCONTRACTOR_ADMIN';
 
+/**
+ * Canonical Workforce Guard Types
+ */
+export const WORKFORCE_ROLES = [
+  'SECURITY_GUARD',
+  'CCTV_OPERATOR',
+  'DOOR_SUPERVISOR',
+  'MOBILE_PATROL',
+  'CONTROL_ROOM_OPERATOR',
+  'KEYHOLDER',
+  'FIRST_AID_RESPONDER',
+  'FIRE_MARSHAL',
+  'SITE_SUPERVISOR',
+  'SITE_LEAD'
+] as const;
+
+export type WorkforceRole = typeof WORKFORCE_ROLES[number];
+
 export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit' | 'location' | 'ai';
 
 export type User = {
@@ -167,6 +185,7 @@ export type Guard = {
   preferredSites?: string[];
   unavailableDates?: string[];
   recruitmentStage?: RecruitmentStage;
+  primaryRole?: WorkforceRole;
 };
 
 export type RecruitmentStage = 
@@ -261,10 +280,12 @@ export type Alarm = {
 export type Vehicle = {
   id: string;
   organizationId: string;
-  name: string;
-  status: 'Active' | 'Idle' | 'Maintenance' | 'Offline';
-  siteId?: string;
-  lastUpdate: string;
+  model: string;
+  plate: string;
+  status: 'Active' | 'Idle' | 'Maintenance' | 'Offline' | 'Available';
+  location: string;
+  fuelLevel: number;
+  nextService: string;
 };
 
 export type Visitor = {
