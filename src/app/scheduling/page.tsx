@@ -36,7 +36,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useJsonStore } from '@/lib/store';
-import { Shift, Guard, ShiftAssignment, AuditRecord } from '@/lib/types';
+import { Shift, Guard, ShiftAssignment, AuditRecord, LeaveRecord } from '@/lib/types';
 import { 
   format, 
   startOfWeek, 
@@ -61,7 +61,7 @@ export default function SchedulingPage() {
   const { toast } = useToast();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [guards, setGuards] = useState<Guard[]>([]);
-  const [audits, setAudits] = useState<AuditRecord[]>([]);
+  const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
@@ -83,7 +83,7 @@ export default function SchedulingPage() {
   const refreshData = () => {
     setShifts(store.getShifts());
     setGuards(store.getGuards());
-    setAudits(store.getAudits());
+    setLeaveRecords(store.getLeave());
   };
 
   if (!isMounted) return null;
@@ -103,7 +103,7 @@ export default function SchedulingPage() {
     const newEnd = new Date(newStart);
     newEnd.setHours(newStart.getHours() + duration);
 
-    // Multi-Guard Team Validation (Hard Rule 17)
+    // Multi-Guard Team Validation
     if (shift.assignments?.length > 0) {
       for (const asg of shift.assignments) {
         const guard = guards.find(g => g.id === asg.guardId);
@@ -112,6 +112,7 @@ export default function SchedulingPage() {
             guard, 
             { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() }, 
             shifts, 
+            leaveRecords,
             asg.rolePerformed
           );
           if (!validation.isValid) {
@@ -137,10 +138,10 @@ export default function SchedulingPage() {
     setTargetAssignment(asg);
     setTargetRole(asg.rolePerformed);
     
-    // Evaluate candidate pool (Hard Rule 11/13)
+    // Evaluate candidate pool
     const pool = guards.map(g => ({
       guard: g,
-      validation: validateGuardAssignment(g, shift, shifts, asg.rolePerformed)
+      validation: validateGuardAssignment(g, shift, shifts, leaveRecords, asg.rolePerformed)
     })).sort((a, b) => (a.validation.isValid === b.validation.isValid ? 0 : a.validation.isValid ? -1 : 1));
 
     setSuggestions(pool);

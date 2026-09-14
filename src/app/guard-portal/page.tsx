@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useJsonStore } from '@/lib/store';
-import { Guard, Shift, Incident, PayrollRecord, Site } from '@/lib/types';
+import { Guard, Shift, Incident, PayrollRecord, Site, LeaveRecord } from '@/lib/types';
 import { format, isPast, isFuture, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { validateGuardAssignment } from '@/lib/scheduling-validation';
@@ -48,6 +48,7 @@ export default function GuardPortal() {
   const [currentGuard, setCurrentGuard] = useState<Guard | null>(null);
   const [myShifts, setMyShifts] = useState<Shift[]>([]);
   const [openShifts, setOpenShifts] = useState<Shift[]>([]);
+  const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function GuardPortal() {
       const guardRecord = allGuards.find((g: Guard) => g.email === user.email);
       if (guardRecord) {
         setCurrentGuard(guardRecord);
+        setLeaveRecords(store.getLeave());
         
         const allShifts = store.getShifts();
         const personalShifts = allShifts.filter((s: Shift) => 
@@ -83,7 +85,7 @@ export default function GuardPortal() {
     if (!currentGuard) return;
     
     // Validate claim using central service
-    const validation = validateGuardAssignment(currentGuard, shift, store.getShifts(), shift.role);
+    const validation = validateGuardAssignment(currentGuard, shift, store.getShifts(), leaveRecords, shift.role);
     
     if (!validation.isValid) {
       toast({
@@ -309,7 +311,7 @@ export default function GuardPortal() {
         <TabsContent value="open-shifts" className="space-y-6">
            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {openShifts.map(shift => {
-                const validation = currentGuard ? validateGuardAssignment(currentGuard, shift, store.getShifts(), shift.role) : { isValid: false };
+                const validation = currentGuard ? validateGuardAssignment(currentGuard, shift, store.getShifts(), leaveRecords, shift.role) : { isValid: false };
                 return (
                   <Card key={shift.id} className="border-none shadow-sm rounded-3xl overflow-hidden hover:shadow-md transition-shadow group">
                     <div className={`h-1.5 w-full ${shift.priority === 'Urgent' ? 'bg-red-500' : 'bg-primary'}`} />

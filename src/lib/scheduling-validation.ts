@@ -3,8 +3,8 @@
  * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), Role Qualifications, and Compliance.
  */
 
-import { Shift, Guard } from './types';
-import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast } from 'date-fns';
+import { Shift, Guard, LeaveRecord } from './types';
+import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast, format } from 'date-fns';
 
 export type ValidationResult = {
   isValid: boolean;
@@ -52,6 +52,7 @@ export function validateGuardAssignment(
   guard: Guard,
   targetShift: Shift,
   allShifts: Shift[],
+  leaveRecords: LeaveRecord[],
   targetRole?: string
 ): ValidationResult {
   
@@ -82,10 +83,31 @@ export function validateGuardAssignment(
     };
   }
 
-  // RULE 6: Availability Check
+  const shiftStart = parseISO(targetShift.startTime);
+  const shiftEnd = parseISO(targetShift.endTime);
+
+  // RULE: Approved Leave Check (Authoritative HR Records)
+  const overlappingLeave = leaveRecords.find(l => 
+    l.guardId === guard.id && 
+    l.status === 'Approved' &&
+    areIntervalsOverlapping(
+      { start: shiftStart, end: shiftEnd },
+      { start: parseISO(l.startDate), end: parseISO(l.endDate) }
+    )
+  );
+
+  if (overlappingLeave) {
+    return {
+      isValid: false,
+      code: 'GUARD_ON_LEAVE',
+      message: `Guard is on approved ${overlappingLeave.type} from ${format(parseISO(overlappingLeave.startDate), 'MMM dd')} to ${format(parseISO(overlappingLeave.endDate), 'MMM dd')}.`
+    };
+  }
+
+  // RULE 6: Availability Check (Ad-hoc unavailability)
   if (guard.unavailableDates?.some(d => isWithinInterval(parseISO(d), { 
-    start: parseISO(targetShift.startTime), 
-    end: parseISO(targetShift.endTime) 
+    start: shiftStart, 
+    end: shiftEnd 
   }))) {
     return {
       isValid: false,
@@ -96,8 +118,8 @@ export function validateGuardAssignment(
 
   // RULE 1: No Overlapping Shifts
   const targetInterval = {
-    start: parseISO(targetShift.startTime),
-    end: parseISO(targetShift.endTime)
+    start: shiftStart,
+    end: shiftEnd
   };
 
   const overlappingShift = allShifts.find(s => {

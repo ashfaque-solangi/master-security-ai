@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * @fileOverview SecureGuard Command Storage Service
+ * PERSISTENCE ARCHITECTURE NOTE:
+ * Scheduling and operational data currently persists locally via localStorage.
+ * For shared backend persistence, the getStored and setStored methods below 
+ * serve as the primary abstraction boundary for Firebase/Firestore integration.
+ */
+
 import { 
   guards as initialGuards, 
   sites as initialSites,
@@ -230,6 +238,7 @@ export const useJsonStore = () => {
     getSOS: () => getProtectedData<SOSAlert[]>(STORAGE_KEYS.SOS, initialSOS, 'view'),
     getAlarms: () => getProtectedData<Alarm[]>(STORAGE_KEYS.ALARMS, initialAlarms, 'view'),
     getVehicles: () => getProtectedData<Vehicle[]>(STORAGE_KEYS.VEHICLES, initialVehicles, 'view'),
+    getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'hr'),
 
     addGuard: (g: Guard) => {
       if (!assertWrite('hr', 'guard')) return [];
@@ -344,6 +353,7 @@ export const useJsonStore = () => {
       if (!user || !AccessControlService.can(user, 'schedule')) return [];
       const allShifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
 
       const updatedShifts = allShifts.map(s => {
         if (s.status === 'Completed' || s.status === 'Cancelled') return s;
@@ -354,7 +364,7 @@ export const useJsonStore = () => {
             const candidate = allGuards.find(g => 
               g.status === 'Active' && 
               g.complianceStatus === 'Compliant' &&
-              validateGuardAssignment(g, s, allShifts, req.role).isValid
+              validateGuardAssignment(g, s, allShifts, allLeave, req.role).isValid
             );
             if (candidate) {
               assignments.push({
