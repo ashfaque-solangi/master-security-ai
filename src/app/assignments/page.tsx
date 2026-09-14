@@ -80,9 +80,9 @@ export default function AssignmentHub() {
   }, []);
 
   const refreshData = () => {
-    setShifts(store.getShifts());
-    setGuards(store.getGuards());
-    setSites(store.getSites());
+    setShifts(store.getShifts() || []);
+    setGuards(store.getGuards() || []);
+    setSites(store.getSites() || []);
   };
 
   const handleRemove = (shiftId: string, asgId: string) => {
@@ -121,12 +121,14 @@ export default function AssignmentHub() {
 
   if (!isMounted) return null;
 
-  const allAssignments = shifts.flatMap(s => s.assignments.map(asg => ({ shift: s, asg })));
-  const filtered = allAssignments.filter(item => 
-    item.asg.guardName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.shift.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.shift.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const allAssignments = shifts.flatMap(s => (s.assignments || []).map(asg => ({ shift: s, asg })));
+  const filtered = allAssignments.filter(item => {
+    const gName = (item.asg?.guardName || '').toLowerCase();
+    const sName = (item.shift?.name || '').toLowerCase();
+    const sCode = (item.shift?.code || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return gName.includes(search) || sName.includes(search) || sCode.includes(search);
+  });
 
   return (
     <div className="flex flex-col gap-8 pb-20">
@@ -180,39 +182,39 @@ export default function AssignmentHub() {
                   <TableCell className="px-8">
                     <div className="flex items-center gap-4">
                       <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs shadow-inner">
-                        {item.asg.guardName.charAt(0)}
+                        {(item.asg?.guardName || '?').charAt(0)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                           <p className="font-black text-slate-800 italic uppercase tracking-tight">{item.asg.guardName}</p>
+                           <p className="font-black text-slate-800 italic uppercase tracking-tight">{item.asg?.guardName || 'Unknown Guard'}</p>
                            {!validation.isValid && <ShieldAlert className="w-3.5 h-3.5 text-red-500 animate-pulse" />}
                         </div>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Ref: {item.asg.guardId}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Ref: {item.asg?.guardId || 'N/A'}</p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black text-[9px] uppercase px-4 h-6 rounded-xl italic">
-                      {item.asg.rolePerformed.replace(/_/g, ' ')}
+                      {(item.asg?.rolePerformed || '').replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
-                      <p className="text-xs font-black text-slate-600 uppercase italic truncate max-w-[150px]">{item.shift.name}</p>
-                      <p className="text-[9px] font-bold text-slate-400 font-mono">{item.shift.code}</p>
+                      <p className="text-xs font-black text-slate-600 uppercase italic truncate max-w-[150px]">{item.shift?.name || 'Security Shift'}</p>
+                      <p className="text-[9px] font-bold text-slate-400 font-mono">{item.shift?.code || 'SH-REF'}</p>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
                       <p className="text-xs font-black text-slate-800 uppercase flex items-center gap-1.5 italic">
-                        <MapPin className="w-3 h-3 text-primary" /> {item.shift.siteName}
+                        <MapPin className="w-3 h-3 text-primary" /> {item.shift?.siteName || 'Unassigned Site'}
                       </p>
                       <span className="text-[9px] font-bold text-slate-400 mt-1">Lahore, PK</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center gap-1">
-                      <Badge className="bg-green-100 text-green-600 border-none font-black text-[8px] h-5 px-3 rounded-full uppercase italic shadow-sm">{item.asg.status}</Badge>
+                      <Badge className="bg-green-100 text-green-600 border-none font-black text-[8px] h-5 px-3 rounded-full uppercase italic shadow-sm">{item.asg?.status || 'Assigned'}</Badge>
                       {fatigue !== 'LOW' && <span className="text-[7px] font-black text-amber-600 uppercase italic animate-pulse">FATIGUE: {fatigue}</span>}
                     </div>
                   </TableCell>
@@ -224,15 +226,15 @@ export default function AssignmentHub() {
                       <DropdownMenuContent align="end" className="w-56 rounded-2xl shadow-2xl p-2 border-none">
                         <DropdownMenuItem onClick={() => { setSelectedAsg(item); setIsRoleOpen(true); }} className="rounded-xl py-3 px-4 flex items-center gap-3 cursor-pointer">
                           <Zap className="h-4 w-4 text-primary" />
-                          <span className="text-[11px] font-black uppercase italic italic tracking-tight">Change Role</span>
+                          <span className="text-[11px] font-black uppercase italic tracking-tight">Change Role</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setSelectedAsg(item); setIsReplaceOpen(true); }} className="rounded-xl py-3 px-4 flex items-center gap-3 cursor-pointer">
                           <ArrowRightLeft className="h-4 w-4 text-primary" />
-                          <span className="text-[11px] font-black uppercase italic italic tracking-tight">Replace Guard</span>
+                          <span className="text-[11px] font-black uppercase italic tracking-tight">Replace Guard</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleRemove(item.shift.id, item.asg.id)} className="rounded-xl py-3 px-4 flex items-center gap-3 cursor-pointer text-red-600 hover:bg-red-50">
                           <Trash2 className="h-4 w-4" />
-                          <span className="text-[11px] font-black uppercase italic italic tracking-tight">Remove Duty</span>
+                          <span className="text-[11px] font-black uppercase italic tracking-tight">Remove Duty</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

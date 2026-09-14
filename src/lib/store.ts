@@ -68,7 +68,11 @@ const MAX_CONCURRENT_DEVICES = 2;
 function getStored<T>(key: string, defaultValue: T): T {
   if (!isBrowser) return defaultValue;
   const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : defaultValue;
+  try {
+    return stored ? JSON.parse(stored) : defaultValue;
+  } catch (e) {
+    return defaultValue;
+  }
 }
 
 function setStored<T>(key: string, data: T) {
@@ -161,8 +165,8 @@ export const useJsonStore = () => {
   };
 
   const updateShiftStatus = (shift: Shift): Shift => {
-    const required = shift.requirements.reduce((a, b) => a + b.count, 0);
-    const assigned = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status)).length;
+    const required = shift.requirements?.reduce((a, b) => a + b.count, 0) || 1;
+    const assigned = shift.assignments?.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status)).length || 0;
     
     if (shift.status === 'Draft') return shift;
     
@@ -254,9 +258,11 @@ export const useJsonStore = () => {
       const rawData = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const validatedData = rawData.map(s => {
         if (!s.code || !s.name) {
+          const shiftYear = s.startTime ? new Date(s.startTime).getFullYear() : new Date().getFullYear();
+          const safeId = (s.id || 'REF').slice(-6);
           return {
             ...s,
-            code: s.code || `SH-${new Date(s.startTime).getFullYear()}-${s.id.slice(-6)}`,
+            code: s.code || `SH-${shiftYear}-${safeId}`,
             name: s.name || s.role || 'Security Shift'
           };
         }
@@ -354,7 +360,7 @@ export const useJsonStore = () => {
       // REVALIDATE ALL GUARDS AGAINST NEW SITE
       const allShifts = shifts;
       const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
-      for (const asg of shift.assignments) {
+      for (const asg of (shift.assignments || [])) {
         const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === asg.guardId);
         if (guard) {
           const v = validateGuardAssignment(guard, shift, allShifts, allLeave, asg.rolePerformed, site);
@@ -379,7 +385,7 @@ export const useJsonStore = () => {
       const oldSiteName = shift.siteName;
       // REVALIDATE ALL GUARDS
       const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
-      for (const asg of shift.assignments) {
+      for (const asg of (shift.assignments || [])) {
         const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === asg.guardId);
         if (guard) {
           const v = validateGuardAssignment(guard, shift, shifts, allLeave, asg.rolePerformed, newSite);
@@ -414,9 +420,9 @@ export const useJsonStore = () => {
       if (!guard) return all;
       const validation = validateGuardAssignment(guard, shift, all, getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave), role);
       if (!validation.isValid) throw new Error(validation.message);
-      if (shift.assignments.find(a => a.guardId === guardId && a.status === 'Pending')) return all;
+      if ((shift.assignments || []).find(a => a.guardId === guardId && a.status === 'Pending')) return all;
       const newAssignment: ShiftAssignment = { id: `ASG-${Date.now()}`, guardId, guardName: guard.name, rolePerformed: role, status: 'Pending', assignedAt: new Date().toISOString(), assignedBy: 'GUARD_CLAIM' };
-      const updatedShift: Shift = { ...shift, assignments: [...shift.assignments, newAssignment], version: (shift.version || 0) + 1 };
+      const updatedShift: Shift = { ...shift, assignments: [...(shift.assignments || []), newAssignment], version: (shift.version || 0) + 1 };
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
       logAudit({ action: 'CLAIM_REQUESTED', entityType: 'shift_assignment', entityId: newAssignment.id, description: `Claim for ${role} on ${shift.code}` });
@@ -426,7 +432,7 @@ export const useJsonStore = () => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
-      const assignment = shift.assignments.find(a => a.id === assignmentId);
+      const assignment = (shift.assignments || []).find(a => a.id === assignmentId);
       if (!assignment || assignment.status !== 'Pending') return all;
       const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === assignment.guardId);
       if (!guard) return all;
@@ -443,7 +449,7 @@ export const useJsonStore = () => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
-      const updatedAssignments = shift.assignments.map(a => a.id === assignmentId ? { ...a, status: 'Rejected' as const, rejectionReason: reason } : a);
+      const updatedAssignments = (shift.assignments || []).map(a => a.id === assignmentId ? { ...a, status: 'Rejected' as const, rejectionReason: reason } : a);
       const updatedShift: Shift = { ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 };
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
@@ -454,7 +460,7 @@ export const useJsonStore = () => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
       if (!shift) return all;
-      const assignment = shift.assignments.find(a => a.id === assignmentId);
+      const assignment = (shift.assignments || []).find(a => a.id === assignmentId);
       if (!assignment || assignment.guardId !== getCurrentUser()?.guardId) return all;
       const updatedAssignments = shift.assignments.map(a => a.id === assignmentId ? { ...a, status: 'Withdrawn' as const } : a);
       const updatedShift: Shift = { ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 };
@@ -468,7 +474,7 @@ export const useJsonStore = () => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
-      const updatedShift: Shift = updateShiftStatus({ ...shift, assignments: [...shift.assignments, assignment], version: (shift.version || 0) + 1 });
+      const updatedShift: Shift = updateShiftStatus({ ...shift, assignments: [...(shift.assignments || []), assignment], version: (shift.version || 0) + 1 });
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
       logAudit({ action: 'GUARD_ASSIGNED', entityType: 'shift_assignment', entityId: assignment.id, description: `Assigned ${assignment.guardName} to ${shift.code}` });
@@ -478,7 +484,7 @@ export const useJsonStore = () => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
-      const updatedAssignments = shift.assignments.map(a => a.id === assignmentId ? { ...a, guardId: newGuard.id, guardName: newGuard.name, assignedAt: new Date().toISOString(), assignedBy: getCurrentUser()?.id || 'SYSTEM' } : a);
+      const updatedAssignments = (shift.assignments || []).map(a => a.id === assignmentId ? { ...a, guardId: newGuard.id, guardName: newGuard.name, assignedAt: new Date().toISOString(), assignedBy: getCurrentUser()?.id || 'SYSTEM' } : a);
       const updatedShift: Shift = { ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 };
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
@@ -489,7 +495,7 @@ export const useJsonStore = () => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
-      const updatedAssignments = shift.assignments.filter(a => a.id !== assignmentId);
+      const updatedAssignments = (shift.assignments || []).filter(a => a.id !== assignmentId);
       const updatedShift: Shift = updateShiftStatus({ ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 });
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
@@ -502,7 +508,7 @@ export const useJsonStore = () => {
       const shift = shifts.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return shifts;
 
-      const assignment = shift.assignments.find(a => a.id === assignmentId);
+      const assignment = (shift.assignments || []).find(a => a.id === assignmentId);
       if (!assignment) return shifts;
 
       const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === assignment.guardId);
@@ -524,7 +530,7 @@ export const useJsonStore = () => {
       const shift = shifts.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return shifts;
 
-      const oldAsg = shift.assignments.find(a => a.id === oldAssignmentId);
+      const oldAsg = (shift.assignments || []).find(a => a.id === oldAssignmentId);
       if (!oldAsg) return shifts;
 
       const v = validateGuardAssignment(newGuard, shift, shifts, getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave), oldAsg.rolePerformed);
@@ -546,9 +552,9 @@ export const useJsonStore = () => {
       const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
       const updatedShifts = allShifts.map(s => {
         if (s.status === 'Completed' || s.status === 'Cancelled') return s;
-        const assignments = [...s.assignments];
+        const assignments = [...(s.assignments || [])];
         let changed = false;
-        s.requirements.forEach(req => {
+        s.requirements?.forEach(req => {
           const filledCount = assignments.filter(a => a.rolePerformed === req.role && ['Assigned', 'Confirmed', 'On Site'].includes(a.status)).length;
           for (let i = 0; i < (req.count - filledCount); i++) {
             const candidate = allGuards.find(g => g.status === 'Active' && g.complianceStatus === 'Compliant' && validateGuardAssignment(g, s, allShifts, allLeave, req.role).isValid && !assignments.some(a => a.guardId === g.id));

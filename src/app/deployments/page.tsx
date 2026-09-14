@@ -36,6 +36,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { useJsonStore } from '@/lib/store';
 import { Shift, Site } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
@@ -55,8 +56,8 @@ export default function DeploymentBoard() {
   }, []);
 
   const refreshData = () => {
-    setShifts(store.getShifts());
-    setSites(store.getSites());
+    setShifts(store.getShifts() || []);
+    setSites(store.getSites() || []);
   };
 
   const handleUndeploy = (shiftId: string) => {
@@ -72,11 +73,13 @@ export default function DeploymentBoard() {
   if (!isMounted) return null;
 
   const deployedShifts = shifts.filter(s => !!s.siteId);
-  const filtered = deployedShifts.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.siteName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = deployedShifts.filter(s => {
+    const sName = (s.name || '').toLowerCase();
+    const siteName = (s.siteName || '').toLowerCase();
+    const sCode = (s.code || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return sName.includes(search) || siteName.includes(search) || sCode.includes(search);
+  });
 
   return (
     <div className="flex flex-col gap-8 pb-20">
@@ -125,8 +128,8 @@ export default function DeploymentBoard() {
                       <Clock className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="font-black text-slate-800 italic uppercase italic tracking-tight">{shift.name}</p>
-                      <p className="text-[9px] text-slate-400 font-bold font-mono uppercase tracking-widest">{shift.code}</p>
+                      <p className="font-black text-slate-800 italic uppercase italic tracking-tight">{shift.name || 'Unnamed Shift'}</p>
+                      <p className="text-[9px] text-slate-400 font-bold font-mono uppercase tracking-widest">{shift.code || 'SH-REF'}</p>
                     </div>
                   </div>
                 </TableCell>
@@ -134,15 +137,15 @@ export default function DeploymentBoard() {
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg text-primary shadow-sm"><MapPin className="h-4 w-4" /></div>
                     <div>
-                      <p className="text-sm font-black text-slate-800 uppercase italic">{shift.siteName}</p>
+                      <p className="text-sm font-black text-slate-800 uppercase italic">{shift.siteName || 'Unassigned'}</p>
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">GPS SECURED</p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-lg font-black italic text-slate-800">{shift.assignments.length} Guards</span>
-                    <Progress value={(shift.assignments.length / 3) * 100} className="h-1 w-16" />
+                    <span className="text-lg font-black italic text-slate-800">{(shift.assignments?.length || 0)} Guards</span>
+                    <Progress value={Math.min(100, ((shift.assignments?.length || 0) / Math.max(1, shift.requirements?.reduce((acc, r) => acc + r.count, 0) || 1)) * 100)} className="h-1 w-16" />
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
