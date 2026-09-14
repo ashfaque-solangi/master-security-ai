@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -289,7 +288,7 @@ export default function WorkforcePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Officer Profile</DialogTitle>
-            <DialogDescription>Modify status, availability, and contact details for this field guard record.</DialogDescription>
+            <DialogDescription>Modify status, availability, and contact details for {selectedGuard?.name || 'this field guard'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

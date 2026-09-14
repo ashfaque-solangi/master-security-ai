@@ -113,6 +113,7 @@ export function ExecutiveDashboard() {
             </div>
             <CardHeader className="p-8 pb-4">
               <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Strategic Summary</CardTitle>
+              <CardDescription className="text-slate-400 text-xs font-bold uppercase">Organization-wide insight summary</CardDescription>
             </CardHeader>
             <CardContent className="p-8 pt-4 space-y-6">
               <div className="space-y-4">
@@ -141,6 +142,7 @@ export function ExecutiveDashboard() {
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                 <History className="h-3 w-3" /> Recent Audit
               </CardTitle>
+              <CardDescription className="hidden">System audit log overview</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
