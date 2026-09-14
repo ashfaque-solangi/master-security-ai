@@ -3,13 +3,9 @@
 import { useState, useEffect } from 'react';
 import { 
   CreditCard, 
-  Wallet, 
-  TrendingUp, 
   Clock, 
   Download,
-  Filter,
-  CheckCircle2,
-  FileText
+  Filter
 } from 'lucide-react';
 import {
   Card,
@@ -28,9 +24,21 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { payrollRecords } from '@/lib/data';
+import { useJsonStore } from '@/lib/store';
+import { PayrollRecord } from '@/lib/types';
 
 export default function PayrollPage() {
+  const store = useJsonStore();
+  const [records, setRecords] = useState<PayrollRecord[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setRecords(store.getPayroll());
+  }, []);
+
+  if (!isMounted) return null;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -102,7 +110,7 @@ export default function PayrollPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payrollRecords.map((record) => (
+              {records.length > 0 ? records.map((record) => (
                 <TableRow key={record.id}>
                   <TableCell className="font-bold">{record.guardName}</TableCell>
                   <TableCell>{record.period}</TableCell>
@@ -117,7 +125,11 @@ export default function PayrollPage() {
                     <Button variant="ghost" size="sm">View Payslip</Button>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">No payroll records found.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { 
   Plus, 
-  Search, 
   Clock, 
   Sparkles, 
   Zap, 
@@ -17,17 +16,18 @@ import {
   Info,
   XCircle,
   CheckCircle2,
-  GripVertical
+  GripVertical,
+  RefreshCw,
+  Trash2,
+  UserPlus
 } from 'lucide-react';
 import {
   Card,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useJsonStore } from '@/lib/store';
-import { Shift, Guard, Site, AuditRecord } from '@/lib/types';
+import { Shift, Guard, ShiftAssignment, AuditRecord } from '@/lib/types';
 import { 
   format, 
   startOfWeek, 
@@ -61,67 +61,64 @@ export default function SchedulingPage() {
   const { toast } = useToast();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [guards, setGuards] = useState<Guard[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
   const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   
-  const [isSuggestOpen, setIsSuggestOpen] = useState(false);
+  // Modals
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isSwapOpen, setIsSwapOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [targetAssignment, setTargetAssignment] = useState<ShiftAssignment | null>(null);
   const [targetRole, setTargetRole] = useState('');
   const [suggestions, setSuggestions] = useState<{guard: Guard, validation: any}[]>([]);
 
-  // Drag & Drop State
-  const [draggedShiftId, setDraggedShiftId] = useState<string | null>(null);
-
   useEffect(() => {
     setIsMounted(true);
-    setShifts(store.getShifts());
-    setGuards(store.getGuards());
-    setSites(store.getSites());
-    setAudits(store.getAudits());
+    refreshData();
   }, []);
 
-  if (!isMounted) return null;
-
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedShiftId(id);
-    e.dataTransfer.setData('shiftId', id);
-    e.dataTransfer.effectAllowed = 'move';
+  const refreshData = () => {
+    setShifts(store.getShifts());
+    setGuards(store.getGuards());
+    setAudits(store.getAudits());
   };
+
+  if (!isMounted) return null;
 
   const handleDrop = (e: React.DragEvent, targetDay: Date) => {
     e.preventDefault();
     const id = e.dataTransfer.getData('shiftId');
     const shift = shifts.find(s => s.id === id);
-    
     if (!shift) return;
 
-    // Calculate new start/end based on target day
     const oldStart = parseISO(shift.startTime);
     const oldEnd = parseISO(shift.endTime);
     const duration = differenceInHours(oldEnd, oldStart);
 
     const newStart = new Date(targetDay);
     newStart.setHours(oldStart.getHours(), oldStart.getMinutes());
-    
     const newEnd = new Date(newStart);
     newEnd.setHours(newStart.getHours() + duration);
 
-    // Validate if guards assigned
+    // Multi-Guard Team Validation (Hard Rule 17)
     if (shift.assignments?.length > 0) {
       for (const asg of shift.assignments) {
         const guard = guards.find(g => g.id === asg.guardId);
         if (guard) {
-          const validation = validateGuardAssignment(guard, { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() }, shifts, asg.rolePerformed);
+          const validation = validateGuardAssignment(
+            guard, 
+            { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() }, 
+            shifts, 
+            asg.rolePerformed
+          );
           if (!validation.isValid) {
             toast({
               variant: "destructive",
               title: "Move Blocked",
-              description: `${guard.name}: ${validation.message}`
+              description: `Conflict for ${guard.name}: ${validation.message}`
             });
             return;
           }
@@ -129,95 +126,44 @@ export default function SchedulingPage() {
       }
     }
 
-    const updatedShift: Shift = {
-      ...shift,
-      startTime: newStart.toISOString(),
-      endTime: newEnd.toISOString()
-    };
-
-    const updated = store.updateShift(updatedShift);
-    setShifts(updated);
-    store.logAudit({
-      action: 'SHIFT_RESCHEDULED',
-      entityType: 'shift',
-      entityId: shift.id,
-      description: `Shift moved to ${format(newStart, 'MMM dd, HH:mm')}`,
-      oldValues: { start: shift.startTime, end: shift.endTime },
-      newValues: { start: updatedShift.startTime, end: updatedShift.endTime }
-    });
-
-    toast({
-      title: "Shift Moved",
-      description: `New window: ${format(newStart, 'HH:mm')} - ${format(newEnd, 'HH:mm')}`
-    });
-    setDraggedShiftId(null);
+    const updatedShift: Shift = { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() };
+    store.updateShift(updatedShift);
+    refreshData();
+    toast({ title: "Shift Rescheduled", description: "Entire team successfully moved." });
   };
 
-  const handleAutoFill = () => {
-    setIsAutoFilling(true);
-    setTimeout(() => {
-      const updated = store.autoFillAllShifts();
-      setShifts(updated);
-      setIsAutoFilling(false);
-      setAudits(store.getAudits());
-      toast({ title: "AI Optimization Complete", description: "Global deployment plan optimized." });
-    }, 1200);
-  };
-
-  const openSuggest = (shift: Shift, role: string) => {
-    if (shift.status === 'Completed') return;
+  const openSwap = (shift: Shift, asg: ShiftAssignment) => {
     setSelectedShift(shift);
-    setTargetRole(role);
+    setTargetAssignment(asg);
+    setTargetRole(asg.rolePerformed);
     
-    const allGuards = store.getGuards();
-    const candidatePool = allGuards.map(g => ({
+    // Evaluate candidate pool (Hard Rule 11/13)
+    const pool = guards.map(g => ({
       guard: g,
-      validation: validateGuardAssignment(g, shift, shifts, role)
-    })).sort((a, b) => {
-      if (a.validation.isValid && !b.validation.isValid) return -1;
-      if (!a.validation.isValid && b.validation.isValid) return 1;
-      return a.guard.weeklyHours - b.guard.weeklyHours;
-    });
+      validation: validateGuardAssignment(g, shift, shifts, asg.rolePerformed)
+    })).sort((a, b) => (a.validation.isValid === b.validation.isValid ? 0 : a.validation.isValid ? -1 : 1));
 
-    setSuggestions(candidatePool);
-    setIsSuggestOpen(true);
+    setSuggestions(pool);
+    setIsSwapOpen(true);
   };
 
-  const assignGuard = (guard: Guard) => {
-    if (!selectedShift || !targetRole) return;
-    const validation = validateGuardAssignment(guard, selectedShift, shifts, targetRole);
+  const handleSwap = (replacementGuard: Guard) => {
+    if (!selectedShift || !targetAssignment) return;
     
-    if (!validation.isValid) {
-      store.logAudit({ 
-        action: 'ASSIGNMENT_REJECTED', 
-        entityType: 'shift_assignment', 
-        entityId: selectedShift.id, 
-        description: `Manual override rejected: ${validation.message}`,
-        status: 'error',
-        metadata: { guard: guard.name, reason: validation.code }
-      });
-      toast({ variant: "destructive", title: "Assignment Blocked", description: validation.message });
-      return;
-    }
-
-    const updatedShift: Shift = {
-      ...selectedShift,
-      assignments: [...(selectedShift.assignments || []), { 
-        id: `ASG-${Date.now()}`,
-        guardId: guard.id, 
-        guardName: guard.name, 
-        rolePerformed: targetRole,
-        status: 'Assigned',
-        assignedAt: new Date().toISOString(),
-        assignedBy: store.getCurrentUser()?.id || 'SYSTEM'
-      }],
-      status: 'Claimed'
-    };
-    const updated = store.updateShift(updatedShift);
+    const updated = store.swapShiftAssignment(selectedShift.id, targetAssignment.id, replacementGuard);
     setShifts(updated);
-    setAudits(store.getAudits());
-    setIsSuggestOpen(false);
-    toast({ title: "Officer Deployed", description: `${guard.name} assigned as ${targetRole}.` });
+    setIsSwapOpen(false);
+    toast({ title: "Guard Swapped", description: `${replacementGuard.name} now assigned as ${targetAssignment.rolePerformed}.` });
+  };
+
+  const removeAssignment = (asg: ShiftAssignment) => {
+    if (!selectedShift) return;
+    const updated = store.removeShiftAssignment(selectedShift.id, asg.id);
+    setShifts(updated);
+    if (selectedShift.id) {
+       setSelectedShift(updated.find(s => s.id === selectedShift.id) || null);
+    }
+    toast({ title: "Personnel Removed", description: "Assignment released to open board." });
   };
 
   const navigate = (direction: 'prev' | 'next') => {
@@ -238,23 +184,19 @@ export default function SchedulingPage() {
     } else return [currentDate];
   })();
 
-  const getEntityHistory = (id: string) => {
-    return audits.filter(a => a.entityId === id).slice(0, 5);
-  };
-
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black tracking-tight text-slate-800 uppercase italic">Scheduling Command</h1>
           <p className="text-muted-foreground font-medium flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-primary" /> Multi-Guard Deployment Engine
+            <ShieldAlert className="w-4 h-4 text-primary" /> Team-Based Deployment Hub
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11" onClick={handleAutoFill} disabled={isAutoFilling}>
-            {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-            AI AUTO-FILL
+          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11" onClick={() => { setIsAutoFilling(true); setTimeout(() => { store.autoFillAllShifts(); refreshData(); setIsAutoFilling(false); }, 1000); }}>
+            {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            AI AUTO-OPTIMIZE
           </Button>
           <Button className="bg-primary text-white rounded-full px-6 shadow-lg h-11">
             <Plus className="mr-2 h-4 w-4" /> Create Shift
@@ -262,65 +204,42 @@ export default function SchedulingPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-        <div className="flex bg-slate-100 p-1 rounded-xl h-10">
-          <Button variant={viewMode === 'month' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('month')} className="rounded-lg px-4 font-bold">Month</Button>
-          <Button variant={viewMode === 'week' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('week')} className="rounded-lg px-4 font-bold">Week</Button>
-          <Button variant={viewMode === 'day' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('day')} className="rounded-lg px-4 font-bold">Day</Button>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('prev')}><ChevronLeft /></Button>
-          <span className="text-sm font-black uppercase tracking-widest min-w-[200px] text-center">
-            {format(currentDate, viewMode === 'month' ? 'MMMM yyyy' : 'MMMM dd, yyyy')}
-          </span>
-          <Button variant="ghost" size="icon" onClick={() => navigate('next')}><ChevronRight /></Button>
-        </div>
-      </div>
-
-      <div className={`grid gap-px bg-slate-200 border rounded-2xl overflow-hidden shadow-inner ${viewMode === 'month' ? 'grid-cols-7' : viewMode === 'week' ? 'grid-cols-7' : 'grid-cols-1'}`}>
+      {/* Calendar Grid */}
+      <div className={`grid gap-px bg-slate-200 border rounded-2xl overflow-hidden ${viewMode === 'week' ? 'grid-cols-7' : 'grid-cols-1'}`}>
         {daysToRender.map((day, idx) => {
           const dayShifts = shifts.filter(s => isSameDay(parseISO(s.startTime), day));
-          const isToday = isSameDay(day, new Date());
-          const isOtherMonth = viewMode === 'month' && !isSameMonth(day, currentDate);
-
           return (
             <div 
               key={idx} 
-              className={`flex flex-col min-h-[160px] bg-white transition-colors ${isOtherMonth ? 'bg-slate-50/50' : ''}`}
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-primary/5'); }}
-              onDragLeave={(e) => e.currentTarget.classList.remove('bg-primary/5')}
-              onDrop={(e) => { e.currentTarget.classList.remove('bg-primary/5'); handleDrop(e, day); }}
+              className="flex flex-col min-h-[200px] bg-white"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleDrop(e, day)}
             >
-              <div className={`p-2 text-center border-b sticky top-0 z-10 bg-white/95 backdrop-blur-sm ${isToday ? 'bg-primary/5' : ''}`}>
-                <p className={`text-[9px] font-black uppercase ${isToday ? 'text-primary' : 'text-slate-400'}`}>{format(day, 'EEE')}</p>
-                <div className={`mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${isToday ? 'bg-primary text-white shadow-md' : 'text-slate-800'}`}>{format(day, 'dd')}</div>
+              <div className="p-3 text-center border-b bg-slate-50/50">
+                <p className="text-[10px] font-black uppercase text-slate-400">{format(day, 'EEE')}</p>
+                <div className="text-sm font-black text-slate-800">{format(day, 'dd')}</div>
               </div>
 
               <div className="flex-1 p-2 space-y-2">
                 {dayShifts.map(shift => (
                   <Card 
                     key={shift.id} 
-                    draggable={shift.status !== 'Completed'}
-                    onDragStart={(e) => handleDragStart(e, shift.id)}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData('shiftId', shift.id)}
                     onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} 
-                    className={`group relative border-none shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing overflow-hidden rounded-xl p-2 ${shift.status === 'Open' ? 'ring-1 ring-red-200 bg-red-50/50' : 'bg-white'} ${draggedShiftId === shift.id ? 'opacity-30' : ''}`}
+                    className="p-3 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-md bg-white relative overflow-hidden group"
                   >
-                    <div className={`absolute left-0 top-0 w-1 h-full ${shift.status === 'Completed' ? 'bg-slate-400' : shift.priority === 'STAT' ? 'bg-red-600' : 'bg-primary'}`} />
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                         <p className="text-[10px] font-black uppercase truncate text-slate-800 flex-1">{shift.siteName}</p>
-                         <GripVertical className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100" />
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {shift.assignments?.map(a => (
-                          <div key={a.id} className="bg-slate-100 text-[8px] font-bold px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[80px]">
-                            {a.guardName}
-                          </div>
-                        ))}
-                        {(shift.status === 'Open' || !shift.assignments?.length) && <Badge variant="outline" className="text-[7px] bg-red-50 text-red-500 border-red-100 uppercase py-0 px-1">VACANT</Badge>}
-                      </div>
-                      <p className="text-[8px] text-slate-400 font-bold">{format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}</p>
+                    <div className="absolute left-0 top-0 w-1 h-full bg-primary" />
+                    <p className="text-[10px] font-black uppercase truncate text-slate-800">{shift.siteName}</p>
+                    <div className="mt-2 space-y-1">
+                      {shift.assignments.map(asg => (
+                        <div key={asg.id} className="flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded text-[8px] font-bold">
+                           <Users className="w-2.5 h-2.5 text-primary" /> {asg.guardName}
+                        </div>
+                      ))}
+                      {shift.assignments.length < shift.requirements.reduce((a,b) => a + b.count, 0) && (
+                        <Badge variant="outline" className="text-[7px] bg-red-50 text-red-500 border-red-100 uppercase px-1">OPEN POSITION</Badge>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -330,95 +249,70 @@ export default function SchedulingPage() {
         })}
       </div>
 
+      {/* Shift Detail / Assignment Management */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none">
-          <DialogHeader className="p-8 pb-4 bg-slate-900 text-white relative">
-            <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase">{selectedShift?.siteName || 'Deployment Detail'}</DialogTitle>
-            <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Operational view for deployment ID: {selectedShift?.id || 'ACTIVE_SHFT'}</DialogDescription>
-            {selectedShift && (
-              <div className="absolute top-8 right-8">
-                <Badge className="bg-primary text-white font-black">{selectedShift.priority} PRIORITY</Badge>
-              </div>
-            )}
+        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-3xl border-none">
+          <DialogHeader className="p-8 bg-slate-900 text-white">
+            <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase">{selectedShift?.siteName}</DialogTitle>
+            <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Managing Team Assignments & Requirements</DialogDescription>
           </DialogHeader>
           
-          {selectedShift && (
-            <div className="p-8 space-y-8 bg-white max-h-[80vh] overflow-y-auto">
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Clock className="w-3 h-3" /> Shift Window</h3>
-                  <div className="p-4 bg-slate-50 rounded-2xl border">
-                    <p className="text-lg font-black text-slate-800">{format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
-                    <p className="text-2xl font-black text-primary">{format(parseISO(selectedShift.startTime), 'HH:mm')} - {format(parseISO(selectedShift.endTime), 'HH:mm')}</p>
-                    {selectedShift.breakStartTime && (
-                      <div className="mt-2 pt-2 border-t border-dashed flex items-center gap-2 text-xs font-bold text-orange-600">
-                        <Coffee className="h-3.5 w-3.5" /> Break: {format(parseISO(selectedShift.breakStartTime), 'HH:mm')} - {format(parseISO(selectedShift.breakEndTime!), 'HH:mm')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Users className="w-3 h-3" /> Team Capacity</h3>
-                  <div className="space-y-2">
-                    {selectedShift.requirements?.map(req => {
-                      const assigned = selectedShift.assignments?.filter(a => a.rolePerformed === req.role) || [];
-                      const missing = req.count - assigned.length;
-                      return (
-                        <div key={req.role} className="flex items-center justify-between p-3 border rounded-xl bg-white shadow-sm">
-                          <div className="space-y-0.5">
-                            <p className="text-xs font-black text-slate-800">{req.role}</p>
-                            <p className="text-[10px] text-muted-foreground font-bold">{assigned.length} / {req.count} Filled</p>
-                          </div>
-                          {missing > 0 && selectedShift.status !== 'Completed' ? (
-                            <Button size="sm" variant="ghost" className="text-red-500 font-black text-[10px] bg-red-50 hover:bg-red-100" onClick={() => openSuggest(selectedShift, req.role)}>
-                              <Zap className="w-3 h-3 mr-1" /> FILL GAP
-                            </Button>
-                          ) : assigned.length >= req.count ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
+          <div className="p-8 space-y-8 bg-white max-h-[80vh] overflow-y-auto">
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Clock className="w-3 h-3" /> Shift Window</h3>
+                <div className="p-4 bg-slate-50 rounded-2xl border">
+                  <p className="text-lg font-black text-slate-800">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
+                  <p className="text-2xl font-black text-primary">
+                    {selectedShift && `${format(parseISO(selectedShift.startTime), 'HH:mm')} - ${format(parseISO(selectedShift.endTime), 'HH:mm')}`}
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><History className="h-3 w-3" /> Recent Activity</h3>
-                <div className="space-y-3">
-                  {getEntityHistory(selectedShift.id).map(log => (
-                    <div key={log.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-dashed">
-                      <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center text-[8px] font-black border">{log.userName.charAt(0)}</div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-800">{log.description}</p>
-                        <p className="text-[8px] text-muted-foreground uppercase font-black">{format(new Date(log.timestamp), 'MMM dd @ HH:mm')}</p>
+                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Users className="w-3 h-3" /> Team Personnel</h3>
+                <div className="space-y-2">
+                  {selectedShift?.assignments.map(asg => (
+                    <div key={asg.id} className="flex items-center justify-between p-3 border rounded-xl bg-white shadow-sm group">
+                      <div className="flex items-center gap-3">
+                         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-black text-[10px]">{asg.guardName.charAt(0)}</div>
+                         <div>
+                            <p className="text-xs font-black text-slate-800">{asg.guardName}</p>
+                            <p className="text-[9px] font-bold text-primary uppercase">{asg.rolePerformed}</p>
+                         </div>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openSwap(selectedShift, asg)}><RefreshCw className="h-3 w-3" /></Button>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeAssignment(asg)}><Trash2 className="h-3 w-3" /></Button>
                       </div>
                     </div>
                   ))}
-                  {getEntityHistory(selectedShift.id).length === 0 && (
-                    <p className="text-xs text-muted-foreground italic">No historical logs for this record.</p>
+                  {selectedShift && selectedShift.assignments.length < selectedShift.requirements.reduce((a,b) => a + b.count, 0) && (
+                    <Button variant="outline" className="w-full border-dashed rounded-xl h-12 text-[10px] font-black uppercase">
+                       <UserPlus className="h-4 w-4 mr-2" /> Fill Vacant Position
+                    </Button>
                   )}
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isSuggestOpen} onOpenChange={setIsSuggestOpen}>
+      {/* SWAP / REPLACEMENT MODAL */}
+      <Dialog open={isSwapOpen} onOpenChange={setIsSwapOpen}>
         <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden">
           <DialogHeader className="p-6 bg-slate-900 text-white">
             <DialogTitle className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" /> AI Candidate Pool
+              <RefreshCw className="w-5 h-5 text-primary" /> Swap Assignment
             </DialogTitle>
-            <DialogDescription className="text-xs font-bold text-slate-400 uppercase">Proposing qualified candidates for {targetRole || 'authorized roles'} based on compliance.</DialogDescription>
+            <DialogDescription className="text-xs font-bold text-slate-400 uppercase">Replacing {targetAssignment?.guardName} as {targetRole}</DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto bg-slate-50">
             {suggestions.map(({ guard, validation }) => (
               <div 
                 key={guard.id} 
-                onClick={() => validation.isValid && assignGuard(guard)} 
+                onClick={() => validation.isValid && handleSwap(guard)} 
                 className={`flex items-center justify-between p-4 border rounded-2xl bg-white shadow-sm transition-all ${
                   validation.isValid 
                     ? 'hover:border-primary cursor-pointer group' 
@@ -446,15 +340,10 @@ export default function SchedulingPage() {
                   </div>
                 </div>
                 {validation.isValid && (
-                  <Button size="sm" variant="ghost" className="rounded-full font-black text-[10px] group-hover:bg-primary group-hover:text-white">DEPLOY</Button>
+                  <Button size="sm" variant="ghost" className="rounded-full font-black text-[10px] group-hover:bg-primary group-hover:text-white">SELECT</Button>
                 )}
               </div>
             ))}
-          </div>
-          <div className="p-4 bg-white border-t text-center">
-             <p className="text-[10px] text-muted-foreground font-bold flex items-center justify-center gap-1">
-                <Info className="w-3 h-3" /> Non-compliant candidates are automatically filtered.
-             </p>
           </div>
         </DialogContent>
       </Dialog>

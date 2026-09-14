@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Map, 
   MapPin, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle,
   Search,
   Filter,
   BarChart3
@@ -22,12 +18,21 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
-import { patrols } from '@/lib/data';
+import { useJsonStore } from '@/lib/store';
+import { Patrol } from '@/lib/types';
 import { format } from 'date-fns';
 
 export default function PatrolsPage() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const store = useJsonStore();
+  const [patrols, setPatrols] = useState<Patrol[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setPatrols(store.getPatrols());
+  }, []);
+
+  if (!isMounted) return null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,7 +62,7 @@ export default function PatrolsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {patrols.map((patrol) => (
+            {patrols.length > 0 ? patrols.map((patrol) => (
               <div key={patrol.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -66,7 +71,7 @@ export default function PatrolsPage() {
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-800">{patrol.siteName}</h4>
-                      <p className="text-xs text-muted-foreground">{patrol.guardName} • Started {mounted ? format(new Date(patrol.startTime), 'HH:mm') : '...'}</p>
+                      <p className="text-xs text-muted-foreground">{patrol.guardName} • Started {format(new Date(patrol.startTime), 'HH:mm')}</p>
                     </div>
                   </div>
                   <Badge variant={patrol.status === 'Completed' ? 'secondary' : 'outline'}>
@@ -81,7 +86,9 @@ export default function PatrolsPage() {
                   <Progress value={patrol.completion} className="h-2" />
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="py-12 text-center text-muted-foreground italic">No active patrols detected.</div>
+            )}
           </CardContent>
         </Card>
 

@@ -1,13 +1,10 @@
 'use client';
 
 import { 
-  UserCheck, 
   Search, 
   Filter, 
   Plus, 
-  Clock, 
   Building2,
-  Calendar,
   Download
 } from 'lucide-react';
 import {
@@ -28,13 +25,22 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { visitors } from '@/lib/data';
 import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
+import { useJsonStore } from '@/lib/store';
+import { Visitor } from '@/lib/types';
 
 export default function VisitorsPage() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const store = useJsonStore();
+  const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setVisitors(store.getVisitors());
+  }, []);
+
+  if (!isMounted) return null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,7 +86,7 @@ export default function VisitorsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visitors.map((visitor) => (
+              {visitors.length > 0 ? visitors.map((visitor) => (
                 <TableRow key={visitor.id}>
                   <TableCell className="font-semibold">{visitor.name}</TableCell>
                   <TableCell>{visitor.company}</TableCell>
@@ -92,12 +98,10 @@ export default function VisitorsPage() {
                   </TableCell>
                   <TableCell>{visitor.hostName}</TableCell>
                   <TableCell>
-                    {mounted ? (
-                      <div className="flex flex-col text-xs">
-                        <span className="font-medium">{format(new Date(visitor.checkIn), 'HH:mm')}</span>
-                        <span className="text-muted-foreground">{format(new Date(visitor.checkIn), 'MMM dd')}</span>
-                      </div>
-                    ) : '...'}
+                    <div className="flex flex-col text-xs">
+                      <span className="font-medium">{format(new Date(visitor.checkIn), 'HH:mm')}</span>
+                      <span className="text-muted-foreground">{format(new Date(visitor.checkIn), 'MMM dd')}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={visitor.status === 'Checked In' ? 'secondary' : 'outline'}>
@@ -108,7 +112,11 @@ export default function VisitorsPage() {
                     <Button variant="ghost" size="sm">Check Out</Button>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground italic">No visitors registered for today.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

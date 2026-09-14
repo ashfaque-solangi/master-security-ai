@@ -1,10 +1,9 @@
-
 /**
  * @fileOverview Centralized Scheduling Validation Service (Rule Engine)
  * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), Role Qualifications, and Compliance.
  */
 
-import { Shift, Guard, Site } from './types';
+import { Shift, Guard } from './types';
 import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast } from 'date-fns';
 
 export type ValidationResult = {
@@ -74,7 +73,7 @@ export function validateGuardAssignment(
     };
   }
 
-  // RULE 3: Role Qualification
+  // RULE 3: Role Qualification (Hard constraint)
   if (targetRole && !guard.qualifiedRoles.includes(targetRole)) {
     return {
       isValid: false,
