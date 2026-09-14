@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -49,14 +48,14 @@ import { User, UserRole, PermissionAction } from '@/lib/types';
 import { ALL_PERMISSIONS } from '@/lib/permissions';
 
 const roles: UserRole[] = [
-  'Super Admin',
-  'Company Admin',
-  'Operations Manager',
-  'Dispatcher',
-  'HR / Recruitment',
-  'Compliance Manager',
-  'Payroll / Finance',
-  'Client Admin'
+  'SUPER_ADMIN',
+  'COMPANY_ADMIN',
+  'OPERATIONS_MANAGER',
+  'DISPATCHER',
+  'HR_MANAGER',
+  'COMPLIANCE_MANAGER',
+  'FINANCE_MANAGER',
+  'CLIENT_ADMIN'
 ];
 
 export default function SettingsPage() {
@@ -72,7 +71,7 @@ export default function SettingsPage() {
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<UserRole>('Dispatcher');
+  const [role, setRole] = useState<UserRole>('DISPATCHER');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [extraPermissions, setExtraPermissions] = useState<PermissionAction[]>([]);
 
@@ -85,6 +84,7 @@ export default function SettingsPage() {
     if (!name || !email) return;
     const newUser: User = {
       id: `USR-${Math.floor(Math.random() * 1000)}`,
+      organizationId: store.getCurrentUser()?.organizationId || 'ORG-001',
       name,
       email,
       role,
@@ -131,7 +131,7 @@ export default function SettingsPage() {
   const resetForm = () => {
     setName('');
     setEmail('');
-    setRole('Dispatcher');
+    setRole('DISPATCHER');
     setStatus('Active');
     setExtraPermissions([]);
     setSelectedUser(null);
@@ -175,7 +175,7 @@ export default function SettingsPage() {
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Add New Portal User</DialogTitle>
-                    <DialogDescription>Assign a role and optional granular permission overrides.</DialogDescription>
+                    <DialogDescription>Assign a system role and optional granular permission overrides to a new personnel.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-6 py-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -194,7 +194,7 @@ export default function SettingsPage() {
                         <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                            {roles.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, ' ')}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -351,7 +351,7 @@ export default function SettingsPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Update User Profile</DialogTitle>
-            <DialogDescription>Modify access permissions and role for {selectedUser?.name}.</DialogDescription>
+            <DialogDescription>Modify access permissions and system role for {selectedUser?.name || 'the selected user'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -370,7 +370,7 @@ export default function SettingsPage() {
                 <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    {roles.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, ' ')}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

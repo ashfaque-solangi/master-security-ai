@@ -187,7 +187,7 @@ export default function SitesPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Register Operational Site</DialogTitle>
-                <DialogDescription>Add a new contracted location to the platform.</DialogDescription>
+                <DialogDescription>Add a new contracted location to the platform registry.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -389,7 +389,7 @@ export default function SitesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Operational Site</DialogTitle>
-            <DialogDescription>Modify details for {selectedSite?.name}.</DialogDescription>
+            <DialogDescription>Modify parameters for {selectedSite?.name || 'the selected site'} location.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -150,7 +149,7 @@ export default function SubcontractorManagement() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>External Provider Onboarding</DialogTitle>
-                <DialogDescription>Register a new subcontractor to support workforce overflow.</DialogDescription>
+                <DialogDescription>Register a new subcontractor to support workforce overflow and specialized services.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -313,7 +312,7 @@ export default function SubcontractorManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Provider Configuration</DialogTitle>
-            <DialogDescription>Modify parameters for {selectedSub?.name}.</DialogDescription>
+            <DialogDescription>Modify operational parameters and audit status for {selectedSub?.name || 'the selected provider'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

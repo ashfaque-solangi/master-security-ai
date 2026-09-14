@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -146,7 +145,7 @@ export default function ClientManagement() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Register New Corporate Client</DialogTitle>
-              <DialogDescription>Create a master account for a new contracted entity.</DialogDescription>
+              <DialogDescription>Create a master account for a new contracted entity in the platform.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -264,7 +263,7 @@ export default function ClientManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Client Profile</DialogTitle>
-            <DialogDescription>Modify details for {selectedClient?.name}.</DialogDescription>
+            <DialogDescription>Modify administrative and billing details for {selectedClient?.name || 'the selected client'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
