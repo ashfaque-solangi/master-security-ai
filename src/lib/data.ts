@@ -7,7 +7,6 @@ import { addDays, set, subDays } from 'date-fns';
 
 const now = new Date();
 const ORG_A = 'ORG-GLOBAL-001';
-const ORG_B = 'ORG-APEX-002';
 
 const createTimestamp = (daysOffset: number, hour: number, minute: number = 0) => {
   return set(addDays(now, daysOffset), { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 }).toISOString();
@@ -17,18 +16,12 @@ export const users: User[] = [
   { id: 'USR-ADMIN', organizationId: ORG_A, name: 'Alex Thompson', email: 'admin@secureguard.com', role: 'SUPER_ADMIN', status: 'Active', password: 'password123' },
   { id: 'USR-OPS', organizationId: ORG_A, name: 'Sarah Miller', email: 'ops@secureguard.com', role: 'OPERATIONS_MANAGER', status: 'Active', password: 'password123' },
   { id: 'USR-GUARD-1', organizationId: ORG_A, name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'GUARD', status: 'Active', password: 'password123', guardId: 'GRD-101' },
-  { id: 'USR-GUARD-2', organizationId: ORG_A, name: 'Sarah Jenkins', email: 's.jenkins@security.com', role: 'GUARD', status: 'Active', password: 'password123', guardId: 'GRD-102' }
+  { id: 'USR-COMP', organizationId: ORG_A, name: 'Compliance Officer', email: 'compliance@secureguard.com', role: 'COMPLIANCE_MANAGER', status: 'Active', password: 'password123' }
 ];
 
 export const clients: Client[] = [
   { id: 'CL-001', organizationId: ORG_A, name: 'Northgate Retail Group', contactPerson: 'John Hammond', email: 'j.hammond@northgate.com', phone: '+44 20 7123 4567', status: 'Active', industry: 'Retail', address: '123 Retail Lane, London' },
-  { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics', address: '50 Logistics Way, Dartford' },
-  { id: 'CL-003', organizationId: ORG_A, name: 'Westfield Property Services', contactPerson: 'Mark Spencer', email: 'mspencer@westfield.com', phone: '+44 20 7111 2222', status: 'Active', industry: 'Real Estate', address: '88 Property Blvd, Manchester' },
-  { id: 'CL-004', organizationId: ORG_A, name: 'Corporate City Tower', contactPerson: 'Sarah Kent', email: 'skent@citytower.com', phone: '+44 20 7333 4444', status: 'Active', industry: 'Commercial', address: '1 City Plaza, London' },
-  { id: 'CL-005', organizationId: ORG_A, name: 'St. Marys Hospital', contactPerson: 'Dr. Emily Rose', email: 'erose@stmarys.nhs.uk', phone: '+44 20 7444 5555', status: 'Active', industry: 'Healthcare', address: 'Hospital Road, London' },
-  { id: 'CL-006', organizationId: ORG_A, name: 'Apex Construction', contactPerson: 'Bill Builder', email: 'b.builder@apex.co.uk', phone: '+44 20 7666 7777', status: 'Active', industry: 'Construction', address: 'Building Site A, Croydon' },
-  { id: 'CL-007', organizationId: ORG_A, name: 'Global Tech Hub', contactPerson: 'Tim Cook', email: 'tim@globaltech.com', phone: '+44 20 7888 9999', status: 'Active', industry: 'Technology', address: 'Silicon Way, Reading' },
-  { id: 'CL-008', organizationId: ORG_A, name: 'Regent Street Luxury', contactPerson: 'Diana Prince', email: 'diana@regent.com', phone: '+44 20 7000 1111', status: 'Active', industry: 'Luxury Retail', address: 'Regent St, London' }
+  { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics', address: '50 Logistics Way, Dartford' }
 ];
 
 export const sites: Site[] = Array.from({ length: 25 }).map((_, i) => {
@@ -63,18 +56,35 @@ export const sites: Site[] = Array.from({ length: 25 }).map((_, i) => {
 });
 
 export const guards: Guard[] = Array.from({ length: 80 }).map((_, i) => {
-  const names = ['Marcus Thorne', 'Sarah Jenkins', 'Ahmed Khan', 'Leo Varga', 'Emma Watson', 'John Wick', 'Sarah Connor', 'Peter Parker', 'Bruce Wayne', 'Tony Stark', 'Natasha Romanoff', 'Logan Howlett', 'Wanda Maximoff', 'Barry Allen', 'Steve Rogers', 'Diana Prince', 'Arthur Curry', 'Clark Kent', 'Victor Stone', 'Jean Grey'];
-  const name = names[i % names.length] + (i > 19 ? ` ${i}` : '');
-  const roles = ['SECURITY_GUARD', 'CCTV_OPERATOR', 'SITE_LEAD', 'FIRE_MARSHAL', 'FIRST_AID_RESPONDER'];
+  const names = ['Marcus Thorne', 'Sarah Jenkins', 'Ahmed Khan', 'Leo Varga', 'Emma Watson', 'John Wick', 'Sarah Connor', 'Peter Parker', 'Bruce Wayne', 'Tony Stark'];
+  const name = names[i % names.length] + (i > 9 ? ` ${i}` : '');
+  const roles = ['SECURITY_GUARD', 'CCTV_OPERATOR', 'SITE_LEAD', 'FIRE_MARSHAL'];
+  
+  // Specific Compliance scenarios for first 5 guards
+  let siaExpiry = addDays(now, 120).toISOString();
+  let dbsExpiry = addDays(now, 200).toISOString();
+  let rtwExpiry = addDays(now, 365).toISOString();
+  let complianceStatus: any = 'Compliant';
+
+  if (i === 1) { siaExpiry = addDays(now, 15).toISOString(); complianceStatus = 'Expiring Soon'; } // Expiring 15d
+  if (i === 2) { siaExpiry = subDays(now, 1).toISOString(); complianceStatus = 'Expired'; } // Expired
+  if (i === 3) { dbsExpiry = addDays(now, 50).toISOString(); complianceStatus = 'Expiring Soon'; } // 50d alert
+  if (i === 4) { complianceStatus = 'Missing'; siaExpiry = ''; dbsExpiry = ''; } // Missing
+
   return {
     id: `GRD-${101 + i}`,
     organizationId: ORG_A,
     name,
     email: `${name.toLowerCase().replace(/ /g, '.')}@security.com`,
     status: 'Active',
-    complianceStatus: i % 15 === 0 ? 'Expiring Soon' : 'Compliant',
-    licenceExpiry: addDays(now, 100 + (i * 5)).toISOString(),
-    docsMissing: 0,
+    complianceStatus,
+    licenceExpiry: siaExpiry,
+    siaNumber: `SIA-${Math.floor(Math.random() * 1000000)}`,
+    dbsNumber: `DBS-${Math.floor(Math.random() * 1000000)}`,
+    dbsExpiry: dbsExpiry,
+    rtwType: 'Passport',
+    rtwExpiry: rtwExpiry,
+    docsMissing: i === 4 ? 3 : 0,
     performanceScore: 85 + (i % 15),
     weeklyHours: 0,
     isAvailable: true,
@@ -96,7 +106,7 @@ export const shifts: Shift[] = Array.from({ length: 60 }).map((_, i) => {
   
   const shiftAssignments: any[] = [];
   if (status !== 'Draft' && i % 2 === 0) {
-    const assignedCount = site.requiredGuardCount - (i % 2);
+    const assignedCount = Math.min(site.requiredGuardCount, 2);
     for (let j = 0; j < assignedCount; j++) {
       const guard = guards[(i + j * 7) % guards.length];
       shiftAssignments.push({

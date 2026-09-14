@@ -35,7 +35,7 @@ export const WORKFORCE_ROLES = [
 
 export type WorkforceRole = typeof WORKFORCE_ROLES[number];
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'schedule.publish' | 'audit' | 'location' | 'ai';
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'schedule.publish' | 'audit' | 'location' | 'ai' | 'compliance.manage' | 'compliance.override';
 
 export type User = {
   id: string;
@@ -78,13 +78,14 @@ export interface DashboardDefinition {
   priority: number;
 }
 
-export type DocumentType = 'SOP' | 'POST_ORDER' | 'RISK_ASSESSMENT' | 'CONTRACT' | 'LICENCE' | 'CERTIFICATE' | 'ID' | 'TRAINING';
+export type DocumentType = 'SOP' | 'POST_ORDER' | 'RISK_ASSESSMENT' | 'CONTRACT' | 'LICENCE' | 'CERTIFICATE' | 'ID' | 'TRAINING' | 'DBS' | 'RTW';
 
 export type MockDocument = {
   id: string;
   organizationId: string;
   clientId?: string;
   siteId?: string;
+  guardId?: string;
   name: string;
   type: DocumentType;
   version: string;
@@ -94,100 +95,12 @@ export type MockDocument = {
   expiryDate?: string;
   verifiedAt?: string;
   verifiedBy?: string;
-  scope: 'Site' | 'Client' | 'Global';
+  scope: 'Site' | 'Client' | 'Global' | 'Guard';
   content?: string;
 };
 
-export type RiskAssessmentHazard = {
-  id: string;
-  hazard: string;
-  riskLevel: Severity;
-  controls: string;
-};
-
-export type ContractRate = {
-  role: string;
-  weekdayRate: number;
-  weekendRate: number;
-  holidayRate: number;
-  overtimeRate: number;
-};
-
-export type Contract = {
-  id: string;
-  organizationId: string;
-  clientId: string;
-  siteId?: string;
-  contractNumber: string;
-  title: string;
-  startDate: string;
-  endDate: string;
-  status: 'Active' | 'Expired' | 'Pending' | 'Draft' | 'Terminated';
-  billingRate: number;
-  guardRate: number;
-  rates?: ContractRate[];
-  requiredHours: number;
-  kpis: string[];
-  sla: string;
-  penalties: string;
-  terms?: string;
-};
-
-export type Client = {
-  id: string;
-  organizationId: string;
-  name: string;
-  clientCode?: string;
-  contactPerson: string;
-  email: string;
-  phone: string;
-  status: 'Active' | 'Inactive' | 'Archived';
-  industry: string;
-  accountOwner?: string;
-  address: string;
-  notes?: string;
-};
-
-export type Site = {
-  id: string;
-  organizationId: string;
-  name: string;
-  code: string;
-  clientId: string;
-  clientName: string;
-  address: string;
-  contactInfo: string;
-  status: 'Active' | 'Inactive';
-  operatingHours: string;
-  requiredGuardCount: number;
-  requiredRoles: string[];
-  requiredSkills: string[];
-  requiredQualifications: string[];
-  riskLevel: Severity;
-  activeGuardsCount: number;
-  openShifts: number;
-  healthScore: number;
-  revenuePerMonth: number;
-  instructions?: string;
-  patrolFrequency?: string;
-  patrolType?: string;
-};
-
-export type Subcontractor = {
-  id: string;
-  organizationId: string;
-  name: string;
-  contactPerson?: string;
-  companyReg?: string;
-  contactEmail: string;
-  contactPhone: string;
-  status: 'Active' | 'Inactive' | 'Approved' | 'Pending' | 'Suspended';
-  rating: number;
-  guardCount: number;
-};
-
 export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended' | 'Inactive' | 'On Leave' | 'Applicant';
-export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant';
+export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant' | 'Pending Verification' | 'Expired' | 'Missing';
 
 export type Guard = {
   id: string;
@@ -199,7 +112,12 @@ export type Guard = {
   complianceStatus: ComplianceStatus;
   qualifiedRoles: string[];
   skills: string[];
-  licenceExpiry: string;
+  licenceExpiry: string; // SIA Expiry
+  siaNumber?: string;
+  dbsNumber?: string;
+  dbsExpiry?: string;
+  rtwType?: string;
+  rtwExpiry?: string;
   docsMissing: number;
   performanceScore: number;
   weeklyHours: number;
@@ -208,6 +126,9 @@ export type Guard = {
   unavailableDates?: string[];
   recruitmentStage?: RecruitmentStage;
   primaryRole?: WorkforceRole;
+  isComplianceOverridden?: boolean;
+  overrideReason?: string;
+  overrideBy?: string;
 };
 
 export type RecruitmentStage = 
@@ -396,7 +317,8 @@ export type AuditAction =
   | 'SESSION_REVOKED'
   | 'CONCURRENT_UPDATE_REJECTED'
   | 'SHIFT_PUBLISHED'
-  | 'SHIFT_DEPLOYED' | 'SHIFT_DEPLOYMENT_CHANGED' | 'SHIFT_UNDEPLOYED';
+  | 'SHIFT_DEPLOYED' | 'SHIFT_DEPLOYMENT_CHANGED' | 'SHIFT_UNDEPLOYED'
+  | 'COMPLIANCE_RECORD_UPDATED' | 'COMPLIANCE_OVERRIDE' | 'DOC_REJECTED';
 
 export type AuditRecord = {
   id: string;
@@ -405,7 +327,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract' | 'session';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract' | 'session' | 'compliance';
   entityId: string;
   description: string;
   oldValues: any | null;

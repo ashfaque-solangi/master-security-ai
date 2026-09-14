@@ -4,15 +4,13 @@
  */
 
 import { Shift, Guard, LeaveRecord, Site, ValidationResult } from './types';
-import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast, format } from 'date-fns';
+import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast, format, addDays, isBefore } from 'date-fns';
 
 export const MAX_DAILY_HOURS = 16;
 export const MANDATORY_REST_MINUTES = 480; // 8 Hours
 
 /**
  * Calculates hours worked by a guard on a specific calendar day.
- * Note: Still used for reporting daily totals, but sequence accumulation 
- * is now authoritative for the 16h/8h rest hard block.
  */
 export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift[]): number {
   const startOfTargetDay = startOfDay(day);
@@ -40,7 +38,7 @@ export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift
 }
 
 /**
- * Core validation for guard assignments. Enforces all Phase 2 business rules.
+ * Core validation for guard assignments. Enforces all Phase 2 & Phase 6 business rules.
  */
 export function validateGuardAssignment(
   guard: Guard,
@@ -51,13 +49,27 @@ export function validateGuardAssignment(
   site?: Site
 ): ValidationResult {
   
-  // RULE 13: Compliance Blocker (Expired/Missing Licence)
-  if (guard.complianceStatus === 'Non-Compliant' || isPast(parseISO(guard.licenceExpiry))) {
-    return {
-      isValid: false,
-      code: 'COMPLIANCE_BLOCK',
-      message: `Guard's licence has expired or mandatory documents are missing.`
-    };
+  // RULE: Override Check
+  if (guard.isComplianceOverridden) {
+    // Overridden guards bypass hard compliance blocks but still show warnings in audit.
+  } else {
+    // RULE 13: Compliance Blocker (Expired/Missing SIA Licence)
+    if (!guard.siaNumber || !guard.licenceExpiry || isPast(parseISO(guard.licenceExpiry))) {
+      return {
+        isValid: false,
+        code: 'COMPLIANCE_BLOCK',
+        message: `SIA Blocker: Guard's SIA licence (${guard.siaNumber || 'MISSING'}) is expired or invalid.`
+      };
+    }
+
+    // RTW Blocker
+    if (!guard.rtwType || (guard.rtwExpiry && isPast(parseISO(guard.rtwExpiry)))) {
+      return {
+        isValid: false,
+        code: 'COMPLIANCE_BLOCK',
+        message: `RTW Blocker: Right to Work verification is missing or expired.`
+      };
+    }
   }
 
   // Guard Inactive Check
@@ -93,7 +105,7 @@ export function validateGuardAssignment(
   const shiftStart = parseISO(targetShift.startTime);
   const shiftEnd = parseISO(targetShift.endTime);
 
-  // RULE: Approved Leave Check (Authoritative HR Records)
+  // RULE: Approved Leave Check
   const overlappingLeave = leaveRecords.find(l => 
     l.guardId === guard.id && 
     l.status === 'Approved' &&
@@ -107,11 +119,11 @@ export function validateGuardAssignment(
     return {
       isValid: false,
       code: 'GUARD_ON_LEAVE',
-      message: `Guard is on approved ${overlappingLeave.type} from ${format(parseISO(overlappingLeave.startDate), 'MMM dd')} to ${format(parseISO(overlappingLeave.endDate), 'MMM dd')}.`
+      message: `Guard is on approved ${overlappingLeave.type} during this period.`
     };
   }
 
-  // RULE 6: Availability Check (Ad-hoc unavailability)
+  // RULE 6: Availability Check
   if (guard.unavailableDates?.some(d => isWithinInterval(parseISO(d), { 
     start: shiftStart, 
     end: shiftEnd 
@@ -124,14 +136,12 @@ export function validateGuardAssignment(
   }
 
   // RULE 1: No Overlapping Shifts
-  const targetInterval = {
-    start: shiftStart,
-    end: shiftEnd
-  };
-
   const overlappingShift = allShifts.find(s => {
     if (s.id === targetShift.id || s.status === 'Cancelled') return false;
-    return s.assignments?.some(a => a.guardId === guard.id && ['Assigned', 'Confirmed', 'In Transit', 'On Site', 'Pending'].includes(a.status)) && areIntervalsOverlapping(targetInterval, {
+    return s.assignments?.some(a => a.guardId === guard.id && ['Assigned', 'Confirmed', 'In Transit', 'On Site', 'Pending'].includes(a.status)) && areIntervalsOverlapping({
+      start: shiftStart,
+      end: shiftEnd
+    }, {
       start: parseISO(s.startTime),
       end: parseISO(s.endTime)
     });
@@ -141,12 +151,11 @@ export function validateGuardAssignment(
     return {
       isValid: false,
       code: 'SHIFT_OVERLAP',
-      message: `Overlap Error: Guard already assigned to another shift during this window at ${overlappingShift.siteName}.`
+      message: `Overlap Error: Already assigned to ${overlappingShift.siteName} during this window.`
     };
   }
 
   // RULE: 16-Hour Accumulated Duty & 8-Hour Rest Period
-  // We identify duty sequences (shifts separated by less than 8 hours)
   const activeAssignments = allShifts.filter(s => 
     s.id !== targetShift.id &&
     s.status !== 'Cancelled' && 
@@ -156,7 +165,6 @@ export function validateGuardAssignment(
     )
   );
 
-  // Group current assignments and proposed shift chronologically
   const chronologicalGuardRoster = [...activeAssignments, targetShift].sort((a, b) => 
     parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime()
   );
@@ -167,10 +175,8 @@ export function validateGuardAssignment(
     for (let i = 1; i < chronologicalGuardRoster.length; i++) {
       const prev = chronologicalGuardRoster[i - 1];
       const curr = chronologicalGuardRoster[i];
-      
       const gap = differenceInMinutes(parseISO(curr.startTime), parseISO(prev.endTime));
       
-      // If gap is less than 8 hours, it's one continuous duty sequence
       if (gap < MANDATORY_REST_MINUTES) {
         currentSeq.push(curr);
       } else {
@@ -181,17 +187,14 @@ export function validateGuardAssignment(
     dutySequences.push(currentSeq);
   }
 
-  // Find the sequence containing the target shift and check its total duration
   for (const seq of dutySequences) {
     const totalMinutes = seq.reduce((sum, s) => sum + differenceInMinutes(parseISO(s.endTime), parseISO(s.startTime)), 0);
-    
-    if (totalMinutes > 960) { // 960 mins = 16 hours
+    if (totalMinutes > 960) {
       if (seq.some(s => s.id === targetShift.id)) {
-        const hours = (totalMinutes / 60).toFixed(1);
         return {
           isValid: false,
           code: 'REST_PERIOD_VIOLATION',
-          message: `Rest Period Violation: Accumulated duty reaches ${hours}h. A mandatory 8-hour rest is required after 16h of duty.`
+          message: `Rest Period Violation: Accumulated duty reaches ${(totalMinutes / 60).toFixed(1)}h. Mandatory 8h rest required.`
         };
       }
     }

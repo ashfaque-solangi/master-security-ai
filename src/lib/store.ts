@@ -31,10 +31,12 @@ import {
   AuditRecord, AuditAction, 
   SOSAlert, Alarm, Vehicle, Contract, 
   UserSession, MockDocument, LeaveRecord, ShiftAssignment,
-  PermissionAction
+  PermissionAction,
+  ComplianceStatus
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
+import { isPast, parseISO, addDays, isBefore } from 'date-fns';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards_p10_v2',
@@ -138,6 +140,24 @@ export const useJsonStore = () => {
       return false;
     }
     return true;
+  };
+
+  const calculateComplianceStatus = (guard: Guard): ComplianceStatus => {
+    if (guard.isComplianceOverridden) return 'Compliant';
+    
+    const expiries = [
+      guard.licenceExpiry ? parseISO(guard.licenceExpiry) : null,
+      guard.dbsExpiry ? parseISO(guard.dbsExpiry) : null,
+      guard.rtwExpiry ? parseISO(guard.rtwExpiry) : null
+    ].filter(Boolean) as Date[];
+
+    if (expiries.length === 0) return 'Missing';
+    
+    const now = new Date();
+    if (expiries.some(e => isPast(e))) return 'Expired';
+    if (expiries.some(e => isBefore(e, addDays(now, 30)))) return 'Expiring Soon';
+    
+    return 'Compliant';
   };
 
   const heartbeat = (): boolean => {
@@ -296,9 +316,11 @@ export const useJsonStore = () => {
     updateGuard: (g: Guard) => {
       if (!assertWrite('hr', 'guard', g)) return [];
       const all = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
-      const updated = all.map(o => o.id === g.id ? g : o);
+      const compliance = calculateComplianceStatus(g);
+      const updatedGuard = { ...g, complianceStatus: compliance };
+      const updated = all.map(o => o.id === g.id ? updatedGuard : o);
       setStored(STORAGE_KEYS.GUARDS, updated);
-      logAudit({ action: 'GUARD_UPDATED', entityType: 'guard', entityId: g.id, description: `Guard profile updated for ${g.name}.`, newValues: g });
+      logAudit({ action: 'GUARD_UPDATED', entityType: 'guard', entityId: g.id, description: `Guard profile updated for ${g.name}.`, newValues: updatedGuard });
       return updated;
     },
     deleteGuard: (id: string) => {
@@ -308,6 +330,17 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.GUARDS, updated);
       logAudit({ action: 'USER_DELETED', entityType: 'guard', entityId: id, description: `Guard profile deleted.` });
       return updated;
+    },
+
+    overrideCompliance: (guardId: string, reason: string) => {
+      if (!assertWrite('compliance.override', 'guard')) return;
+      const all = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const guard = all.find(g => g.id === guardId);
+      if (!guard) return;
+      const updatedGuard = { ...guard, isComplianceOverridden: true, overrideReason: reason, overrideBy: getCurrentUser()?.name || 'ADMIN' };
+      const updated = all.map(g => g.id === guardId ? updatedGuard : g);
+      setStored(STORAGE_KEYS.GUARDS, updated);
+      logAudit({ action: 'COMPLIANCE_OVERRIDE', entityType: 'guard', entityId: guardId, description: `Compliance manually overridden: ${reason}` });
     },
 
     addShift: (s: Shift) => {
@@ -357,7 +390,6 @@ export const useJsonStore = () => {
       const site = sites.find(s => s.id === siteId);
       if (!shift || !site || !assertWrite('schedule', 'shift', shift)) return shifts;
 
-      // REVALIDATE ALL GUARDS AGAINST NEW SITE
       const allShifts = shifts;
       const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
       for (const asg of (shift.assignments || [])) {
@@ -383,7 +415,6 @@ export const useJsonStore = () => {
       if (!shift || !newSite || !assertWrite('schedule', 'shift', shift)) return shifts;
 
       const oldSiteName = shift.siteName;
-      // REVALIDATE ALL GUARDS
       const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
       for (const asg of (shift.assignments || [])) {
         const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === asg.guardId);
@@ -733,7 +764,7 @@ export const useJsonStore = () => {
     addDocument: (doc: MockDocument) => {
       if (!assertWrite('manage', 'document')) return [];
       const all = getStored<MockDocument[]>(STORAGE_KEYS.DOCUMENTS, initialDocs);
-      const updated = [doc, ...all.map(d => (d.name === doc.name && d.siteId === doc.siteId && d.status === 'Current') ? { ...d, status: 'Archived' as const } : d)];
+      const updated = [doc, ...all.map(d => (d.name === doc.name && d.guardId === doc.guardId && d.siteId === doc.siteId && d.status === 'Current') ? { ...d, status: 'Archived' as const } : d)];
       setStored(STORAGE_KEYS.DOCUMENTS, updated);
       logAudit({ action: 'DOCUMENT_CREATED', entityType: 'document', entityId: doc.id, description: `Doc ${doc.name} version ${doc.version} uploaded.` });
       return updated;

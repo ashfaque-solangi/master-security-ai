@@ -1,19 +1,19 @@
 import { User, UserRole, PermissionAction } from './types';
 
-export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai'];
+export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai', 'compliance.manage', 'compliance.override'];
 
 /**
  * Mapping of Platform Roles to their allowed Permission Actions.
  */
 export const rolePermissions: Record<UserRole, PermissionAction[]> = {
-  'SUPER_ADMIN': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai'],
-  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location'],
+  'SUPER_ADMIN': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai', 'compliance.manage', 'compliance.override'],
+  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location', 'compliance.manage'],
   'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location'],
   'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location'],
   'SCHEDULER': ['view', 'schedule', 'schedule.publish'],
   'SITE_MANAGER': ['view', 'manage', 'location'],
-  'HR_MANAGER': ['view', 'hr'],
-  'COMPLIANCE_MANAGER': ['view', 'hr'],
+  'HR_MANAGER': ['view', 'hr', 'compliance.manage'],
+  'COMPLIANCE_MANAGER': ['view', 'hr', 'compliance.manage', 'compliance.override'],
   'FINANCE_MANAGER': ['view', 'finance'],
   'GUARD': ['guard'],
   'CLIENT_ADMIN': ['client', 'view', 'location'],
@@ -35,7 +35,7 @@ export const navItemPermissions: Record<string, PermissionAction> = {
   '/visitors': 'view',
   '/inbox': 'view',
   '/workforce': 'hr',
-  '/compliance': 'hr',
+  '/compliance': 'view',
   '/performance': 'view',
   '/sites': 'manage',
   '/clients': 'manage',
