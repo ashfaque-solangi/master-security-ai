@@ -3,7 +3,7 @@ import {
   Invoice, Applicant, SOSAlert, Alarm, Vehicle, Contract,
   Patrol, PayrollRecord, Visitor, FormDefinition, MockDocument, LeaveRecord
 } from './types';
-import { addDays, set } from 'date-fns';
+import { addDays, set, subDays } from 'date-fns';
 
 const now = new Date();
 const ORG_A = 'ORG-GLOBAL-001';
@@ -25,82 +25,108 @@ export const clients: Client[] = [
   { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics', address: '50 Logistics Way, Dartford' },
   { id: 'CL-003', organizationId: ORG_A, name: 'Westfield Property Services', contactPerson: 'Mark Spencer', email: 'mspencer@westfield.com', phone: '+44 20 7111 2222', status: 'Active', industry: 'Real Estate', address: '88 Property Blvd, Manchester' },
   { id: 'CL-004', organizationId: ORG_A, name: 'Corporate City Tower', contactPerson: 'Sarah Kent', email: 'skent@citytower.com', phone: '+44 20 7333 4444', status: 'Active', industry: 'Commercial', address: '1 City Plaza, London' },
-  { id: 'CL-005', organizationId: ORG_B, name: 'Sentinel Industrial Hub', contactPerson: 'James Reed', email: 'jreed@sentinel.com', phone: '+44 20 7555 6666', status: 'Active', industry: 'Industrial', address: 'Sentinel Park, Birmingham' }
+  { id: 'CL-005', organizationId: ORG_A, name: 'St. Marys Hospital', contactPerson: 'Dr. Emily Rose', email: 'erose@stmarys.nhs.uk', phone: '+44 20 7444 5555', status: 'Active', industry: 'Healthcare', address: 'Hospital Road, London' },
+  { id: 'CL-006', organizationId: ORG_A, name: 'Apex Construction', contactPerson: 'Bill Builder', email: 'b.builder@apex.co.uk', phone: '+44 20 7666 7777', status: 'Active', industry: 'Construction', address: 'Building Site A, Croydon' },
+  { id: 'CL-007', organizationId: ORG_A, name: 'Global Tech Hub', contactPerson: 'Tim Cook', email: 'tim@globaltech.com', phone: '+44 20 7888 9999', status: 'Active', industry: 'Technology', address: 'Silicon Way, Reading' },
+  { id: 'CL-008', organizationId: ORG_A, name: 'Regent Street Luxury', contactPerson: 'Diana Prince', email: 'diana@regent.com', phone: '+44 20 7000 1111', status: 'Active', industry: 'Luxury Retail', address: 'Regent St, London' },
+  { id: 'CL-009', organizationId: ORG_A, name: 'London Data Center', contactPerson: 'Steve Jobs', email: 'steve@datacentre.co.uk', phone: '+44 20 7222 3333', status: 'Active', industry: 'Data Centers', address: 'Dark Fiber Way, Slough' },
+  { id: 'CL-010', organizationId: ORG_B, name: 'Sentinel Industrial Hub', contactPerson: 'James Reed', email: 'jreed@sentinel.com', phone: '+44 20 7555 6666', status: 'Active', industry: 'Industrial', address: 'Sentinel Park, Birmingham' }
 ];
 
-export const sites: Site[] = [
-  { 
-    id: 'SITE-001', organizationId: ORG_A, name: 'Northgate Mall', code: 'NG-01', clientId: 'CL-001', clientName: 'Northgate Retail Group',
-    address: '100 Mall Street, London', contactInfo: 'Desk: 020 7123 0001', status: 'Active', operatingHours: '24/7', 
-    requiredGuardCount: 4, requiredRoles: ['SECURITY_GUARD', 'CCTV_OPERATOR'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Medium', activeGuardsCount: 0, healthScore: 92, revenuePerMonth: 18500, openShifts: 0
-  },
-  { 
-    id: 'SITE-002', organizationId: ORG_A, name: 'Metro Distribution Centre', code: 'MD-02', clientId: 'CL-002', clientName: 'Metro Logistics Ltd',
-    address: '50 Logistics Way, Dartford', contactInfo: 'Gatehouse: 01322 700 800', status: 'Active', operatingHours: '24/7', 
-    requiredGuardCount: 6, requiredRoles: ['SECURITY_GUARD', 'MOBILE_PATROL'], requiredSkills: [], requiredQualifications: [], riskLevel: 'High', activeGuardsCount: 0, healthScore: 88, revenuePerMonth: 24000, openShifts: 0
-  },
-  { 
-    id: 'SITE-003', organizationId: ORG_A, name: 'Central Office Tower', code: 'CT-03', clientId: 'CL-004', clientName: 'Corporate City Tower',
-    address: '1 City Plaza, London', contactInfo: 'Reception: 020 7900 1000', status: 'Active', operatingHours: '24/7', 
-    requiredGuardCount: 3, requiredRoles: ['SECURITY_GUARD', 'SITE_LEAD'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Low', activeGuardsCount: 0, healthScore: 95, revenuePerMonth: 12000, openShifts: 0
-  },
-  { 
-    id: 'SITE-004', organizationId: ORG_B, name: 'Sentinel Hub A', code: 'SH-01', clientId: 'CL-005', clientName: 'Sentinel Industrial Hub',
-    address: 'Sentinel Park, Birmingham', contactInfo: 'HQ: 0121 500 6000', status: 'Active', operatingHours: '24/7', 
-    requiredGuardCount: 5, requiredRoles: ['SECURITY_GUARD', 'FIRE_MARSHAL'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Critical', activeGuardsCount: 0, healthScore: 82, revenuePerMonth: 30000, openShifts: 0
+export const sites: Site[] = Array.from({ length: 25 }).map((_, i) => {
+  const client = clients[i % clients.length];
+  const siteNames = ['Main Gate', 'North Wing', 'South Gate', 'Perimeter Patrol', 'Reception Desk', 'CCTV Room', 'Loading Bay', 'Server Room', 'Retail Floor', 'Executive Suite'];
+  const name = `${client.name} - ${siteNames[i % siteNames.length]}`;
+  return {
+    id: `SITE-${100 + i}`,
+    organizationId: client.organizationId,
+    name,
+    code: `SITE-${client.industry.substring(0, 3).toUpperCase()}-${100 + i}`,
+    clientId: client.id,
+    clientName: client.name,
+    address: `${10 + i} ${client.industry} Way, London`,
+    contactInfo: `Desk: 020 ${7000 + i} ${1000 + i}`,
+    status: 'Active',
+    operatingHours: '24/7',
+    requiredGuardCount: (i % 4) + 1,
+    requiredRoles: ['SECURITY_GUARD', (i % 3 === 0 ? 'CCTV_OPERATOR' : 'SITE_LEAD')],
+    requiredSkills: i % 2 === 0 ? ['First Aid'] : [],
+    requiredQualifications: i % 3 === 0 ? ['SIA_CCTV'] : ['SIA_DOOR'],
+    riskLevel: i % 4 === 0 ? 'High' : i % 3 === 0 ? 'Critical' : 'Medium',
+    activeGuardsCount: 0,
+    healthScore: 85 + (i % 15),
+    revenuePerMonth: 5000 + (i * 1000),
+    openShifts: 0,
+    instructions: 'Follow standard post orders. Report all anomalies via Incident Portal.',
+    patrolFrequency: '60 minutes',
+    patrolType: 'NFC Checkpoint'
+  };
+});
+
+export const guards: Guard[] = Array.from({ length: 60 }).map((_, i) => {
+  const names = ['Marcus Thorne', 'Sarah Jenkins', 'Ahmed Khan', 'Leo Varga', 'Emma Watson', 'John Wick', 'Sarah Connor', 'Peter Parker', 'Bruce Wayne', 'Clark Kent', 'Diana Prince', 'Tony Stark', 'Steve Rogers', 'Natasha Romanoff', 'Wanda Maximoff', 'Barry Allen', 'Arthur Curry', 'Victor Stone', 'Logan Howlett', 'Jean Grey'];
+  const name = names[i % names.length] + (i > 19 ? ` ${i}` : '');
+  const roles = ['SECURITY_GUARD', 'CCTV_OPERATOR', 'SITE_LEAD', 'FIRE_MARSHAL', 'FIRST_AID_RESPONDER'];
+  return {
+    id: `GRD-${100 + i}`,
+    organizationId: ORG_A,
+    name,
+    email: `${name.toLowerCase().replace(/ /g, '.')}@security.com`,
+    status: 'Active',
+    complianceStatus: i % 10 === 0 ? 'Expiring Soon' : 'Compliant',
+    licenceExpiry: addDays(now, 100 + (i * 5)).toISOString(),
+    docsMissing: 0,
+    performanceScore: 85 + (i % 15),
+    weeklyHours: 10 + (i % 30),
+    isAvailable: true,
+    qualifiedRoles: [roles[i % roles.length], 'SECURITY_GUARD'],
+    skills: i % 2 === 0 ? ['First Aid'] : [],
+    primaryRole: roles[i % roles.length] as any
+  };
+});
+
+// Programmatic Shift Generation (60 shifts)
+export const shifts: Shift[] = Array.from({ length: 60 }).map((_, i) => {
+  const site = sites[i % sites.length];
+  const start = createTimestamp(Math.floor(i / 10), (i % 3) * 8);
+  const end = createTimestamp(Math.floor(i / 10), ((i % 3) + 1) * 8);
+  const status: any = i % 5 === 0 ? 'Draft' : i % 4 === 0 ? 'Open' : 'Published';
+  
+  // Create multi-guard assignments for 50% of shifts
+  const shiftAssignments: ShiftAssignment[] = [];
+  if (i % 2 === 0) {
+    const guardCount = (i % 3) + 1;
+    for (let j = 0; j < guardCount; j++) {
+      const guard = guards[(i + j * 5) % guards.length];
+      shiftAssignments.push({
+        id: `ASG-${i}-${j}`,
+        guardId: guard.id,
+        guardName: guard.name,
+        rolePerformed: site.requiredRoles[j % site.requiredRoles.length],
+        status: 'Assigned',
+        assignedAt: subDays(now, 1).toISOString(),
+        assignedBy: 'SYSTEM'
+      });
+    }
   }
-];
 
-export const guards: Guard[] = [
-  {
-    id: 'GRD-001', organizationId: ORG_A, name: 'Marcus Thorne', email: 'm.thorne@security.com', status: 'Active', complianceStatus: 'Compliant',
-    licenceExpiry: addDays(now, 200).toISOString(), docsMissing: 0, performanceScore: 98, weeklyHours: 32, isAvailable: true,
-    qualifiedRoles: ['SECURITY_GUARD', 'FIRST_AID_RESPONDER', 'MOBILE_PATROL'], skills: ['First Aid'], primaryRole: 'SECURITY_GUARD'
-  },
-  {
-    id: 'GRD-002', organizationId: ORG_A, name: 'Sarah Jenkins', email: 's.jenkins@security.com', status: 'Active', complianceStatus: 'Compliant',
-    licenceExpiry: addDays(now, 150).toISOString(), docsMissing: 0, performanceScore: 95, weeklyHours: 24, isAvailable: true,
-    qualifiedRoles: ['SECURITY_GUARD', 'CCTV_OPERATOR'], skills: ['CCTV License'], primaryRole: 'CCTV_OPERATOR'
-  },
-  {
-    id: 'GRD-003', organizationId: ORG_A, name: 'Ahmed Khan', email: 'ahmed@security.com', status: 'Active', complianceStatus: 'Compliant',
-    licenceExpiry: addDays(now, 300).toISOString(), docsMissing: 0, performanceScore: 92, weeklyHours: 10, isAvailable: true,
-    qualifiedRoles: ['SECURITY_GUARD', 'DOOR_SUPERVISOR'], skills: [], primaryRole: 'SECURITY_GUARD'
-  },
-  {
-    id: 'GRD-004', organizationId: ORG_A, name: 'Leo Varga', email: 'leo@security.com', status: 'Active', complianceStatus: 'Compliant',
-    licenceExpiry: addDays(now, 365).toISOString(), docsMissing: 0, performanceScore: 99, weeklyHours: 40, isAvailable: true,
-    qualifiedRoles: ['SECURITY_GUARD', 'SITE_LEAD', 'FIRST_AID_RESPONDER'], skills: ['First Aid'], primaryRole: 'SITE_LEAD'
-  }
-];
-
-export const shifts: Shift[] = [
-  {
-    id: 'SHF-001', organizationId: ORG_A, siteId: 'SITE-001', siteName: 'Northgate Mall',
-    name: 'Morning Mall Patrol', code: 'SH-2024-000001',
-    startTime: createTimestamp(0, 8), endTime: createTimestamp(0, 16), status: 'Open', priority: 'Routine',
-    requirements: [
-      { role: 'SECURITY_GUARD', count: 2 },
-      { role: 'CCTV_OPERATOR', count: 1 },
-      { role: 'FIRST_AID_RESPONDER', count: 1 }
-    ],
-    assignments: [
-      { id: 'ASG-1', guardId: 'GRD-001', guardName: 'Marcus Thorne', rolePerformed: 'SECURITY_GUARD', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' },
-      { id: 'ASG-PEND-1', guardId: 'GRD-002', guardName: 'Sarah Jenkins', rolePerformed: 'CCTV_OPERATOR', status: 'Pending', assignedAt: now.toISOString(), assignedBy: 'GUARD_CLAIM' }
-    ],
-    role: 'Team Deployment',
+  return {
+    id: `SHF-${100 + i}`,
+    organizationId: site.organizationId,
+    siteId: site.id,
+    siteName: site.name,
+    name: `${site.name} - ${i % 3 === 0 ? 'Day' : i % 3 === 1 ? 'Night' : 'Swing'} Shift`,
+    code: `SH-2024-${(100 + i).toString().padStart(6, '0')}`,
+    startTime: start,
+    endTime: end,
+    status,
+    priority: i % 6 === 0 ? 'Urgent' : 'Routine',
+    requirements: site.requiredRoles.map(r => ({ role: r, count: site.requiredGuardCount })),
+    assignments: shiftAssignments,
+    role: 'Security Support',
     version: 1
-  },
-  {
-    id: 'SHF-DRAFT-001', organizationId: ORG_A, siteId: 'SITE-003', siteName: 'Central Office Tower',
-    name: 'Standard Office Static Post', code: 'SH-2024-000002',
-    startTime: createTimestamp(1, 10), endTime: createTimestamp(1, 18), status: 'Draft', priority: 'Routine',
-    requirements: [{ role: 'SECURITY_GUARD', count: 1 }],
-    assignments: [],
-    role: 'Static Post',
-    version: 1
-  }
-];
+  };
+});
 
 export const incidents: Incident[] = [];
 export const sosAlerts: SOSAlert[] = [];

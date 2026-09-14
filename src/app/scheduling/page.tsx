@@ -10,13 +10,8 @@ import {
   ChevronRight, 
   ShieldAlert,
   Users,
-  Coffee,
   Loader2,
-  History,
-  Info,
   XCircle,
-  CheckCircle2,
-  GripVertical,
   RefreshCw,
   Trash2,
   UserPlus,
@@ -24,8 +19,7 @@ import {
   Building2,
   Send,
   Timer,
-  Hash,
-  AlertTriangle
+  Hash
 } from 'lucide-react';
 import {
   Card,
@@ -41,7 +35,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter
 } from '@/components/ui/dialog';
 import {
   Tooltip,
@@ -50,7 +43,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useJsonStore } from '@/lib/store';
-import { Shift, Guard, ShiftAssignment, AuditRecord, LeaveRecord, WorkforceRole, Site } from '@/lib/types';
+import { Shift, Guard, ShiftAssignment, LeaveRecord, Site } from '@/lib/types';
 import { 
   format, 
   startOfWeek, 
@@ -61,7 +54,6 @@ import {
   endOfMonth,
   endOfWeek,
   eachDayOfInterval,
-  isSameMonth,
   addMonths,
   differenceInHours
 } from 'date-fns';
@@ -114,83 +106,37 @@ export default function SchedulingPage() {
 
     const oldStart = parseISO(shift.startTime);
     const oldEnd = parseISO(shift.endTime);
-    const duration = differenceInHours(oldEnd, oldStart);
+    const duration = oldEnd.getTime() - oldStart.getTime();
 
     const newStart = new Date(targetDay);
     newStart.setHours(oldStart.getHours(), oldStart.getMinutes());
-    const newEnd = new Date(newStart);
-    newEnd.setHours(newStart.getHours() + duration);
-
-    const proposedShift = { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() };
-
-    // Multi-Guard Team Validation
-    if (shift.assignments?.length > 0) {
-      for (const asg of shift.assignments) {
-        if (!['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(asg.status)) continue;
-        const guard = guards.find(g => g.id === asg.guardId);
-        if (guard) {
-          const site = sites.find(s => s.id === shift.siteId);
-          const validation = validateGuardAssignment(
-            guard, 
-            proposedShift, 
-            shifts, 
-            leaveRecords,
-            asg.rolePerformed,
-            site
-          );
-          if (!validation.isValid) {
-            toast({
-              variant: "destructive",
-              title: "Move Blocked",
-              description: `Conflict for ${guard.name} (${asg.rolePerformed}): ${validation.message}`
-            });
-            return;
-          }
-        }
-      }
-    }
+    const newEnd = new Date(newStart.getTime() + duration);
 
     const updatedShift: Shift = { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() };
     
     try {
       store.updateShift(updatedShift);
       refreshData();
-      toast({ title: "Shift Rescheduled", description: "Entire team successfully moved." });
+      toast({ title: "Shift Rescheduled", description: "Team deployment interval updated." });
     } catch (error: any) {
-      if (error.message === 'STALE_VERSION') {
-        toast({
-          variant: "destructive",
-          title: "Concurrent Conflict",
-          description: "Schedule changed by another user. Your copy is out of date. Refreshing authoritative state..."
-        });
-        refreshData();
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "An unexpected error occurred while updating the shift."
-        });
-      }
+      toast({ variant: "destructive", title: "Conflict Blocked", description: error.message });
     }
   };
 
   const openAddGuard = (shift: Shift, role: string) => {
     setSelectedShift(shift);
     setTargetRole(role);
-    
     const site = sites.find(s => s.id === shift.siteId);
     const pool = guards.map(g => ({
       guard: g,
       validation: validateGuardAssignment(g, shift, shifts, leaveRecords, role, site)
     })).sort((a, b) => (a.validation.isValid === b.validation.isValid ? 0 : a.validation.isValid ? -1 : 1));
-
     setSuggestions(pool);
     setIsAddGuardOpen(true);
   };
 
   const handleAddAssignment = (guard: Guard) => {
     if (!selectedShift || !targetRole) return;
-    
     const newAssignment: ShiftAssignment = {
       id: `ASG-${Date.now()}`,
       guardId: guard.id,
@@ -200,53 +146,21 @@ export default function SchedulingPage() {
       assignedAt: new Date().toISOString(),
       assignedBy: store.getCurrentUser()?.name || 'SYSTEM'
     };
-
-    const updatedShifts = store.addShiftAssignment(selectedShift.id, newAssignment);
-    setShifts(updatedShifts);
-    setIsAddGuardOpen(false);
-    
-    const updated = updatedShifts.find(s => s.id === selectedShift.id);
-    if (updated) setSelectedShift(updated);
-    
-    toast({ title: "Guard Assigned", description: `${guard.name} assigned as ${targetRole}.` });
-  };
-
-  const openSwap = (shift: Shift, asg: ShiftAssignment) => {
-    setSelectedShift(shift);
-    setTargetAssignment(asg);
-    setTargetRole(asg.rolePerformed);
-    
-    const site = sites.find(s => s.id === shift.siteId);
-    const pool = guards.map(g => ({
-      guard: g,
-      validation: validateGuardAssignment(g, shift, shifts, leaveRecords, asg.rolePerformed, site)
-    })).sort((a, b) => (a.validation.isValid === b.validation.isValid ? 0 : a.validation.isValid ? -1 : 1));
-
-    setSuggestions(pool);
-    setIsSwapOpen(true);
-  };
-
-  const handleSwap = (replacementGuard: Guard) => {
-    if (!selectedShift || !targetAssignment) return;
-    
-    const updated = store.swapShiftAssignment(selectedShift.id, targetAssignment.id, replacementGuard);
+    const updated = store.addShiftAssignment(selectedShift.id, newAssignment);
     setShifts(updated);
-    setIsSwapOpen(false);
-    
-    const updatedShift = updated.find(s => s.id === selectedShift.id);
-    if (updatedShift) setSelectedShift(updatedShift);
-
-    toast({ title: "Guard Swapped", description: `${replacementGuard.name} now assigned as ${targetAssignment.rolePerformed}.` });
+    setIsAddGuardOpen(false);
+    const newSelected = updated.find(s => s.id === selectedShift.id);
+    if (newSelected) setSelectedShift(newSelected);
+    toast({ title: "Guard Assigned", description: `${guard.name} is now operational as ${targetRole}.` });
   };
 
-  const removeAssignment = (asg: ShiftAssignment) => {
+  const handleRemoveAssignment = (asg: ShiftAssignment) => {
     if (!selectedShift) return;
     const updated = store.removeShiftAssignment(selectedShift.id, asg.id);
     setShifts(updated);
-    const updatedShift = updated.find(s => s.id === selectedShift.id);
-    if (updatedShift) setSelectedShift(updatedShift);
-    
-    toast({ title: "Personnel Removed", description: "Assignment released to open board." });
+    const newSelected = updated.find(s => s.id === selectedShift.id);
+    if (newSelected) setSelectedShift(newSelected);
+    toast({ title: "Assignment Revoked", description: "Personnel removed from roster." });
   };
 
   const handleApproveClaim = (asg: ShiftAssignment) => {
@@ -254,9 +168,9 @@ export default function SchedulingPage() {
     try {
       const updated = store.approveClaim(selectedShift.id, asg.id);
       setShifts(updated);
-      const updatedShift = updated.find(s => s.id === selectedShift.id);
-      if (updatedShift) setSelectedShift(updatedShift);
-      toast({ title: "Claim Approved", description: `Officer ${asg.guardName} is now assigned.` });
+      const newSelected = updated.find(s => s.id === selectedShift.id);
+      if (newSelected) setSelectedShift(newSelected);
+      toast({ title: "Claim Approved", description: `${asg.guardName} is now confirmed.` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Approval Failed", description: e.message });
     }
@@ -264,24 +178,11 @@ export default function SchedulingPage() {
 
   const handleRejectClaim = (asg: ShiftAssignment) => {
     if (!selectedShift) return;
-    const updated = store.rejectClaim(selectedShift.id, asg.id, "Operational requirements changes.");
+    const updated = store.rejectClaim(selectedShift.id, asg.id, "Operational adjustments.");
     setShifts(updated);
-    const updatedShift = updated.find(s => s.id === selectedShift.id);
-    if (updatedShift) setSelectedShift(updatedShift);
-    toast({ title: "Claim Rejected", description: "The request has been declined." });
-  };
-
-  const handlePublish = () => {
-    if (!selectedShift) return;
-    try {
-      const updated = store.publishShift(selectedShift.id);
-      setShifts(updated);
-      const published = updated.find(s => s.id === selectedShift.id);
-      if (published) setSelectedShift(published);
-      toast({ title: "Shift Published", description: "Operational roster is now visible to eligible guards." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Publishing Denied", description: e.message });
-    }
+    const newSelected = updated.find(s => s.id === selectedShift.id);
+    if (newSelected) setSelectedShift(newSelected);
+    toast({ title: "Claim Rejected", description: "Candidate notified of rejection." });
   };
 
   const navigate = (direction: 'prev' | 'next') => {
@@ -307,37 +208,10 @@ export default function SchedulingPage() {
     shift.requirements.forEach(req => {
       const matchingAssignments = shift.assignments.filter(a => a.rolePerformed === req.role && ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
       for (let i = 0; i < req.count; i++) {
-        slots.push({
-          role: req.role,
-          assignment: matchingAssignments[i] || null
-        });
+        slots.push({ role: req.role, assignment: matchingAssignments[i] || null });
       }
     });
     return slots;
-  };
-
-  const getShiftHealth = (shift: Shift) => {
-    const operationalAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
-    const conflicts: { guardName: string, message: string }[] = [];
-    let maxFatigue: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
-    const site = sites.find(s => s.id === shift.siteId);
-
-    operationalAssignments.forEach(asg => {
-      const guard = guards.find(g => g.id === asg.guardId);
-      if (guard) {
-        const validation = validateGuardAssignment(guard, shift, shifts, leaveRecords, asg.rolePerformed, site);
-        if (!validation.isValid) {
-          conflicts.push({ guardName: guard.name, message: validation.message });
-        }
-        const fatigue = getFatigueScore(guard);
-        const fatigueWeights = { 'LOW': 0, 'MEDIUM': 1, 'HIGH': 2, 'CRITICAL': 3 };
-        if (fatigueWeights[fatigue] > fatigueWeights[maxFatigue]) {
-          maxFatigue = fatigue;
-        }
-      }
-    });
-
-    return { conflicts, maxFatigue };
   };
 
   return (
@@ -347,21 +221,21 @@ export default function SchedulingPage() {
           <div className="space-y-1">
             <h1 className="text-3xl font-black tracking-tight text-slate-800 uppercase italic">Scheduling Command</h1>
             <p className="text-muted-foreground font-medium flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-primary" /> Team-Based Position Hub
+              <ShieldCheck className="w-4 h-4 text-primary" /> Multi-Guard Sequence Optimization
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11" onClick={() => { setIsAutoFilling(true); setTimeout(() => { store.autoFillAllShifts(); refreshData(); setIsAutoFilling(false); }, 1000); }}>
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11 shadow-sm" onClick={() => { setIsAutoFilling(true); setTimeout(() => { store.autoFillAllShifts(); refreshData(); setIsAutoFilling(false); }, 800); }}>
               {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              AI AUTO-OPTIMIZE
+              AI AUTO-FILL
             </Button>
-            <Button className="bg-primary text-white rounded-full px-6 shadow-lg h-11">
-              <Plus className="mr-2 h-4 w-4" /> Create Shift
+            <Button className="bg-primary text-white rounded-full px-6 shadow-xl h-11">
+              <Plus className="mr-2 h-4 w-4" /> New Sequence
             </Button>
           </div>
         </div>
 
-        <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className="rounded-xl"><ChevronLeft /></Button>
             <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-800">
@@ -378,101 +252,60 @@ export default function SchedulingPage() {
           </div>
         </div>
 
-        {/* Calendar Grid */}
-        <div className={`grid gap-px bg-slate-200 border rounded-2xl overflow-hidden ${viewMode === 'week' ? 'grid-cols-7' : 'grid-cols-1'}`}>
+        <div className={`grid gap-px bg-slate-200 border rounded-[2.5rem] overflow-hidden ${viewMode === 'week' ? 'grid-cols-7' : 'grid-cols-1 shadow-2xl'}`}>
           {daysToRender.map((day, idx) => {
             const dayShifts = shifts.filter(s => isSameDay(parseISO(s.startTime), day));
             return (
               <div 
                 key={idx} 
-                className="flex flex-col min-h-[300px] bg-white group/day"
+                className="flex flex-col min-h-[400px] bg-white group/day relative"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, day)}
               >
-                <div className="p-3 text-center border-b bg-slate-50/50">
+                <div className="p-4 text-center border-b bg-slate-50/50">
                   <p className="text-[10px] font-black uppercase text-slate-400">{format(day, 'EEE')}</p>
-                  <div className="text-sm font-black text-slate-800">{format(day, 'dd')}</div>
+                  <div className="text-xl font-black text-slate-800 italic">{format(day, 'dd')}</div>
                 </div>
-
-                <div className="flex-1 p-2 space-y-3">
+                <div className="flex-1 p-3 space-y-4">
                   {dayShifts.map(shift => {
                     const required = shift.requirements.reduce((a, b) => a + b.count, 0);
-                    const operationalAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
-                    const pendingClaimsCount = shift.assignments.filter(a => a.status === 'Pending').length;
-                    const assigned = operationalAssignments.length;
-                    const isUnderstaffed = assigned < required;
-                    const isDraft = shift.status === 'Draft';
-                    const { conflicts, maxFatigue } = getShiftHealth(shift);
-
+                    const assignedCount = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status)).length;
+                    const pendingCount = shift.assignments.filter(a => a.status === 'Pending').length;
+                    const isUnderstaffed = assignedCount < required;
+                    
                     return (
                       <Card 
                         key={shift.id} 
                         draggable
                         onDragStart={(e) => e.dataTransfer.setData('shiftId', shift.id)}
                         onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} 
-                        className={`p-3 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-md relative overflow-hidden group/shift transition-opacity ${isDraft ? 'opacity-60 bg-slate-50 border-dashed border' : 'bg-white'}`}
+                        className={`p-4 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-xl relative overflow-hidden group/shift transition-all hover:-translate-y-1 ${shift.status === 'Draft' ? 'opacity-60 bg-slate-50 border-dashed border' : 'bg-white'}`}
                       >
-                        <div className={`absolute left-0 top-0 w-1 h-full ${isDraft ? 'bg-slate-300' : isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
-                        <div className="flex justify-between items-start mb-1">
-                          <div className="flex items-center gap-1">
-                            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{shift.code}</p>
-                            {conflicts.length > 0 && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-0.5 text-red-600 animate-pulse">
-                                    <ShieldAlert className="w-2.5 h-2.5" />
-                                    <span className="text-[7px] font-black">{conflicts.length}</span>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent className="bg-slate-900 border-slate-800 text-white p-3 rounded-xl max-w-[200px]">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-red-400 mb-2">Scheduling Conflicts</p>
-                                  <div className="space-y-2">
-                                    {conflicts.map((c, i) => (
-                                      <div key={i}>
-                                        <p className="text-[10px] font-black italic">{c.guardName}</p>
-                                        <p className="text-[8px] text-slate-400 font-bold leading-tight">• {c.message}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                          <Badge variant="outline" className={`text-[7px] px-1.5 h-4 border-none font-bold uppercase ${isDraft ? 'bg-slate-200 text-slate-500' : 'bg-slate-50'}`}>
-                            {isDraft ? 'DRAFT' : `${assigned}/${required}`}
-                          </Badge>
+                        <div className={`absolute left-0 top-0 w-1 h-full ${shift.status === 'Draft' ? 'bg-slate-300' : isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
+                        <div className="flex justify-between items-start mb-2">
+                           <span className="text-[7px] font-black text-slate-400 uppercase font-mono">{shift.code}</span>
+                           <Badge variant="outline" className={`text-[7px] font-black px-1.5 h-4 border-none ${isUnderstaffed ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                             {assignedCount}/{required} POSTS
+                           </Badge>
                         </div>
-                        <div className="mb-2">
-                          <p className="text-[9px] font-black uppercase truncate text-slate-800 italic">{shift.name}</p>
-                          <p className="text-[8px] font-bold text-slate-400 uppercase truncate">{shift.siteName}</p>
+                        <div className="mb-3">
+                          <p className="text-[10px] font-black uppercase truncate text-slate-800 italic leading-none">{shift.name}</p>
+                          <p className="text-[8px] font-bold text-primary uppercase truncate mt-1">{shift.siteName}</p>
                         </div>
                         <div className="space-y-1.5">
-                          {operationalAssignments.slice(0, 3).map(asg => (
-                            <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50/50 px-2 py-0.5 rounded border border-slate-100 text-[8px] font-bold">
-                               <Users className={`w-2.5 h-2.5 ${isDraft ? 'text-slate-400' : 'text-primary'}`} /> 
+                          {shift.assignments.filter(a => a.status === 'Assigned').slice(0, 3).map(asg => (
+                            <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 text-[8px] font-bold">
+                               <div className="h-3 w-3 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[6px]">
+                                 {asg.guardName.charAt(0)}
+                               </div>
                                <span className="truncate flex-1">{asg.guardName}</span>
-                               <span className="text-[6px] text-slate-400 uppercase">{asg.rolePerformed.replace(/_/g, ' ')}</span>
                             </div>
                           ))}
-                          <div className="flex items-center justify-between mt-1">
-                            <div className="flex items-center gap-1">
-                              {pendingClaimsCount > 0 && (
-                                <div className="flex items-center gap-1 text-[7px] text-amber-500 font-black uppercase bg-amber-50 rounded-full px-2 py-0.5 w-fit">
-                                  <Timer className="w-2.5 h-2.5" /> {pendingClaimsCount} BID{pendingClaimsCount > 1 ? 'S' : ''}
-                                </div>
-                              )}
-                              {!isDraft && isUnderstaffed && (
-                                <div className="flex items-center gap-1 text-[7px] text-red-500 font-black uppercase">
-                                  <XCircle className="w-2.5 h-2.5" /> MISSING
-                                </div>
-                              )}
+                          {pendingCount > 0 && (
+                            <div className="flex items-center gap-1 text-[7px] text-amber-600 font-black uppercase mt-1">
+                               <Timer className="w-2.5 h-2.5" /> {pendingCount} PENDING BID{pendingCount > 1 ? 'S' : ''}
                             </div>
-                            {maxFatigue !== 'LOW' && (
-                              <span className={`text-[7px] font-black uppercase italic ${maxFatigue === 'CRITICAL' ? 'text-red-600' : 'text-amber-600'}`}>
-                                Fatigue: {maxFatigue}
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </Card>
                     );
@@ -483,14 +316,14 @@ export default function SchedulingPage() {
           })}
         </div>
 
-        {/* Shift Detail / Assignment Management */}
+        {/* Shift Detail / Site Roster Management */}
         <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-          <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+          <DialogContent className="max-w-5xl p-0 overflow-hidden rounded-[3rem] border-none shadow-2xl">
             <DialogHeader className="p-10 bg-slate-900 text-white relative">
-               <div className="absolute top-10 right-10 flex gap-4">
+               <div className="absolute top-10 right-10 flex gap-6">
                   <div className="text-right">
-                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Site Health</p>
-                     <p className="text-xl font-black italic text-green-500">92%</p>
+                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Site Code</p>
+                     <p className="text-xl font-black italic text-primary uppercase">{selectedShift?.code.split('-').pop()}</p>
                   </div>
                   <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
                      <Building2 className="text-primary w-6 h-6" />
@@ -505,130 +338,96 @@ export default function SchedulingPage() {
                </div>
             </DialogHeader>
             
-            <div className="p-10 space-y-10 bg-white max-h-[70vh] overflow-y-auto">
-              <div className="grid md:grid-cols-3 gap-8">
-                <div className="md:col-span-1 space-y-8">
+            <div className="p-10 space-y-10 bg-white max-h-[75vh] overflow-y-auto">
+              <div className="grid md:grid-cols-3 gap-10">
+                <div className="md:col-span-1 space-y-10">
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3 h-3 text-primary" /> Shift Parameters</h3>
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-dashed space-y-4">
+                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3.5 h-3.5 text-primary" /> Deployment Window</h3>
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-dashed space-y-5 shadow-inner">
                       <div className="space-y-1">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</p>
-                        <p className="text-sm font-black text-slate-800 italic uppercase">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Operational Date</p>
+                        <p className="text-sm font-black text-slate-800 italic uppercase">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMMM dd')}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Time Window</p>
-                        <p className="text-xl font-black text-primary italic">
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Shift Duration</p>
+                        <p className="text-2xl font-black text-primary italic">
                           {selectedShift && `${format(parseISO(selectedShift.startTime), 'HH:mm')} - ${format(parseISO(selectedShift.endTime), 'HH:mm')}`}
                         </p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Total Duty: 8.0 Hours</p>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Status</p>
-                        <div className="flex items-center justify-between">
-                           <p className={`text-[10px] font-black uppercase italic ${selectedShift?.status === 'Draft' ? 'text-slate-400' : 'text-primary'}`}>{selectedShift?.status}</p>
-                           <Badge variant="outline" className="bg-white text-[8px] uppercase">{selectedShift?.priority}</Badge>
-                        </div>
-                      </div>
-                      {selectedShift?.status === 'Draft' && (
-                        <Button onClick={handlePublish} className="w-full bg-primary text-white h-10 rounded-xl text-[10px] font-black uppercase italic tracking-tighter shadow-lg shadow-primary/20">
-                          <Send className="w-3.5 h-3.5 mr-1.5" /> PUBLISH ROSTER
-                        </Button>
-                      )}
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                     <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2 border-b pb-3 border-amber-100"><Timer className="w-3 h-3" /> Pending Bids</h3>
+                     <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2 border-b pb-3 border-amber-100"><Zap className="w-3.5 h-3.5" /> Pending Claims</h3>
                      <div className="space-y-3">
                         {selectedShift?.assignments.filter(a => a.status === 'Pending').map(claim => (
-                          <div key={claim.id} className="p-4 border border-amber-100 bg-amber-50/50 rounded-2xl space-y-3">
+                          <div key={claim.id} className="p-5 border border-amber-100 bg-amber-50/30 rounded-2xl space-y-3">
                              <div className="flex justify-between items-start">
                                 <div>
-                                   <p className="text-sm font-black text-slate-800 italic">{claim.guardName}</p>
-                                   <p className="text-[9px] font-bold text-amber-600 uppercase mt-0.5">{claim.rolePerformed.replace(/_/g, ' ')}</p>
+                                   <p className="text-xs font-black text-slate-800 italic">{claim.guardName}</p>
+                                   <p className="text-[8px] font-bold text-amber-600 uppercase mt-0.5">{claim.rolePerformed.replace(/_/g, ' ')}</p>
                                 </div>
-                                <Timer className="h-3 w-3 text-amber-400" />
+                                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center border text-[8px] font-black">?</div>
                              </div>
                              <div className="flex gap-2">
-                                <Button size="sm" className="flex-1 bg-green-600 text-white font-black text-[9px] h-8 rounded-lg" onClick={() => handleApproveClaim(claim)}>APPROVE</Button>
-                                <Button size="sm" variant="ghost" className="flex-1 text-red-600 font-black text-[9px] h-8 rounded-lg" onClick={() => handleRejectClaim(claim)}>REJECT</Button>
+                                <Button size="sm" className="flex-1 bg-green-600 text-white font-black text-[9px] h-8 rounded-xl" onClick={() => handleApproveClaim(claim)}>APPROVE</Button>
+                                <Button size="sm" variant="ghost" className="flex-1 text-red-600 font-black text-[9px] h-8 rounded-xl" onClick={() => handleRejectClaim(claim)}>REJECT</Button>
                              </div>
                           </div>
                         ))}
                         {selectedShift?.assignments.filter(a => a.status === 'Pending').length === 0 && (
-                          <p className="text-center text-[9px] font-black uppercase text-slate-300 py-4 italic">No pending requests</p>
+                          <p className="text-center text-[9px] font-black uppercase text-slate-300 py-6 italic border border-dashed rounded-3xl">No pending requests</p>
                         )}
                      </div>
                   </div>
                 </div>
 
                 <div className="md:col-span-2 space-y-6">
-                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Users className="w-3 h-3 text-primary" /> Site Roster / Position Breakdown</h3>
+                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Users className="w-3.5 h-3.5 text-primary" /> Active Personnel Roster</h3>
                   <div className="space-y-3">
                     {selectedShift && getPositionSlots(selectedShift).map((slot, idx) => {
                       let validationResult = { isValid: true, message: '' };
-                      let fatigue = 'LOW';
                       if (slot.assignment) {
                         const guard = guards.find(g => g.id === slot.assignment!.guardId);
                         if (guard) {
-                          const site = sites.find(s => s.id === selectedShift.siteId);
-                          validationResult = validateGuardAssignment(guard, selectedShift, shifts, leaveRecords, slot.assignment.rolePerformed, site);
-                          fatigue = getFatigueScore(guard);
+                          validationResult = validateGuardAssignment(guard, selectedShift, shifts, leaveRecords, slot.assignment.rolePerformed);
                         }
                       }
-
                       return (
-                        <div key={idx} className={`flex items-center justify-between p-4 border rounded-2xl bg-white shadow-sm transition-all group ${slot.assignment ? 'hover:border-primary' : 'border-dashed border-red-200 bg-red-50/20'}`}>
+                        <div key={idx} className={`flex items-center justify-between p-5 border rounded-[2rem] bg-white shadow-sm transition-all group ${slot.assignment ? 'hover:border-primary' : 'border-dashed border-slate-200 bg-slate-50/30'}`}>
                           <div className="flex items-center gap-4">
                             {slot.assignment ? (
                               <>
-                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-[10px] border shadow-inner group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20 transition-colors">
+                                <div className="h-10 w-10 rounded-2xl bg-slate-50 border flex items-center justify-center font-black text-[11px] text-slate-400 group-hover:text-primary transition-colors shadow-inner">
                                   {slot.assignment.guardName.charAt(0)}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="text-sm font-black text-slate-800 uppercase italic">{slot.assignment.guardName}</p>
-                                    {!validationResult.isValid && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse cursor-help" />
-                                        </TooltipTrigger>
-                                        <TooltipContent side="right" className="bg-red-600 text-white border-none font-bold text-[10px] p-2 rounded-lg shadow-xl">
-                                          {validationResult.message}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
+                                    {!validationResult.isValid && <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse" />}
                                   </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <p className="text-[9px] font-bold text-primary uppercase tracking-widest">{slot.role.replace(/_/g, ' ')}</p>
-                                    {fatigue !== 'LOW' && (
-                                      <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none ${fatigue === 'CRITICAL' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
-                                        {fatigue} FATIGUE
-                                      </Badge>
-                                    )}
-                                  </div>
+                                  <p className="text-[9px] font-bold text-primary uppercase tracking-widest mt-0.5">{slot.role.replace(/_/g, ' ')}</p>
                                 </div>
                               </>
                             ) : (
                               <>
-                                <div className="h-10 w-10 rounded-2xl bg-white border border-dashed border-red-300 flex items-center justify-center">
-                                  <Plus className="w-4 h-4 text-red-300" />
+                                <div className="h-10 w-10 rounded-2xl bg-white border border-dashed border-slate-300 flex items-center justify-center text-slate-300">
+                                  <Plus className="w-4 h-4" />
                                 </div>
                                 <div>
-                                  <p className="text-sm font-black text-red-500 uppercase italic">OPEN POSITION</p>
-                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">REQUIRED: {slot.role.replace(/_/g, ' ')}</p>
+                                  <p className="text-sm font-black text-slate-300 uppercase italic">UNFILLED POST</p>
+                                  <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">REQUIRED: {slot.role.replace(/_/g, ' ')}</p>
                                 </div>
                               </>
                             )}
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex gap-2">
                             {slot.assignment ? (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-primary rounded-xl" onClick={() => openSwap(selectedShift, slot.assignment!)}><RefreshCw className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-destructive rounded-xl" onClick={() => removeAssignment(slot.assignment!)}><Trash2 className="h-4 w-4" /></Button>
-                              </>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:text-destructive rounded-xl" onClick={() => handleRemoveAssignment(slot.assignment!)}><Trash2 className="h-4 w-4" /></Button>
                             ) : (
-                              <Button variant="outline" size="sm" className="h-9 px-4 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-black text-[9px] uppercase italic tracking-tighter" onClick={() => openAddGuard(selectedShift, slot.role)}>
-                                <UserPlus className="h-3 w-3 mr-2" /> Assign Personnel
+                              <Button variant="outline" size="sm" className="h-9 px-6 rounded-xl border-primary text-primary font-black text-[9px] uppercase italic tracking-tighter" onClick={() => openAddGuard(selectedShift, slot.role)}>
+                                <UserPlus className="h-3.5 h-3.5 mr-2" /> ASSIGN PERSONNEL
                               </Button>
                             )}
                           </div>
@@ -642,61 +441,39 @@ export default function SchedulingPage() {
           </DialogContent>
         </Dialog>
 
-        {/* SWAP / REPLACEMENT / ADD MODAL */}
-        <Dialog open={isSwapOpen || isAddGuardOpen} onOpenChange={(val) => { setIsSwapOpen(val); setIsAddGuardOpen(val); }}>
+        {/* POOL SELECTION MODAL */}
+        <Dialog open={isAddGuardOpen} onOpenChange={setIsAddGuardOpen}>
           <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
             <DialogHeader className="p-8 bg-slate-900 text-white">
               <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
-                {isSwapOpen ? <RefreshCw className="w-6 h-6 text-primary" /> : <UserPlus className="w-6 h-6 text-primary" />}
-                {isSwapOpen ? 'Swap Personnel' : 'Fill Position'}
+                <UserPlus className="w-6 h-6 text-primary" />
+                Select Candidate
               </DialogTitle>
-              <DialogDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                Position: <span className="text-primary italic">{targetRole.replace(/_/g, ' ')}</span>
+              <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                Filling position: <span className="text-primary italic">{targetRole.replace(/_/g, ' ')}</span>
               </DialogDescription>
             </DialogHeader>
             <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto bg-slate-50">
               {suggestions.map(({ guard, validation }) => (
                 <div 
                   key={guard.id} 
-                  onClick={() => validation.isValid && (isSwapOpen ? handleSwap(guard) : handleAddAssignment(guard))} 
-                  className={`flex items-center justify-between p-5 border rounded-[2rem] bg-white shadow-sm transition-all ${
-                    validation.isValid 
-                      ? 'hover:border-primary cursor-pointer group' 
-                      : 'opacity-50 grayscale cursor-not-allowed border-dashed'
-                  }`}
+                  onClick={() => validation.isValid && handleAddAssignment(guard)} 
+                  className={`flex items-center justify-between p-5 border rounded-[2rem] bg-white shadow-sm transition-all ${validation.isValid ? 'hover:border-primary cursor-pointer group' : 'opacity-40 grayscale cursor-not-allowed border-dashed'}`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-200 group-hover:bg-primary/10 group-hover:text-primary transition-colors">{guard.name.charAt(0)}</div>
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-200 group-hover:bg-primary/5 group-hover:text-primary transition-colors">{guard.name.charAt(0)}</div>
                     <div>
                       <p className="text-sm font-black text-slate-800 uppercase italic">{guard.name}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        {validation.isValid ? (
-                          <>
-                            <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none rounded-full ${getFatigueScore(guard) === 'LOW' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                              {getFatigueScore(guard)} FATIGUE
-                            </Badge>
-                            <div className="flex items-center gap-1 text-[7px] text-slate-400 font-bold uppercase">
-                               <ShieldCheck className="w-2 h-2 text-green-500" /> Qualified
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-[8px] font-black text-red-500 uppercase leading-none">
-                            <XCircle className="w-2.5 h-2.5" /> {validation.code.replace(/_/g, ' ')}
-                          </div>
-                        )}
+                      <div className="flex items-center gap-2 mt-1">
+                         <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none ${validation.isValid ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                           {validation.isValid ? 'QUALIFIED' : validation.code.replace(/_/g, ' ')}
+                         </Badge>
                       </div>
                     </div>
                   </div>
-                  {validation.isValid && (
-                    <Button size="icon" variant="ghost" className="rounded-full group-hover:bg-primary group-hover:text-white transition-all">
-                      <ChevronRight className="w-5 h-5" />
-                    </Button>
-                  )}
+                  {validation.isValid && <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-primary" />}
                 </div>
               ))}
-              {suggestions.length === 0 && (
-                <div className="p-12 text-center text-slate-400 italic font-black uppercase text-xs">No personnel matched search criteria</div>
-              )}
             </div>
           </DialogContent>
         </Dialog>

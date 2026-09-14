@@ -6,20 +6,16 @@ import {
   MapPin, 
   Building2, 
   Users, 
-  AlertTriangle,
-  ArrowUpRight,
+  Activity,
   Plus,
   Trash2,
   Pencil,
-  Activity,
-  UserCheck,
   LayoutGrid,
   List,
   Search,
   Filter,
   FileText,
   Clock,
-  History,
   CheckCircle2,
   ChevronRight,
   ShieldCheck,
@@ -62,17 +58,20 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { Site, Severity, Shift, Client, MockDocument, RiskAssessmentHazard } from '@/lib/types';
+import { Site, Severity, Shift, Client, MockDocument } from '@/lib/types';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SitesPage() {
   const store = useJsonStore();
+  const { toast } = useToast();
   const [sites, setSites] = useState<Site[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [documents, setDocuments] = useState<MockDocument[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Selection
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
@@ -81,6 +80,7 @@ export default function SitesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [code, setCode] = useState('');
   const [risk, setRisk] = useState<Severity>('Low');
   const [clientId, setClientId] = useState('');
 
@@ -97,7 +97,10 @@ export default function SitesPage() {
   };
 
   const handleAdd = () => {
-    if (!name || !clientId) return;
+    if (!name || !clientId || !code) {
+      toast({ title: 'Missing Info', description: 'Name, Client and Code are required.', variant: 'destructive' });
+      return;
+    }
     const client = clients.find(c => c.id === clientId);
     const site: Site = {
       id: `SITE-${Date.now()}`,
@@ -111,7 +114,7 @@ export default function SitesPage() {
       openShifts: 0,
       healthScore: 100,
       revenuePerMonth: 5000,
-      code: `S-${Math.floor(Math.random() * 900) + 100}`,
+      code,
       contactInfo: '',
       status: 'Active',
       operatingHours: '24/7',
@@ -120,27 +123,48 @@ export default function SitesPage() {
       requiredQualifications: [],
       requiredSkills: []
     };
-    store.addSite(site);
-    refreshData();
-    setIsCreateOpen(false);
-    resetForm();
+    try {
+      store.addSite(site);
+      refreshData();
+      setIsCreateOpen(false);
+      resetForm();
+      toast({ title: 'Site Created', description: `${name} has been operationalized.` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    try {
+      store.deleteSite(id);
+      refreshData();
+      toast({ title: 'Site Archived', description: 'Site has been removed from active deployment.' });
+    } catch (e: any) {
+      toast({ title: 'Deletion Blocked', description: e.message, variant: 'destructive' });
+    }
   };
 
   const resetForm = () => {
     setName('');
     setAddress('');
+    setCode('');
     setRisk('Low');
     setClientId('');
   };
 
   if (!isMounted) return null;
 
+  const filteredSites = sites.filter(s => 
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    s.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const getSiteStats = (siteId: string) => {
     const siteShifts = shifts.filter(s => s.siteId === siteId);
     const active = siteShifts.filter(s => s.status === 'In Progress').length;
-    const open = siteShifts.filter(s => s.status === 'Open').length;
-    const guards = siteShifts.flatMap(s => s.status === 'In Progress' ? (s.assignments?.map(a => a.guardName) || []) : []);
-    return { active, open, guards: Array.from(new Set(guards)) };
+    const guards = siteShifts.flatMap(s => s.assignments?.filter(a => a.status === 'On Site').map(a => a.guardName) || []);
+    return { active, guards: Array.from(new Set(guards)) };
   };
 
   return (
@@ -156,7 +180,7 @@ export default function SitesPage() {
             <Button 
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
               size="sm" 
-              className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10 data-[state=active]:shadow-sm"
+              className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10"
               onClick={() => setViewMode('grid')}
             >
               <LayoutGrid className="w-4 h-4 mr-2" /> Grid
@@ -164,7 +188,7 @@ export default function SitesPage() {
             <Button 
               variant={viewMode === 'table' ? 'secondary' : 'ghost'} 
               size="sm" 
-              className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10 data-[state=active]:shadow-sm"
+              className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10"
               onClick={() => setViewMode('table')}
             >
               <List className="w-4 h-4 mr-2" /> Table
@@ -186,33 +210,39 @@ export default function SitesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Site Title</label>
-                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Delta Warehouse" className="rounded-xl h-11 border-slate-200" />
+                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Delta Warehouse" className="rounded-xl h-11" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Parent Client</label>
                     <Select value={clientId} onValueChange={setClientId}>
-                      <SelectTrigger className="rounded-xl h-11 border-slate-200"><SelectValue placeholder="Select Client" /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Select Client" /></SelectTrigger>
                       <SelectContent>
                         {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Physical Deployment Address</label>
-                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Command Way, HQ" className="rounded-xl h-11 border-slate-200" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Site Code (Unique)</label>
+                    <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="SITE-LHR-001" className="rounded-xl h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Risk Profile</label>
+                    <Select value={risk} onValueChange={(v) => setRisk(v as Severity)}>
+                      <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Low">Low Risk</SelectItem>
+                        <SelectItem value="Medium">Medium Risk</SelectItem>
+                        <SelectItem value="High">High Risk</SelectItem>
+                        <SelectItem value="Critical">Critical Risk</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Risk Profile</label>
-                  <Select value={risk} onValueChange={(v) => setRisk(v as Severity)}>
-                    <SelectTrigger className="rounded-xl h-11 border-slate-200"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Low">Low Risk</SelectItem>
-                      <SelectItem value="Medium">Medium Risk</SelectItem>
-                      <SelectItem value="High">High Risk</SelectItem>
-                      <SelectItem value="Critical">Critical Risk</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Physical Deployment Address</label>
+                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Command Way, HQ" className="rounded-xl h-11" />
                 </div>
               </div>
               <DialogFooter className="p-8 bg-slate-50">
@@ -224,13 +254,21 @@ export default function SitesPage() {
         </div>
       </div>
 
+      <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 max-w-xl">
+        <Search className="ml-3 h-5 w-5 text-slate-400" />
+        <Input 
+          placeholder="Filter operational units by name, code or client..." 
+          className="border-none shadow-none focus-visible:ring-0 text-xs font-bold"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary"><Filter className="h-4 w-4" /></Button>
+      </div>
+
       {viewMode === 'grid' ? (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {sites.map((site) => {
+          {filteredSites.map((site) => {
             const stats = getSiteStats(site.id);
-            const totalRequired = stats.active + stats.open;
-            const coveragePercent = totalRequired > 0 ? (stats.active / totalRequired) * 100 : 100;
-            
             return (
               <Card key={site.id} onClick={() => setSelectedSite(site)} className="group border-none shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden bg-white rounded-[2rem]">
                 <div className={`absolute top-0 left-0 w-full h-1.5 ${
@@ -238,7 +276,6 @@ export default function SitesPage() {
                   site.riskLevel === 'High' ? 'bg-orange-500' :
                   'bg-primary'
                 }`} />
-                
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
                     <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner group-hover:bg-primary/5 group-hover:text-primary transition-colors">
@@ -258,16 +295,7 @@ export default function SitesPage() {
                     </CardDescription>
                   </div>
                 </CardHeader>
-                
                 <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">
-                      <span>Live Coverage</span>
-                      <span className="text-primary">{stats.active}/{totalRequired || 1} POSTS</span>
-                    </div>
-                    <Progress value={coveragePercent} className="h-1 rounded-full bg-slate-100 [&>div]:bg-primary" />
-                  </div>
-
                   <div className="grid grid-cols-2 gap-4 py-4 border-y border-dashed border-slate-100">
                     <div className="space-y-1">
                       <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">Assigned Client</p>
@@ -283,23 +311,13 @@ export default function SitesPage() {
                       </div>
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <p className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-1.5">
-                      <UserCheck className="h-3 w-3 text-primary" /> PERSONNEL ON-SITE
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 min-h-[24px]">
-                      {stats.guards.length > 0 ? stats.guards.map((name, idx) => (
-                        <Badge key={idx} variant="secondary" className="bg-slate-50 text-slate-500 border-none font-black text-[8px] h-6 px-3 rounded-xl italic">
-                          {name}
-                        </Badge>
-                      )) : <p className="text-[10px] text-slate-300 italic font-bold uppercase tracking-widest">No active deployments</p>}
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Live Posting</span>
+                      <span className="text-sm font-black text-slate-800 italic">{stats.active} ACTIVE</span>
                     </div>
+                    <Button variant="ghost" size="icon" className="text-slate-300 group-hover:text-primary"><ChevronRight className="h-5 w-5" /></Button>
                   </div>
-
-                  <Button className="w-full bg-slate-900 hover:bg-primary text-white rounded-2xl h-12 font-black italic uppercase text-xs tracking-tighter transition-all">
-                    SITE COMMAND HUB <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
                 </CardContent>
               </Card>
             );
@@ -313,13 +331,12 @@ export default function SitesPage() {
                 <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Operational Unit</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Client Partner</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Risk Level</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Active</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Health</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-right px-8">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sites.map(site => (
+              {filteredSites.map(site => (
                 <TableRow key={site.id} onClick={() => setSelectedSite(site)} className="hover:bg-slate-50/50 transition-colors cursor-pointer h-20">
                   <TableCell className="px-8">
                     <div className="flex items-center gap-4">
@@ -340,14 +357,23 @@ export default function SitesPage() {
                       {site.riskLevel}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-center font-black text-slate-800">{getSiteStats(site.id).active}</TableCell>
                   <TableCell className="text-center">
                     <span className={`text-xs font-black italic ${site.healthScore > 90 ? 'text-green-600' : 'text-amber-600'}`}>
                       {site.healthScore}%
                     </span>
                   </TableCell>
                   <TableCell className="text-right px-8">
-                     <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl"><MoreVertical className="h-4 w-4" /></Button>
+                     <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary"><Pencil className="h-4 w-4" /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-slate-400 hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(site.id); }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                     </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -378,37 +404,55 @@ export default function SitesPage() {
           <Tabs defaultValue="overview" className="bg-white">
             <TabsList className="bg-slate-50 w-full justify-start h-16 px-10 border-b rounded-none gap-8">
               <TabsTrigger value="overview" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Site Intelligence</TabsTrigger>
-              <TabsTrigger value="requirements" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Post Requirements</TabsTrigger>
+              <TabsTrigger value="shifts" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Post Shifts</TabsTrigger>
+              <TabsTrigger value="requirements" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Qualifications</TabsTrigger>
               <TabsTrigger value="documents" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">SOP & Orders</TabsTrigger>
-              <TabsTrigger value="patrols" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Patrol Blueprint</TabsTrigger>
             </TabsList>
 
             <div className="p-10 max-h-[60vh] overflow-y-auto">
               <TabsContent value="overview" className="m-0 space-y-8">
                 <div className="grid md:grid-cols-3 gap-8">
-                  <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4">
+                  <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Clock className="h-3 w-3 text-primary" /> Operating Window</p>
                      <p className="text-2xl font-black italic text-slate-800">{selectedSite?.operatingHours}</p>
                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Contractual Deployment Coverage</p>
                   </Card>
-                  <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4">
+                  <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Shield className="h-3 w-3 text-primary" /> Security Profile</p>
                      <p className="text-2xl font-black italic text-slate-800 uppercase">{selectedSite?.riskLevel} RISK</p>
                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Authoritative Threat Assessment</p>
                   </Card>
-                  <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4">
+                  <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><ClipboardList className="h-3 w-3 text-primary" /> Guard Quota</p>
                      <p className="text-2xl font-black italic text-slate-800">{selectedSite?.requiredGuardCount} OFFICERS</p>
                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Base Personnel Requirement</p>
                   </Card>
                 </div>
-
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-3">Operational Instructions</h4>
                   <div className="p-8 bg-slate-50 rounded-[2rem] border border-dashed text-sm font-medium text-slate-600 leading-relaxed italic">
-                    {selectedSite?.instructions || 'Standard operating procedures apply. Refer to SOP tab for detailed post orders and emergency contact protocols.'}
+                    {selectedSite?.instructions}
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="shifts" className="m-0 space-y-4">
+                 {shifts.filter(s => s.siteId === selectedSite?.id).map(shift => (
+                    <div key={shift.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all">
+                       <div className="flex items-center gap-5">
+                          <div className="h-12 w-12 rounded-2xl bg-white border flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors shadow-sm">
+                             <Clock className="h-6 w-6" />
+                          </div>
+                          <div>
+                             <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{shift.name}</p>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                               {format(new Date(shift.startTime), 'HH:mm')} - {format(new Date(shift.endTime), 'HH:mm')} • {shift.code}
+                             </p>
+                          </div>
+                       </div>
+                       <Badge className="bg-slate-200 text-slate-600 font-black h-6 px-4 rounded-full text-[10px] uppercase">{shift.status}</Badge>
+                    </div>
+                 ))}
               </TabsContent>
 
               <TabsContent value="requirements" className="m-0 space-y-8">
@@ -424,61 +468,19 @@ export default function SitesPage() {
                     <div className="space-y-6">
                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><ShieldCheck className="h-3 w-3 text-primary" /> Mandatory Qualifications</h4>
                        <div className="flex flex-wrap gap-2">
-                          {selectedSite?.requiredQualifications && selectedSite.requiredQualifications.length > 0 ? selectedSite.requiredQualifications.map(q => (
+                          {selectedSite?.requiredQualifications.map(q => (
                             <Badge key={q} variant="outline" className="border-primary text-primary font-black italic px-4 py-1.5 rounded-xl uppercase text-[9px]">{q.replace(/_/g, ' ')}</Badge>
-                          )) : <p className="text-[10px] text-slate-300 font-bold uppercase italic">Standard Security Qualifications Apply</p>}
+                          ))}
                        </div>
                     </div>
                  </div>
               </TabsContent>
 
-              <TabsContent value="documents" className="m-0 space-y-6">
-                 <div className="space-y-4">
-                    {documents.filter(d => d.siteId === selectedSite?.id || (d.clientId === selectedSite?.clientId && d.scope === 'Client')).map(doc => (
-                      <div key={doc.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all">
-                         <div className="flex items-center gap-5">
-                            <div className="h-12 w-12 rounded-2xl bg-white border flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
-                               <FileText className="h-6 w-6" />
-                            </div>
-                            <div>
-                               <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{doc.name}</p>
-                               <div className="flex items-center gap-4 mt-1">
-                                  <Badge className="bg-slate-200 text-slate-500 font-black text-[8px] h-4">V{doc.version}</Badge>
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">Effective: {format(new Date(doc.uploadedAt), 'MMM dd, yyyy')}</span>
-                               </div>
-                            </div>
-                         </div>
-                         <Button variant="outline" className="rounded-xl font-black text-[10px] uppercase h-10 px-6 border-slate-200 shadow-sm">VIEW CURRENT</Button>
-                      </div>
-                    ))}
-                    {documents.filter(d => d.siteId === selectedSite?.id).length === 0 && (
-                       <div className="p-20 text-center bg-slate-50 rounded-[2.5rem] border border-dashed">
-                          <p className="text-slate-400 font-black italic uppercase text-xs tracking-widest opacity-40">No localized post orders defined.</p>
-                       </div>
-                    )}
+              <TabsContent value="documents" className="m-0">
+                 <div className="p-20 text-center bg-slate-50 rounded-[2.5rem] border border-dashed">
+                    <FileText className="h-10 w-10 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-400 font-black italic uppercase text-xs tracking-widest opacity-40">Post orders and documents are available in the Site Registry.</p>
                  </div>
-              </TabsContent>
-
-              <TabsContent value="patrols" className="m-0 space-y-8">
-                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-slate-900 text-white overflow-hidden relative">
-                    <div className="absolute top-0 right-0 p-10 opacity-10">
-                        <Activity className="h-48 w-48 text-primary" />
-                    </div>
-                    <CardHeader className="p-10 pb-4 relative z-10">
-                        <Badge className="bg-primary text-white font-black italic mb-4 px-4 py-1">OPERATIONAL BLUEPRINT</Badge>
-                        <CardTitle className="text-3xl font-black italic uppercase tracking-tighter">Patrol Frequency</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-10 pt-6 relative z-10 grid md:grid-cols-2 gap-12">
-                        <div className="space-y-4">
-                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest border-l-2 border-primary pl-3">Interval Requirement</p>
-                            <p className="text-4xl font-black italic tracking-tighter text-white uppercase">{selectedSite?.patrolFrequency || '60 MINUTES'}</p>
-                        </div>
-                        <div className="space-y-4">
-                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest border-l-2 border-green-500 pl-3">Verification Logic</p>
-                            <p className="text-4xl font-black italic tracking-tighter text-white uppercase">{selectedSite?.patrolType || 'NFC CHECKPOINT'}</p>
-                        </div>
-                    </CardContent>
-                 </Card>
               </TabsContent>
             </div>
           </Tabs>
