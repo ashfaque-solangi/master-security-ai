@@ -164,6 +164,18 @@ export const useJsonStore = () => {
     setStored(STORAGE_KEYS.CURRENT_SESSION_ID, null);
   };
 
+  const updateShiftStatus = (shift: Shift): Shift => {
+    const required = shift.requirements.reduce((a, b) => a + b.count, 0);
+    const assigned = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status)).length;
+    
+    if (shift.status === 'Draft') return shift;
+    
+    return {
+      ...shift,
+      status: assigned >= required ? 'Claimed' : 'Open'
+    };
+  };
+
   return {
     getCurrentUser,
     getCurrentSessionId,
@@ -305,14 +317,13 @@ export const useJsonStore = () => {
       
       if (!shift) throw new Error('Shift not found');
       
-      // WEB-05: Publish permission check
       if (!assertWrite('schedule.publish', 'shift', shift)) return all;
 
-      const updatedShift: Shift = {
+      const updatedShift: Shift = updateShiftStatus({
         ...shift,
-        status: shift.assignments.length > 0 ? 'Claimed' : 'Open',
+        status: 'Open',
         version: (shift.version || 0) + 1
-      };
+      });
 
       const updated = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, updated);
@@ -337,18 +348,168 @@ export const useJsonStore = () => {
       return updated;
     },
 
+    submitClaim: (shiftId: string, guardId: string, role: string) => {
+      const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = all.find(s => s.id === shiftId);
+      if (!shift || !assertWrite('guard', 'shift', shift)) return all;
+
+      // Validation
+      const guards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const leave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
+      const guard = guards.find(g => g.id === guardId);
+      if (!guard) return all;
+
+      const validation = validateGuardAssignment(guard, shift, all, leave, role);
+      if (!validation.isValid) throw new Error(validation.message);
+
+      // Check if already claimed
+      const existing = shift.assignments.find(a => a.guardId === guardId && a.status === 'Pending');
+      if (existing) return all;
+
+      const newAssignment: ShiftAssignment = {
+        id: `ASG-${Date.now()}`,
+        guardId: guardId,
+        guardName: guard.name,
+        rolePerformed: role,
+        status: 'Pending',
+        assignedAt: new Date().toISOString(),
+        assignedBy: 'GUARD_CLAIM'
+      };
+
+      const updatedShift: Shift = {
+        ...shift,
+        assignments: [...shift.assignments, newAssignment],
+        version: (shift.version || 0) + 1
+      };
+
+      const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, finalShifts);
+      
+      logAudit({ 
+        action: 'CLAIM_REQUESTED', 
+        entityType: 'shift_assignment', 
+        entityId: newAssignment.id, 
+        description: `Officer ${guard.name} requested to claim ${role} position at ${shift.siteName}`,
+        newValues: newAssignment
+      });
+
+      return finalShifts;
+    },
+
+    approveClaim: (shiftId: string, assignmentId: string) => {
+      const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = all.find(s => s.id === shiftId);
+      if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
+
+      const assignment = shift.assignments.find(a => a.id === assignmentId);
+      if (!assignment || assignment.status !== 'Pending') return all;
+
+      // Re-validate
+      const guards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const leave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
+      const guard = guards.find(g => g.id === assignment.guardId);
+      if (!guard) return all;
+
+      const validation = validateGuardAssignment(guard, shift, all, leave, assignment.rolePerformed);
+      if (!validation.isValid) throw new Error(validation.message);
+
+      // Capacity check
+      const slots = shift.requirements.find(r => r.role === assignment.rolePerformed);
+      const currentFilled = shift.assignments.filter(a => a.rolePerformed === assignment.rolePerformed && ['Assigned', 'Confirmed', 'On Site'].includes(a.status)).length;
+      if (slots && currentFilled >= slots.count) throw new Error('Capacity for this role is already filled.');
+
+      const updatedAssignments = shift.assignments.map(a => 
+        a.id === assignmentId ? { ...a, status: 'Assigned' as const } : a
+      );
+
+      const updatedShift: Shift = updateShiftStatus({
+        ...shift,
+        assignments: updatedAssignments,
+        version: (shift.version || 0) + 1
+      });
+
+      const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, finalShifts);
+
+      logAudit({ 
+        action: 'CLAIM_APPROVED', 
+        entityType: 'shift_assignment', 
+        entityId: assignmentId, 
+        description: `Dispatcher approved ${assignment.guardName} for ${assignment.rolePerformed} at ${shift.siteName}` 
+      });
+
+      return finalShifts;
+    },
+
+    rejectClaim: (shiftId: string, assignmentId: string, reason?: string) => {
+      const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = all.find(s => s.id === shiftId);
+      if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
+
+      const updatedAssignments = shift.assignments.map(a => 
+        a.id === assignmentId ? { ...a, status: 'Rejected' as const, rejectionReason: reason } : a
+      );
+
+      const updatedShift: Shift = {
+        ...shift,
+        assignments: updatedAssignments,
+        version: (shift.version || 0) + 1
+      };
+
+      const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, finalShifts);
+
+      logAudit({ 
+        action: 'CLAIM_REJECTED', 
+        entityType: 'shift_assignment', 
+        entityId: assignmentId, 
+        description: `Claim for ${shift.siteName} rejected. Reason: ${reason || 'N/A'}` 
+      });
+
+      return finalShifts;
+    },
+
+    withdrawClaim: (shiftId: string, assignmentId: string) => {
+      const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = all.find(s => s.id === shiftId);
+      if (!shift) return all;
+
+      const assignment = shift.assignments.find(a => a.id === assignmentId);
+      if (!assignment || assignment.guardId !== getCurrentUser()?.guardId) return all;
+
+      const updatedAssignments = shift.assignments.map(a => 
+        a.id === assignmentId ? { ...a, status: 'Withdrawn' as const } : a
+      );
+
+      const updatedShift: Shift = {
+        ...shift,
+        assignments: updatedAssignments,
+        version: (shift.version || 0) + 1
+      };
+
+      const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, finalShifts);
+
+      logAudit({ 
+        action: 'CLAIM_WITHDRAWN', 
+        entityType: 'shift_assignment', 
+        entityId: assignmentId, 
+        description: `Guard withdrew claim for ${shift.siteName}` 
+      });
+
+      return finalShifts;
+    },
+
     addShiftAssignment: (shiftId: string, assignment: ShiftAssignment) => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return all;
 
-      const updatedShift: Shift = {
+      const updatedShift: Shift = updateShiftStatus({
         ...shift,
         assignments: [...shift.assignments, assignment],
-        // Preserve status logic: only move from Open to Claimed if it was already published
-        status: shift.status === 'Open' ? 'Claimed' : shift.status,
         version: (shift.version || 0) + 1
-      };
+      });
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
       
@@ -409,15 +570,11 @@ export const useJsonStore = () => {
       const assignment = shift.assignments.find(a => a.id === assignmentId);
       const updatedAssignments = shift.assignments.filter(a => a.id !== assignmentId);
       
-      // If the shift was claimed and now has no assignments, return to Open if it was already published
-      const newStatus = (shift.status === 'Claimed' && updatedAssignments.length === 0) ? 'Open' : shift.status;
-
-      const updatedShift: Shift = { 
+      const updatedShift: Shift = updateShiftStatus({ 
         ...shift, 
         assignments: updatedAssignments, 
-        status: newStatus,
         version: (shift.version || 0) + 1
-      };
+      });
       
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
@@ -440,12 +597,11 @@ export const useJsonStore = () => {
       const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
 
       const updatedShifts = allShifts.map(s => {
-        // AI optimization typically works on Draft or Open shifts
         if (s.status === 'Completed' || s.status === 'Cancelled') return s;
         const assignments = [...s.assignments];
         let changed = false;
         s.requirements.forEach(req => {
-          const filledCount = assignments.filter(a => a.rolePerformed === req.role).length;
+          const filledCount = assignments.filter(a => a.rolePerformed === req.role && ['Assigned', 'Confirmed', 'On Site'].includes(a.status)).length;
           for (let i = 0; i < (req.count - filledCount); i++) {
             const candidate = allGuards.find(g => 
               g.status === 'Active' && 
@@ -467,16 +623,11 @@ export const useJsonStore = () => {
           }
         });
         
-        const newStatus = (s.status === 'Open' || s.status === 'Draft') && assignments.length > 0 && s.status !== 'Draft' 
-          ? 'Claimed' 
-          : s.status;
-
-        return { 
+        return updateShiftStatus({ 
           ...s, 
           assignments, 
-          status: newStatus,
           version: changed ? (s.version || 0) + 1 : s.version
-        };
+        });
       });
 
       setStored(STORAGE_KEYS.SHIFTS, updatedShifts);

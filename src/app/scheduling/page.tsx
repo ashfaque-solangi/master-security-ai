@@ -22,7 +22,8 @@ import {
   UserPlus,
   ShieldCheck,
   Building2,
-  Send
+  Send,
+  Timer
 } from 'lucide-react';
 import {
   Card,
@@ -115,6 +116,7 @@ export default function SchedulingPage() {
     // Multi-Guard Team Validation
     if (shift.assignments?.length > 0) {
       for (const asg of shift.assignments) {
+        if (!['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(asg.status)) continue;
         const guard = guards.find(g => g.id === asg.guardId);
         if (guard) {
           const validation = validateGuardAssignment(
@@ -164,7 +166,6 @@ export default function SchedulingPage() {
     setSelectedShift(shift);
     setTargetRole(role);
     
-    // Evaluate candidate pool for this specific role
     const pool = guards.map(g => ({
       guard: g,
       validation: validateGuardAssignment(g, shift, shifts, leaveRecords, role)
@@ -191,7 +192,6 @@ export default function SchedulingPage() {
     setShifts(updatedShifts);
     setIsAddGuardOpen(false);
     
-    // Refresh local selected shift
     const updated = updatedShifts.find(s => s.id === selectedShift.id);
     if (updated) setSelectedShift(updated);
     
@@ -203,7 +203,6 @@ export default function SchedulingPage() {
     setTargetAssignment(asg);
     setTargetRole(asg.rolePerformed);
     
-    // Evaluate candidate pool
     const pool = guards.map(g => ({
       guard: g,
       validation: validateGuardAssignment(g, shift, shifts, leaveRecords, asg.rolePerformed)
@@ -234,6 +233,28 @@ export default function SchedulingPage() {
     if (updatedShift) setSelectedShift(updatedShift);
     
     toast({ title: "Personnel Removed", description: "Assignment released to open board." });
+  };
+
+  const handleApproveClaim = (asg: ShiftAssignment) => {
+    if (!selectedShift) return;
+    try {
+      const updated = store.approveClaim(selectedShift.id, asg.id);
+      setShifts(updated);
+      const updatedShift = updated.find(s => s.id === selectedShift.id);
+      if (updatedShift) setSelectedShift(updatedShift);
+      toast({ title: "Claim Approved", description: `Officer ${asg.guardName} is now assigned.` });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Approval Failed", description: e.message });
+    }
+  };
+
+  const handleRejectClaim = (asg: ShiftAssignment) => {
+    if (!selectedShift) return;
+    const updated = store.rejectClaim(selectedShift.id, asg.id, "Operational requirements changes.");
+    setShifts(updated);
+    const updatedShift = updated.find(s => s.id === selectedShift.id);
+    if (updatedShift) setSelectedShift(updatedShift);
+    toast({ title: "Claim Rejected", description: "The request has been declined." });
   };
 
   const handlePublish = () => {
@@ -270,7 +291,7 @@ export default function SchedulingPage() {
   const getPositionSlots = (shift: Shift) => {
     const slots: { role: string, assignment: ShiftAssignment | null }[] = [];
     shift.requirements.forEach(req => {
-      const matchingAssignments = shift.assignments.filter(a => a.rolePerformed === req.role);
+      const matchingAssignments = shift.assignments.filter(a => a.rolePerformed === req.role && ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
       for (let i = 0; i < req.count; i++) {
         slots.push({
           role: req.role,
@@ -337,7 +358,9 @@ export default function SchedulingPage() {
               <div className="flex-1 p-2 space-y-3">
                 {dayShifts.map(shift => {
                   const required = shift.requirements.reduce((a, b) => a + b.count, 0);
-                  const assigned = shift.assignments.length;
+                  const operationalAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
+                  const pendingClaimsCount = shift.assignments.filter(a => a.status === 'Pending').length;
+                  const assigned = operationalAssignments.length;
                   const isUnderstaffed = assigned < required;
                   const isDraft = shift.status === 'Draft';
 
@@ -357,15 +380,17 @@ export default function SchedulingPage() {
                         </Badge>
                       </div>
                       <div className="space-y-1.5">
-                        {shift.assignments.slice(0, 3).map(asg => (
+                        {operationalAssignments.slice(0, 3).map(asg => (
                           <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50/50 px-2 py-0.5 rounded border border-slate-100 text-[8px] font-bold">
                              <Users className={`w-2.5 h-2.5 ${isDraft ? 'text-slate-400' : 'text-primary'}`} /> 
                              <span className="truncate flex-1">{asg.guardName}</span>
                              <span className="text-[6px] text-slate-400 uppercase">{asg.rolePerformed.replace(/_/g, ' ')}</span>
                           </div>
                         ))}
-                        {shift.assignments.length > 3 && (
-                          <p className="text-[7px] font-black text-slate-400 text-center uppercase tracking-widest mt-1">+{shift.assignments.length - 3} more personnel</p>
+                        {pendingClaimsCount > 0 && (
+                          <div className="flex items-center gap-1 mt-1 text-[7px] text-amber-500 font-black uppercase bg-amber-50 rounded-full px-2 py-0.5 w-fit">
+                            <Timer className="w-2.5 h-2.5" /> {pendingClaimsCount} PENDING BID{pendingClaimsCount > 1 ? 'S' : ''}
+                          </div>
                         )}
                         {!isDraft && isUnderstaffed && (
                           <div className="mt-1 flex items-center gap-1 text-[7px] text-red-500 font-black uppercase">
@@ -384,7 +409,7 @@ export default function SchedulingPage() {
 
       {/* Shift Detail / Assignment Management */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+        <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
           <DialogHeader className="p-10 bg-slate-900 text-white relative">
              <div className="absolute top-10 right-10 flex gap-4">
                 <div className="text-right">
@@ -401,37 +426,57 @@ export default function SchedulingPage() {
           
           <div className="p-10 space-y-10 bg-white max-h-[70vh] overflow-y-auto">
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="md:col-span-1 space-y-6">
-                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3 h-3 text-primary" /> Shift Parameters</h3>
-                <div className="p-6 bg-slate-50 rounded-3xl border border-dashed space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</p>
-                    <p className="text-sm font-black text-slate-800 italic uppercase">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Time Window</p>
-                    <p className="text-xl font-black text-primary italic">
-                      {selectedShift && `${format(parseISO(selectedShift.startTime), 'HH:mm')} - ${format(parseISO(selectedShift.endTime), 'HH:mm')}`}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Coverage</p>
-                    <div className="flex items-center justify-between">
-                       <p className="text-sm font-black text-slate-800">{selectedShift?.assignments.length} / {selectedShift?.requirements.reduce((a,b) => a + b.count, 0)} Posts</p>
-                       <Badge variant="outline" className="bg-white text-[8px] uppercase">{selectedShift?.priority}</Badge>
+              <div className="md:col-span-1 space-y-8">
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3 h-3 text-primary" /> Shift Parameters</h3>
+                  <div className="p-6 bg-slate-50 rounded-3xl border border-dashed space-y-4">
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</p>
+                      <p className="text-sm font-black text-slate-800 italic uppercase">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
                     </div>
-                  </div>
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <div>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Time Window</p>
+                      <p className="text-xl font-black text-primary italic">
+                        {selectedShift && `${format(parseISO(selectedShift.startTime), 'HH:mm')} - ${format(parseISO(selectedShift.endTime), 'HH:mm')}`}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Status</p>
-                      <p className={`text-[10px] font-black uppercase italic ${selectedShift?.status === 'Draft' ? 'text-slate-400' : 'text-primary'}`}>{selectedShift?.status}</p>
+                      <div className="flex items-center justify-between">
+                         <p className={`text-[10px] font-black uppercase italic ${selectedShift?.status === 'Draft' ? 'text-slate-400' : 'text-primary'}`}>{selectedShift?.status}</p>
+                         <Badge variant="outline" className="bg-white text-[8px] uppercase">{selectedShift?.priority}</Badge>
+                      </div>
                     </div>
                     {selectedShift?.status === 'Draft' && (
-                      <Button onClick={handlePublish} className="bg-primary text-white h-8 px-4 rounded-xl text-[9px] font-black uppercase italic italic tracking-tighter">
-                        <Send className="w-3 h-3 mr-1.5" /> PUBLISH
+                      <Button onClick={handlePublish} className="w-full bg-primary text-white h-10 rounded-xl text-[10px] font-black uppercase italic tracking-tighter shadow-lg shadow-primary/20">
+                        <Send className="w-3.5 h-3.5 mr-1.5" /> PUBLISH ROSTER
                       </Button>
                     )}
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2 border-b pb-3 border-amber-100"><Timer className="w-3 h-3" /> Pending Bids</h3>
+                   <div className="space-y-3">
+                      {selectedShift?.assignments.filter(a => a.status === 'Pending').map(claim => (
+                        <div key={claim.id} className="p-4 border border-amber-100 bg-amber-50/50 rounded-2xl space-y-3">
+                           <div className="flex justify-between items-start">
+                              <div>
+                                 <p className="text-sm font-black text-slate-800 italic">{claim.guardName}</p>
+                                 <p className="text-[9px] font-bold text-amber-600 uppercase mt-0.5">{claim.rolePerformed.replace(/_/g, ' ')}</p>
+                              </div>
+                              <Timer className="h-3 w-3 text-amber-400" />
+                           </div>
+                           <div className="flex gap-2">
+                              <Button size="sm" className="flex-1 bg-green-600 text-white font-black text-[9px] h-8 rounded-lg" onClick={() => handleApproveClaim(claim)}>APPROVE</Button>
+                              <Button size="sm" variant="ghost" className="flex-1 text-red-600 font-black text-[9px] h-8 rounded-lg" onClick={() => handleRejectClaim(claim)}>REJECT</Button>
+                           </div>
+                        </div>
+                      ))}
+                      {selectedShift?.assignments.filter(a => a.status === 'Pending').length === 0 && (
+                        <p className="text-center text-[9px] font-black uppercase text-slate-300 py-4 italic">No pending requests</p>
+                      )}
+                   </div>
                 </div>
               </div>
 

@@ -229,16 +229,19 @@ export type Applicant = {
   notes: string;
 };
 
+export type ShiftAssignmentStatus = 'Pending' | 'Assigned' | 'Confirmed' | 'In Transit' | 'On Site' | 'Rejected' | 'Withdrawn';
+
 export type ShiftAssignment = {
   id: string;
   guardId: string;
   guardName: string;
   rolePerformed: string;
-  status: 'Assigned' | 'Confirmed' | 'In Transit' | 'On Site';
+  status: ShiftAssignmentStatus;
   assignedAt: string;
   assignedBy: string;
   checkInTime?: string;
   checkOutTime?: string;
+  rejectionReason?: string;
 };
 
 export type RoleRequirement = {
@@ -379,6 +382,7 @@ export type AuditAction =
   | 'CONTRACT_CREATED' | 'CONTRACT_UPDATED' | 'CONTRACT_STATUS_CHANGED'
   | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'SHIFT_PUBLISHED' | 'SHIFT_RESCHEDULED'
   | 'GUARD_ASSIGNED' | 'GUARD_REMOVED' | 'GUARD_REPLACED' | 'SHIFT_GUARD_SWAPPED'
+  | 'CLAIM_REQUESTED' | 'CLAIM_APPROVED' | 'CLAIM_REJECTED' | 'CLAIM_WITHDRAWN'
   | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
   | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
   | 'ASSIGNMENT_REJECTED'

@@ -67,14 +67,14 @@ export default function GuardPortal() {
         
         const allShifts = store.getShifts();
         const personalShifts = allShifts.filter((s: Shift) => 
-          s.assignments?.some(ag => ag.guardId === guardRecord.id)
+          s.assignments?.some(ag => ag.guardId === guardRecord.id && ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(ag.status))
         );
         setMyShifts(personalShifts);
         
-        // Find available open shifts that I'm qualified for
+        // Find available open shifts
         const availableOpen = allShifts.filter(s => 
           s.status === 'Open' && 
-          !s.assignments?.some(ag => ag.guardId === guardRecord.id)
+          !s.assignments?.some(ag => ag.guardId === guardRecord.id && ag.status !== 'Rejected' && ag.status !== 'Withdrawn')
         );
         setOpenShifts(availableOpen);
       }
@@ -84,56 +84,38 @@ export default function GuardPortal() {
   const handleClaimShift = (shift: Shift) => {
     if (!currentGuard) return;
     
-    // Validate claim using central service
-    const validation = validateGuardAssignment(currentGuard, shift, store.getShifts(), leaveRecords, shift.role);
-    
-    if (!validation.isValid) {
+    try {
+      store.submitClaim(shift.id, currentGuard.id, shift.role);
+      toast({
+        title: "Claim Submitted",
+        description: "Your request has been sent to the dispatcher for approval."
+      });
+      refreshData();
+    } catch (e: any) {
       toast({
         variant: "destructive",
-        title: "Eligibility Failure",
-        description: validation.message
+        title: "Claim Failed",
+        description: e.message
       });
-      return;
     }
+  };
 
-    const updatedShift: Shift = {
-      ...shift,
-      assignments: [...(shift.assignments || []), {
-        id: `ASG-${Date.now()}`,
-        guardId: currentGuard.id,
-        guardName: currentGuard.name,
-        rolePerformed: shift.role,
-        status: 'Assigned',
-        assignedAt: new Date().toISOString(),
-        assignedBy: 'SELF_CLAIM'
-      }],
-      status: 'Claimed'
-    };
-
-    store.updateShift(updatedShift);
-    store.logAudit({
-      action: 'GUARD_ASSIGNED',
-      entityType: 'shift_assignment',
-      entityId: shift.id,
-      description: `Shift claimed by officer ${currentGuard.name} via portal.`,
-      newValues: updatedShift
-    });
-
+  const handleWithdraw = (shift: Shift, assignmentId: string) => {
+    store.withdrawClaim(shift.id, assignmentId);
     toast({
-      title: "Shift Claimed",
-      description: `You are now assigned to ${shift.siteName}.`
+      title: "Claim Withdrawn",
+      description: "You have successfully removed your request for this shift."
     });
     refreshData();
   };
 
   const handleCheckIn = (shift: Shift) => {
     const updatedAssignments = shift.assignments.map(a => 
-      a.guardId === currentGuard?.id ? { ...a, status: 'On Site', checkInTime: new Date().toISOString() } : a
+      a.guardId === currentGuard?.id ? { ...a, status: 'On Site' as const, checkInTime: new Date().toISOString() } : a
     );
     const updatedShift: Shift = { ...shift, assignments: updatedAssignments, status: 'In Progress' };
     store.updateShift(updatedShift);
     
-    // Update guard status
     if (currentGuard) {
       store.updateGuard({ ...currentGuard, status: 'Active' });
     }
@@ -151,12 +133,11 @@ export default function GuardPortal() {
 
   const handleCheckOut = (shift: Shift) => {
     const updatedAssignments = shift.assignments.map(a => 
-      a.guardId === currentGuard?.id ? { ...a, status: 'Confirmed', checkOutTime: new Date().toISOString() } : a
+      a.guardId === currentGuard?.id ? { ...a, status: 'Confirmed' as const, checkOutTime: new Date().toISOString() } : a
     );
     const updatedShift: Shift = { ...shift, assignments: updatedAssignments, status: 'Completed' };
     store.updateShift(updatedShift);
     
-    // Update guard status
     if (currentGuard) {
       store.updateGuard({ ...currentGuard, status: 'Off Duty' });
     }
@@ -178,6 +159,12 @@ export default function GuardPortal() {
   const activeShift = myShifts.find(s => s.status === 'In Progress');
   const upcomingShifts = myShifts.filter(s => isFuture(new Date(s.startTime)) && s.status !== 'Completed');
 
+  // Filter for my pending claims
+  const allShifts = store.getShifts();
+  const myPendingClaims = allShifts.filter(s => 
+    s.assignments?.some(a => a.guardId === currentGuard.id && a.status === 'Pending')
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -198,8 +185,10 @@ export default function GuardPortal() {
           <TabsTrigger value="open-shifts" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md px-8 font-black text-xs uppercase italic flex items-center gap-2">
             Open Board <Badge className="bg-primary text-white h-5 px-1.5 text-[9px]">{openShifts.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="my-claims" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md px-8 font-black text-xs uppercase italic flex items-center gap-2">
+            My Bids <Badge className="bg-amber-500 text-white h-5 px-1.5 text-[9px]">{myPendingClaims.length}</Badge>
+          </TabsTrigger>
           <TabsTrigger value="roster" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md px-8 font-black text-xs uppercase italic">My Roster</TabsTrigger>
-          <TabsTrigger value="payroll" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md px-8 font-black text-xs uppercase italic">Earnings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-8">
@@ -340,7 +329,7 @@ export default function GuardPortal() {
 
                       {validation.isValid ? (
                         <Button className="w-full bg-slate-900 text-white rounded-2xl h-12 font-black uppercase italic tracking-tighter group-hover:bg-primary transition-colors" onClick={() => handleClaimShift(shift)}>
-                          CLAIM SHIFT <Zap className="ml-2 h-4 w-4" />
+                          BID FOR SHIFT <Zap className="ml-2 h-4 w-4" />
                         </Button>
                       ) : (
                         <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
@@ -358,6 +347,44 @@ export default function GuardPortal() {
                 </div>
               )}
            </div>
+        </TabsContent>
+
+        <TabsContent value="my-claims" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {myPendingClaims.map(shift => {
+              const claim = shift.assignments.find(a => a.guardId === currentGuard.id && a.status === 'Pending');
+              if (!claim) return null;
+              return (
+                <Card key={shift.id} className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
+                   <div className="h-1.5 w-full bg-amber-500" />
+                   <CardHeader>
+                      <CardTitle className="text-xl font-black italic text-slate-800 tracking-tighter">{shift.siteName}</CardTitle>
+                      <div className="flex justify-between items-center mt-2">
+                        <p className="text-xs font-black text-primary uppercase">{shift.role}</p>
+                        <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[9px] uppercase italic">Awaiting Approval</Badge>
+                      </div>
+                   </CardHeader>
+                   <CardContent className="space-y-6">
+                      <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
+                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Deployment Period</p>
+                         <p className="text-sm font-black text-slate-800 uppercase italic">{format(parseISO(shift.startTime), 'EEE, MMM dd')}</p>
+                         <p className="text-xl font-black text-slate-800 italic">
+                           {format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}
+                         </p>
+                      </div>
+                      <Button variant="outline" className="w-full rounded-2xl h-12 font-black uppercase text-[10px] border-amber-200 text-amber-600 hover:bg-amber-50" onClick={() => handleWithdraw(shift, claim.id)}>
+                        WITHDRAW BID
+                      </Button>
+                   </CardContent>
+                </Card>
+              );
+            })}
+            {myPendingClaims.length === 0 && (
+              <div className="col-span-full py-20 text-center bg-slate-50 rounded-[3rem] border border-dashed">
+                <p className="text-slate-400 font-black italic uppercase tracking-tighter">No active bids.</p>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="roster" className="space-y-8">

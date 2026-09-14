@@ -16,7 +16,8 @@ const createTimestamp = (daysOffset: number, hour: number, minute: number = 0) =
 export const users: User[] = [
   { id: 'USR-ADMIN', organizationId: ORG_A, name: 'Alex Thompson', email: 'admin@secureguard.com', role: 'SUPER_ADMIN', status: 'Active', password: 'password123' },
   { id: 'USR-OPS', organizationId: ORG_A, name: 'Sarah Miller', email: 'ops@secureguard.com', role: 'OPERATIONS_MANAGER', status: 'Active', password: 'password123' },
-  { id: 'USR-GUARD-1', organizationId: ORG_A, name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'GUARD', status: 'Active', password: 'password123', guardId: 'GRD-001' }
+  { id: 'USR-GUARD-1', organizationId: ORG_A, name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'GUARD', status: 'Active', password: 'password123', guardId: 'GRD-001' },
+  { id: 'USR-GUARD-2', organizationId: ORG_A, name: 'Sarah Jenkins', email: 's.jenkins@security.com', role: 'GUARD', status: 'Active', password: 'password123', guardId: 'GRD-002' }
 ];
 
 export const clients: Client[] = [
@@ -84,7 +85,7 @@ export const shifts: Shift[] = [
     ],
     assignments: [
       { id: 'ASG-1', guardId: 'GRD-001', guardName: 'Marcus Thorne', rolePerformed: 'SECURITY_GUARD', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' },
-      { id: 'ASG-2', guardId: 'GRD-002', guardName: 'Sarah Jenkins', rolePerformed: 'CCTV_OPERATOR', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' }
+      { id: 'ASG-PEND-1', guardId: 'GRD-002', guardName: 'Sarah Jenkins', rolePerformed: 'CCTV_OPERATOR', status: 'Pending', assignedAt: now.toISOString(), assignedBy: 'GUARD_CLAIM' }
     ],
     role: 'Team Deployment',
     version: 1
