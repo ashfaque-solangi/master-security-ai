@@ -1,19 +1,20 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Lock, Mail, Loader2 } from 'lucide-react';
+import { Shield, Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useJsonStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const router = useRouter();
   const store = useJsonStore();
   const { toast } = useToast();
@@ -25,6 +26,15 @@ export default function LoginPage() {
     }
   }, []);
 
+  const getDeviceId = () => {
+    let deviceId = localStorage.getItem('sg_device_id');
+    if (!deviceId) {
+      deviceId = `DEV-${crypto.randomUUID()}`;
+      localStorage.setItem('sg_device_id', deviceId);
+    }
+    return deviceId;
+  };
+
   const redirectUser = (role: string) => {
     if (role === 'GUARD') router.push('/guard-portal');
     else if (role === 'CLIENT_ADMIN' || role === 'CLIENT_VIEWER') router.push('/client-portal');
@@ -34,14 +44,17 @@ export default function LoginPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setAuthError(null);
+
+    const deviceId = getDeviceId();
 
     setTimeout(() => {
-      const result = store.login(email, password);
+      const result = store.login(email, password, deviceId);
       if (result.success && result.user) {
         toast({ title: "Welcome back!", description: `Logged in as ${result.user?.name}` });
         redirectUser(result.user.role);
       } else {
-        toast({ variant: "destructive", title: "Authentication Failed", description: result.error || "Invalid credentials." });
+        setAuthError(result.error || "Invalid credentials.");
         setIsLoading(false);
       }
     }, 800);
@@ -70,6 +83,16 @@ export default function LoginPage() {
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
+              {authError && (
+                <Alert variant="destructive" className="bg-red-50 border-red-200">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle className="text-[10px] font-black uppercase tracking-widest">Authentication Alert</AlertTitle>
+                  <AlertDescription className="text-xs font-medium leading-relaxed">
+                    {authError}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Email Terminal</label>
                 <div className="relative group">
@@ -104,7 +127,6 @@ export default function LoginPage() {
              <button onClick={() => { setEmail('admin@secureguard.com'); setPassword('password123'); }} className="text-[10px] text-left hover:text-white text-slate-400 font-medium">SUPER ADMIN: admin@secureguard.com</button>
              <button onClick={() => { setEmail('m.thorne@security.com'); setPassword('password123'); }} className="text-[10px] text-left hover:text-white text-slate-400 font-medium">GUARD: m.thorne@security.com</button>
              <button onClick={() => { setEmail('client@secureguard.com'); setPassword('password123'); }} className="text-[10px] text-left hover:text-white text-slate-400 font-medium">CLIENT: client@secureguard.com</button>
-             <button onClick={() => { setEmail('admin@apex-security.com'); setPassword('password123'); }} className="text-[10px] text-left hover:text-white text-slate-400 font-medium italic">APEX (ORG B): admin@apex-security.com</button>
           </div>
         </div>
       </div>

@@ -13,11 +13,13 @@ import { Header } from '@/components/layout/header';
 import { useJsonStore } from '@/lib/store';
 import { User } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const store = useJsonStore();
+  const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -30,6 +32,25 @@ export function AppShell({ children }: { children: ReactNode }) {
       setCurrentUser(user);
     }
   }, [pathname, router]);
+
+  // SECURE CONCURRENT SESSION HEARTBEAT
+  useEffect(() => {
+    if (pathname === '/login' || !isMounted) return;
+
+    const interval = setInterval(() => {
+      const isValid = store.heartbeat();
+      if (!isValid) {
+        toast({
+          variant: "destructive",
+          title: "Session Expired",
+          description: "Your session has been revoked or signed out from another device."
+        });
+        router.push('/login');
+      }
+    }, 10000); // Check every 10s
+
+    return () => clearInterval(interval);
+  }, [pathname, isMounted, store, router, toast]);
 
   if (!isMounted) return null;
   if (pathname === '/login') return <>{children}</>;

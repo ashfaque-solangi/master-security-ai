@@ -35,6 +35,21 @@ export type User = {
   extraPermissions?: PermissionAction[];
 };
 
+export type SessionStatus = 'Active' | 'LoggedOut' | 'Revoked' | 'Expired';
+
+export type UserSession = {
+  id: string;
+  userId: string;
+  userName: string;
+  organizationId: string;
+  deviceId: string;
+  userAgent: string;
+  ipAddress: string;
+  createdAt: string;
+  lastActiveAt: string;
+  status: SessionStatus;
+};
+
 export interface DashboardDefinition {
   id: string;
   title: string;
@@ -322,11 +337,12 @@ export type AuditAction =
   | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
   | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
   | 'ASSIGNMENT_REJECTED'
-  | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED'
+  | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED' | 'LOGIN_BLOCKED_DEVICE_LIMIT'
   | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED'
   | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED'
   | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'CONTRACT_UPDATED'
-  | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT';
+  | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT'
+  | 'SESSION_REVOKED';
 
 export type AuditRecord = {
   id: string;
@@ -335,7 +351,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract' | 'session';
   entityId: string;
   description: string;
   oldValues: any | null;
@@ -348,7 +364,7 @@ export type AuditRecord = {
 export type OperationalEvent = {
   id: string;
   timestamp: string;
-  type: 'GUARD_CHECKED_IN' | 'GUARD_CHECKED_OUT' | 'SOS_TRIGGERED' | 'INCIDENT_CREATED' | 'PATROL_STARTED' | 'ALARM_TRIGGERED' | 'VEHICLE_UPDATED';
+  type: 'GUARD_CHECK_IN' | 'GUARD_CHECK_OUT' | 'SOS_TRIGGERED' | 'INCIDENT_CREATED' | 'PATROL_STARTED' | 'ALARM_TRIGGERED' | 'VEHICLE_UPDATED';
   siteId: string;
   siteName: string;
   description: string;

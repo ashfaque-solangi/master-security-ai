@@ -26,7 +26,7 @@ import {
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
   AuditRecord, AuditAction, JobPost, Interview, 
   SOSAlert, Alarm, Vehicle, MockDocument, Contract, LeaveRecord, OperationalEvent,
-  RecruitmentStage
+  RecruitmentStage, UserSession
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
@@ -47,6 +47,8 @@ const STORAGE_KEYS = {
   FORMS: 'sg_forms_p6_v1',
   AUDITS: 'sg_audits_p6_v1',
   CURRENT_USER: 'sg_current_user_p6_v1',
+  CURRENT_SESSION_ID: 'sg_current_session_id_p6_v1',
+  SESSIONS: 'sg_sessions_p6_v1',
   SOS: 'sg_sos_p6_v1',
   ALARMS: 'sg_alarms_p6_v1',
   VEHICLES: 'sg_vehicles_p6_v1',
@@ -57,6 +59,7 @@ const STORAGE_KEYS = {
 };
 
 const isBrowser = typeof window !== 'undefined';
+const MAX_CONCURRENT_DEVICES = 2;
 
 function getStored<T>(key: string, defaultValue: T): T {
   if (!isBrowser) return defaultValue;
@@ -72,6 +75,7 @@ function setStored<T>(key: string, data: T) {
 
 export const useJsonStore = () => {
   const getCurrentUser = (): User | null => getStored<User | null>(STORAGE_KEYS.CURRENT_USER, null);
+  const getCurrentSessionId = (): string | null => getStored<string | null>(STORAGE_KEYS.CURRENT_SESSION_ID, null);
   
   const logAudit = (params: {
     action: AuditAction;
@@ -128,26 +132,129 @@ export const useJsonStore = () => {
     return true;
   };
 
+  const getSessions = () => getStored<UserSession[]>(STORAGE_KEYS.SESSIONS, []);
+
   return {
     getCurrentUser,
+    getCurrentSessionId,
+    getSessions,
     setCurrentUser: (user: User | null) => setStored(STORAGE_KEYS.CURRENT_USER, user),
     
-    login: (email: string, password: string) => {
+    login: (email: string, password: string, deviceId: string) => {
       const usersList = getStored<User[]>(STORAGE_KEYS.USERS, initialUsers);
       const user = usersList.find(u => u.email === email && u.password === (password || 'password123'));
-      if (user) {
-        setStored(STORAGE_KEYS.CURRENT_USER, user);
-        logAudit({ action: 'USER_LOGIN', entityType: 'user', entityId: user.id, description: `Login successful: ${user.name}` });
-        return { success: true, user };
+      
+      if (!user) {
+        logAudit({ action: 'LOGIN_FAILED', entityType: 'user', entityId: email, description: `Failed login attempt for ${email}`, status: 'error' });
+        return { success: false, error: 'Invalid credentials' };
       }
-      logAudit({ action: 'LOGIN_FAILED', entityType: 'user', entityId: email, description: `Failed login attempt for ${email}`, status: 'error' });
-      return { success: false, error: 'Invalid credentials' };
+
+      // CONCURRENT DEVICE ENFORCEMENT
+      const allSessions = getStored<UserSession[]>(STORAGE_KEYS.SESSIONS, []);
+      const activeSessions = allSessions.filter(s => s.userId === user.id && s.status === 'Active');
+      
+      // Check if this device already has an active session
+      const existingDeviceSession = activeSessions.find(s => s.deviceId === deviceId);
+      
+      if (!existingDeviceSession) {
+        // Distinct devices check
+        const distinctActiveDevices = Array.from(new Set(activeSessions.map(s => s.deviceId)));
+        
+        if (distinctActiveDevices.length >= MAX_CONCURRENT_DEVICES) {
+          logAudit({ 
+            action: 'LOGIN_BLOCKED_DEVICE_LIMIT', 
+            entityType: 'session', 
+            entityId: user.id, 
+            description: `Login blocked: Max device limit reached for ${user.name}`,
+            status: 'REJECTED',
+            metadata: { activeDevices: distinctActiveDevices.length }
+          });
+          return { 
+            success: false, 
+            error: 'Maximum devices reached. You are currently signed in on 2 other devices. Please sign out from one of them first.' 
+          };
+        }
+      }
+
+      // Create new session or re-use existing one for this device
+      const sessionId = existingDeviceSession?.id || `SES-${Date.now()}`;
+      const newSession: UserSession = {
+        id: sessionId,
+        userId: user.id,
+        userName: user.name,
+        organizationId: user.organizationId,
+        deviceId: deviceId,
+        userAgent: isBrowser ? navigator.userAgent : 'Unknown',
+        ipAddress: '127.0.0.1', // Mock IP
+        createdAt: existingDeviceSession?.createdAt || new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
+        status: 'Active'
+      };
+
+      const updatedSessions = [newSession, ...allSessions.filter(s => s.id !== sessionId)];
+      setStored(STORAGE_KEYS.SESSIONS, updatedSessions);
+      setStored(STORAGE_KEYS.CURRENT_USER, user);
+      setStored(STORAGE_KEYS.CURRENT_SESSION_ID, sessionId);
+
+      logAudit({ action: 'USER_LOGIN', entityType: 'user', entityId: user.id, description: `Login successful: ${user.name} on device ${deviceId.substring(0, 8)}` });
+      
+      return { success: true, user };
     },
 
     logout: () => {
       const user = getCurrentUser();
+      const sessionId = getCurrentSessionId();
+      
+      if (sessionId) {
+        const allSessions = getStored<UserSession[]>(STORAGE_KEYS.SESSIONS, []);
+        const updated = allSessions.map(s => s.id === sessionId ? { ...s, status: 'LoggedOut' as const, lastActiveAt: new Date().toISOString() } : s);
+        setStored(STORAGE_KEYS.SESSIONS, updated);
+      }
+
       if (user) logAudit({ action: 'USER_LOGOUT', entityType: 'user', entityId: user.id, description: `Session ended` });
+      
       setStored(STORAGE_KEYS.CURRENT_USER, null);
+      setStored(STORAGE_KEYS.CURRENT_SESSION_ID, null);
+    },
+
+    revokeSession: (sessionId: string) => {
+      const admin = getCurrentUser();
+      if (!admin || !AccessControlService.can(admin, 'manage')) return;
+
+      const allSessions = getStored<UserSession[]>(STORAGE_KEYS.SESSIONS, []);
+      const target = allSessions.find(s => s.id === sessionId);
+      
+      if (target) {
+        const updated = allSessions.map(s => s.id === sessionId ? { ...s, status: 'Revoked' as const } : s);
+        setStored(STORAGE_KEYS.SESSIONS, updated);
+        logAudit({ 
+          action: 'SESSION_REVOKED', 
+          entityType: 'session', 
+          entityId: sessionId, 
+          description: `Session revoked for ${target.userName} by Admin ${admin.name}`,
+          metadata: { userId: target.userId, device: target.deviceId }
+        });
+      }
+    },
+
+    heartbeat: () => {
+      const sessionId = getCurrentSessionId();
+      if (!sessionId) return true;
+
+      const allSessions = getStored<UserSession[]>(STORAGE_KEYS.SESSIONS, []);
+      const session = allSessions.find(s => s.id === sessionId);
+
+      if (!session || session.status !== 'Active') {
+        // Session was revoked or logged out elsewhere
+        setStored(STORAGE_KEYS.CURRENT_USER, null);
+        setStored(STORAGE_KEYS.CURRENT_SESSION_ID, null);
+        return false;
+      }
+
+      // Update activity
+      const updated = allSessions.map(s => s.id === sessionId ? { ...s, lastActiveAt: new Date().toISOString() } : s);
+      setStored(STORAGE_KEYS.SESSIONS, updated);
+      return true;
     },
 
     getGuards: () => getProtectedData<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards, 'guard'),
