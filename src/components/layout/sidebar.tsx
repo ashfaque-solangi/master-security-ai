@@ -11,11 +11,6 @@ import {
   Users,
   Building,
   FileText,
-  Truck,
-  CreditCard,
-  Receipt,
-  Settings,
-  Lock,
   History,
   Mail,
   ShieldCheck,
@@ -23,9 +18,16 @@ import {
   Users2,
   Map,
   Activity,
-  Layout,
   User,
-  UserCheck
+  UserCheck,
+  Search,
+  Briefcase,
+  Settings,
+  Lock,
+  DollarSign,
+  Receipt,
+  Truck,
+  ClipboardList
 } from 'lucide-react';
 import {
   Sidebar as ShadSidebar,

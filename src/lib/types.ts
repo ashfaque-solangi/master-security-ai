@@ -13,8 +13,9 @@ export type UserRole =
   | 'COMPLIANCE_MANAGER'
   | 'FINANCE_MANAGER'
   | 'GUARD'
-  | 'CLIENT'
-  | 'SUBCONTRACTOR';
+  | 'CLIENT_ADMIN'
+  | 'CLIENT_VIEWER'
+  | 'SUBCONTRACTOR_ADMIN';
 
 export type User = {
   id: string;
@@ -423,7 +424,7 @@ export type PermissionAction =
   | 'patrol.assign'
   | 'patrol.monitor';
 
-// Legacy Medical Types (Preserved for backward compatibility and build stability)
+// Legacy Medical Types
 export type BloodUnit = {
   bloodType: string;
   quantity: number;
