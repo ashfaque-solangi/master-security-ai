@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,7 +47,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useJsonStore } from '@/lib/store';
 import { Site, Severity, Shift } from '@/lib/types';
 
@@ -80,6 +78,7 @@ export default function SitesPage() {
     if (!name) return;
     const site: Site = {
       id: `SITE-${Math.floor(Math.random() * 1000)}`,
+      organizationId: store.getCurrentUser()?.organizationId || 'ORG-001',
       name,
       clientId: `CL-${Math.floor(Math.random() * 100)}`,
       clientName: client || 'Private Client',
@@ -89,6 +88,12 @@ export default function SitesPage() {
       openShifts: 0,
       healthScore: 100,
       revenuePerMonth: 5000,
+      code: `S-${Math.floor(Math.random() * 100)}`,
+      contactInfo: '',
+      status: 'Active',
+      operatingHours: '24/7',
+      requiredGuardCount: 1,
+      requiredRoles: ['Security Guard']
     };
     const updated = store.addSite(site);
     setSites(updated);
@@ -139,7 +144,7 @@ export default function SitesPage() {
     const siteShifts = shifts.filter(s => s.siteId === siteId);
     const active = siteShifts.filter(s => s.status === 'In Progress').length;
     const open = siteShifts.filter(s => s.status === 'Open').length;
-    const guards = siteShifts.flatMap(s => s.status === 'In Progress' ? (s.assignedGuards?.map(ag => ag.name) || []) : []);
+    const guards = siteShifts.flatMap(s => s.status === 'In Progress' ? (s.assignments?.map(a => a.guardName) || []) : []);
     return { active, open, guards: Array.from(new Set(guards)) };
   };
 

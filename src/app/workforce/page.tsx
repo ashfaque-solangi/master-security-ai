@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -76,16 +75,18 @@ export default function WorkforcePage() {
     if (!name) return;
     const guard: Guard = {
       id: `GRD-${Math.floor(Math.random() * 1000)}`,
+      organizationId: store.getCurrentUser()?.organizationId || 'ORG-001',
       name: name,
       email: email || `${name.toLowerCase().replace(' ', '.')}@security.com`,
       status: status,
       complianceStatus: compliance,
-      lastLocationUpdate: new Date().toISOString(),
       licenceExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString(),
       docsMissing: 0,
       performanceScore: 100,
       weeklyHours: 0,
-      isAvailable: isAvailable
+      isAvailable: isAvailable,
+      qualifiedRoles: ['Security Guard'],
+      skills: []
     };
     const updated = store.addGuard(guard);
     setGuards(updated);
@@ -144,7 +145,7 @@ export default function WorkforcePage() {
   // Helper to find guard's current shift
   const getCurrentShift = (guardId: string) => {
     return shifts.find(s => 
-      s.assignedGuards.some(ag => ag.id === guardId) && 
+      s.assignments?.some(a => a.guardId === guardId) && 
       s.status === 'In Progress'
     );
   };
