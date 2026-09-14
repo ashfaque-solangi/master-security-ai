@@ -1,56 +1,86 @@
 
-# SecureGuard Command - Progress Report
+# SecureGuard Command - Comprehensive Progress Report
 
-This document outlines the state of the platform after completing **Phase 1 (Platform Foundation)** and **Phase 2 (Smart Scheduling)**.
-
-## 🚀 Phase 1: Platform Foundation (100% Complete)
-
-### 1. Administrative Infrastructure
-- **Live Command Centre (WEB-01)**: Real-time operational oversight for Guards, Incidents, SOS Alerts, and Site Health.
-- **Admin Dashboard**: Dynamic aggregation of active personnel, open vacancies, and compliance warnings.
-- **User & RBAC (WEB-02)**: Granular Role-Based Access Control with support for Super Admins, Dispatchers, and Client users.
-- **Tenant Isolation**: Secure data scoping for Clients and Subcontractors.
-
-### 2. Workforce & Entity Management
-- **Guard Workforce (WEB-03)**: Complete lifecycle management from Recruitment Pipeline (Shortlisted -> Training -> Onboarding) to active duty status.
-- **Client & Site Management (WEB-04)**: Master registry for corporate entities and operational sites, including site-specific instructions and staffing quotas.
-- **SOP & Contract Management**: Metadata-based document tracking for site-level standard operating procedures and SLAs.
+This document outlines the total work completed for the **SecureGuard Command** platform, covering the foundational architecture and the operational modules **WEB-01** through **WEB-04**.
 
 ---
 
-## 📅 Phase 2: Smart Scheduling (100% Complete)
+## 🏗️ Core Architecture (The Foundation)
 
-### 1. Advanced Rule Engine (The Brain)
-- **Rule 4 & 5 (The Midnight Rule)**: Implemented sophisticated time-slicing logic that splits shift hours across calendar days for accurate 16-hour daily limit enforcement.
-- **Rule 1 (No Overlaps)**: Centralized validation prevents a guard from being assigned to concurrent shifts across all platforms (Manual, Drag-Drop, AI).
-- **Rule 3 (Role Qualification)**: Mandatory check verifying that guards possess the required skills (e.g., CCTV, Supervisor) before assignment.
-- **Rule 13 (Compliance Blocker)**: Hard-coded check that prevents assignment of guards with expired licences or missing documents.
+### 1. Centralized Access Control (WEB-02)
+- **Centralized Security Layer**: Implemented `AccessControlService` as the authoritative source for all authorization logic.
+- **Record-Level Scoping**: Every data-access call is now scope-aware. Users are strictly isolated within their permitted **Organization, Client, or Site** scope.
+- **Canonical RBAC**: Support for 13 distinct roles (SUPER_ADMIN, COMPANY_ADMIN, GUARD, etc.) with standardized uppercase identifiers.
+- **Mutation Protection**: All create, update, and delete operations are validated against permissions and organizational ownership at the store level.
 
-### 2. Smart Operations (UX)
-- **Multi-Guard Teams (Rule 2)**: Support for building team deployments with specific role requirements (e.g., "1 Supervisor, 2 Guards").
-- **AI Auto-Scheduling**: Global "One-Click" optimization that fills vacancies using candidate match scores and compliance checks.
-- **AI Candidate Pool**: Intelligent replacement suggester that ranks guards by fatigue, qualification, and compliance status.
-- **Break Management**: Integrated scheduled break windows with visual indicators in the registry.
-
-### 3. Portal Workflows
-- **Guard Open-Shift Board**: Capability for field officers to view and claim eligible vacant shifts directly from their portal.
-- **Client Visibility**: Isolated dashboards for corporate partners to monitor live site staffing and incident logs.
+### 2. Multi-Tenant Storage Service
+- **Storage Abstraction**: Created a `StorageService` pattern in `store.ts` that acts as a repository, decoupling the UI from `localStorage`.
+- **Tenant Isolation**: Verified cross-tenant security using `Organization A` and `Organization B` seed data.
+- **Forensic Audit Trail**: Immutable logs for all critical events including `USER_LOGIN`, `ACCESS_DENIED`, and `CONFLICT_DETECTED`.
 
 ---
 
-## 📜 Audit & Integrity (100% Complete)
-- **Immutable Audit Trail**: All administrative and scheduling actions generate a forensic log, including "Old vs New" value snapshots.
-- **Conflict & Rejection Logs**: Explicit recording of why specific actions were blocked (e.g., `DAILY_HOURS_EXCEEDED`).
-- **AI Transparency**: Detailed logs of AI-generated deployment logic.
+## 🚀 WEB-01: Dashboard & Live Command Centre
+
+### 1. Operational KPI Engine
+- **Staffing Metrics**: Real-time aggregation of Required vs. Assigned guards, coverage percentages, and unfilled positions.
+- **Compliance Health**: Real-time tracking of expiring licenses and scheduling-blocked personnel.
+- **Incident Intelligence**: Categorization of incidents by severity (Critical, High, Medium) with drill-down capabilities.
+
+### 2. Live War Room (Command Centre)
+- **Personnel Telemetry**: Live status monitoring of guards, their current shifts, and check-in status.
+- **Emergency Management**: High-visibility SOS/Panic Alert panel with resolution tracking.
+- **Fleet & Patrol Monitoring**: Real-time tracking of mobile patrol progress and vehicle deployment status.
+- **Environmental Context**: Mock weather data integration associated with operational sites.
+- **Site Health Scoring**: Automated scoring system (HEALTHY, WARNING, CRITICAL) based on staffing and incident metrics.
 
 ---
 
-### Architectural Foundation
-- **Normalized Data Model**: Consolidated `assignments` structure preventing property-access runtime errors.
-- **StorageService**: Clean LocalStorage abstraction enabling persistent operations across page refreshes.
-- **Validation Layer**: Decoupled business logic used consistently by UI components and automated engines.
+## 👥 WEB-02: Company & Identity Management
 
-### Next Milestone: Phase 3 – Live Operations
-- **Real-time GPS Tracking**: Interactive map for live officer location monitoring.
-- **Live Patrol Progress**: Checkpoint completion tracking and alerts.
-- **Incident Escalation**: High-severity workflow automation.
+### 1. User & Identity Control
+- **Identity Hub**: Full management of system users, including role assignment and granular site-level scoping.
+- **Account Lifecycle**: Capability to activate/deactivate accounts with immediate session termination.
+- **Route Protection**: All Next.js routes are guarded; manual URL manipulation (?id=...) is blocked if the record is outside the user's scope.
+
+---
+
+## 💂 WEB-03: Guard Workforce & Recruitment
+
+### 1. Total Workforce Management
+- **Guard 360 Profile**: Complete record of personal data, SIA licenses, qualifications, and site assignments.
+- **Leave & Absence**: Integrated leave management that automatically updates scheduling availability.
+- **Qualification Logic**: Independent tracking of "Qualified Roles" vs. "Current Role," ensuring Rule 3 compliance.
+
+### 2. Recruitment Pipeline
+- **Visual Funnel**: 11-stage recruitment pipeline from `JOB_POSTED` to `ACTIVE` duty.
+- **Document Vault**: Metadata tracking for Right to Work, ID, and Background Checks with verification workflows.
+- **Onboarding Checklist**: Automated guard eligibility tracking based on document completion.
+
+---
+
+## 🏢 WEB-04: Sites, Clients & Contracts
+
+### 1. Operational Configuration
+- **Client Master Registry**: Multi-tenant client records with associated sites and account owners.
+- **Site Blueprint**: Detailed site configuration including operating hours, required roles, risk levels, and patrol frequencies.
+- **SOP Management**: Document management for Post Orders and Risk Assessments with versioning (`Current`, `Archived`, `Draft`).
+
+### 2. Contract & Service Level Management
+- **Contract Ledger**: Tracking of billing rates, pay rates, and required hours.
+- **SLA Tracking**: Integration of KPIs and penalty clauses into the site operational context.
+
+---
+
+## 📅 Scheduling Brain (Previously Completed)
+- **Rule 1 (No Overlaps)**: Hard blocker for concurrent shifts.
+- **Rule 4 & 5 (The Midnight Rule)**: Accurate cross-midnight hour splitting for 16-hour daily limit enforcement.
+- **AI Auto-Fill**: Global optimization engine that fills team quotas while respecting all hard constraints.
+- **Self-Claiming**: Guard "Open Shift" board with eligibility validation.
+
+---
+
+### Verification Summary
+- **TypeScript**: 100% Type-safe and normalized.
+- **Build**: Production-ready.
+- **Security**: Cross-tenant isolation verified via "Org B" tests.
