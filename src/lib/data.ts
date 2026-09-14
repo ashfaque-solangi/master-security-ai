@@ -77,6 +77,7 @@ export const guards: Guard[] = [
 export const shifts: Shift[] = [
   {
     id: 'SHF-001', organizationId: ORG_A, siteId: 'SITE-001', siteName: 'Northgate Mall',
+    name: 'Morning Mall Patrol', code: 'SH-2024-000001',
     startTime: createTimestamp(0, 8), endTime: createTimestamp(0, 16), status: 'Open', priority: 'Routine',
     requirements: [
       { role: 'SECURITY_GUARD', count: 2 },
@@ -92,6 +93,7 @@ export const shifts: Shift[] = [
   },
   {
     id: 'SHF-DRAFT-001', organizationId: ORG_A, siteId: 'SITE-003', siteName: 'Central Office Tower',
+    name: 'Standard Office Static Post', code: 'SH-2024-000002',
     startTime: createTimestamp(1, 10), endTime: createTimestamp(1, 18), status: 'Draft', priority: 'Routine',
     requirements: [{ role: 'SECURITY_GUARD', count: 1 }],
     assignments: [],

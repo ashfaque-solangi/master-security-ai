@@ -254,6 +254,8 @@ export type Shift = {
   organizationId: string;
   siteId: string;
   siteName: string;
+  name: string;
+  code: string;
   startTime: string; 
   endTime: string;
   breakStartTime?: string;

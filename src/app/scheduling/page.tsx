@@ -23,7 +23,8 @@ import {
   ShieldCheck,
   Building2,
   Send,
-  Timer
+  Timer,
+  Hash
 } from 'lucide-react';
 import {
   Card,
@@ -373,11 +374,15 @@ export default function SchedulingPage() {
                       className={`p-3 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-md relative overflow-hidden group/shift transition-opacity ${isDraft ? 'opacity-60 bg-slate-50 border-dashed border' : 'bg-white'}`}
                     >
                       <div className={`absolute left-0 top-0 w-1 h-full ${isDraft ? 'bg-slate-300' : isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="text-[9px] font-black uppercase truncate text-slate-800 max-w-[80%]">{shift.siteName}</p>
+                      <div className="flex justify-between items-start mb-1">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{shift.code}</p>
                         <Badge variant="outline" className={`text-[7px] px-1.5 h-4 border-none font-bold uppercase ${isDraft ? 'bg-slate-200 text-slate-500' : 'bg-slate-50'}`}>
                           {isDraft ? 'DRAFT' : `${assigned}/${required}`}
                         </Badge>
+                      </div>
+                      <div className="mb-2">
+                        <p className="text-[9px] font-black uppercase truncate text-slate-800 italic">{shift.name}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase truncate">{shift.siteName}</p>
                       </div>
                       <div className="space-y-1.5">
                         {operationalAssignments.slice(0, 3).map(asg => (
@@ -420,8 +425,13 @@ export default function SchedulingPage() {
                    <Building2 className="text-primary w-6 h-6" />
                 </div>
              </div>
-            <DialogTitle className="text-3xl font-black italic tracking-tighter uppercase">{selectedShift?.siteName}</DialogTitle>
-            <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Managing Granular Position Deployment Hub</DialogDescription>
+             <div className="space-y-1">
+               <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-widest">
+                  <Hash className="w-3 h-3" /> {selectedShift?.code}
+               </div>
+               <DialogTitle className="text-3xl font-black italic tracking-tighter uppercase">{selectedShift?.name}</DialogTitle>
+               <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">{selectedShift?.siteName}</p>
+             </div>
           </DialogHeader>
           
           <div className="p-10 space-y-10 bg-white max-h-[70vh] overflow-y-auto">

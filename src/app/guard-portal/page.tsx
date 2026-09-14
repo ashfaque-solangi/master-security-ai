@@ -23,7 +23,8 @@ import {
   XCircle,
   Radio,
   LogOut,
-  LogIn
+  LogIn,
+  Hash
 } from 'lucide-react';
 import {
   Card,
@@ -255,9 +256,12 @@ export default function GuardPortal() {
                   <div className="grid md:grid-cols-2 gap-12">
                     <div className="space-y-4">
                       <p className="text-[10px] uppercase font-black text-slate-500 tracking-widest border-l-2 border-primary pl-3">Current Deployment</p>
-                      <p className="text-4xl font-black text-white italic tracking-tighter">{activeShift.siteName}</p>
+                      <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-widest">
+                        <Hash className="w-4 h-4" /> {activeShift.code}
+                      </div>
+                      <p className="text-4xl font-black text-white italic tracking-tighter">{activeShift.name}</p>
                       <p className="text-xs text-slate-400 font-bold flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-primary" /> GPS POSITION VERIFIED
+                        <MapPin className="h-4 w-4 text-primary" /> {activeShift.siteName} (GPS VERIFIED)
                       </p>
                     </div>
                     <div className="text-right space-y-4">
@@ -309,11 +313,14 @@ export default function GuardPortal() {
                         <div className="p-3 bg-slate-50 rounded-2xl border group-hover:scale-110 transition-transform">
                           <Building2 className="h-6 w-6 text-primary" />
                         </div>
-                        <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest rounded-full">{shift.priority}</Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest rounded-full">{shift.priority}</Badge>
+                          <span className="text-[9px] font-bold text-slate-400 font-mono">{shift.code}</span>
+                        </div>
                       </div>
                       <div className="mt-4">
-                        <CardTitle className="text-xl font-black italic text-slate-800 tracking-tighter">{shift.siteName}</CardTitle>
-                        <p className="text-xs font-black text-primary uppercase mt-1 tracking-widest">{shift.role}</p>
+                        <CardTitle className="text-xl font-black italic text-slate-800 tracking-tighter uppercase">{shift.name}</CardTitle>
+                        <p className="text-xs font-black text-primary uppercase mt-1 tracking-widest">{shift.siteName}</p>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -358,11 +365,12 @@ export default function GuardPortal() {
                 <Card key={shift.id} className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
                    <div className="h-1.5 w-full bg-amber-500" />
                    <CardHeader>
-                      <CardTitle className="text-xl font-black italic text-slate-800 tracking-tighter">{shift.siteName}</CardTitle>
-                      <div className="flex justify-between items-center mt-2">
-                        <p className="text-xs font-black text-primary uppercase">{shift.role}</p>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[9px] font-bold text-slate-400 font-mono">{shift.code}</span>
                         <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[9px] uppercase italic">Awaiting Approval</Badge>
                       </div>
+                      <CardTitle className="text-xl font-black italic text-slate-800 tracking-tighter uppercase">{shift.name}</CardTitle>
+                      <p className="text-xs font-black text-primary uppercase mt-1">{shift.siteName}</p>
                    </CardHeader>
                    <CardContent className="space-y-6">
                       <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
@@ -401,14 +409,17 @@ export default function GuardPortal() {
                         <span className="text-2xl font-black italic leading-none">{format(parseISO(shift.startTime), 'dd')}</span>
                       </div>
                       <div>
-                        <p className="text-xl font-black text-slate-800 italic tracking-tighter">{shift.siteName}</p>
+                        <div className="flex items-center gap-2 text-[9px] font-mono text-slate-400 uppercase">
+                          <Hash className="w-3 h-3" /> {shift.code}
+                        </div>
+                        <p className="text-xl font-black text-slate-800 italic tracking-tighter uppercase">{shift.name}</p>
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
-                          {format(parseISO(shift.startTime), 'EEEE')} • {format(parseISO(shift.startTime), 'HH:mm')} Deployment
+                          {shift.siteName} • {format(parseISO(shift.startTime), 'EEEE')} • {format(parseISO(shift.startTime), 'HH:mm')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                       <Badge variant="outline" className="px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{shift.role}</Badge>
+                       <Badge variant="outline" className="px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{shift.assignments.find(a => a.guardId === currentGuard.id)?.rolePerformed || shift.role}</Badge>
                        <Button variant="ghost" size="icon" className="text-slate-300 hover:text-primary"><ArrowRight className="h-5 w-5" /></Button>
                     </div>
                  </div>

@@ -176,6 +176,28 @@ export const useJsonStore = () => {
     };
   };
 
+  /**
+   * Generates a unique, system-generated Shift Code in the format SH-YYYY-NNNNNN.
+   * Guarantees uniqueness against existing stored shifts.
+   */
+  const generateShiftCode = (existingShifts: Shift[]): string => {
+    const year = new Date().getFullYear();
+    const prefix = `SH-${year}-`;
+    
+    // Find numeric suffixes for current year
+    const nums = existingShifts
+      .filter(s => s.code && s.code.startsWith(prefix))
+      .map(s => {
+        const parts = s.code.split('-');
+        return parts.length === 3 ? parseInt(parts[2]) : 0;
+      })
+      .filter(n => !isNaN(n));
+      
+    const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+    const nextNum = maxNum + 1;
+    return `${prefix}${nextNum.toString().padStart(6, '0')}`;
+  };
+
   return {
     getCurrentUser,
     getCurrentSessionId,
@@ -236,7 +258,25 @@ export const useJsonStore = () => {
     getGuards: () => getProtectedData<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards, 'guard'),
     getSites: () => getProtectedData<Site[]>(STORAGE_KEYS.SITES, initialSites, 'site'),
     getClients: () => getProtectedData<Client[]>(STORAGE_KEYS.CLIENTS, initialClients, 'client'),
-    getShifts: () => getProtectedData<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts, 'shift'),
+    getShifts: () => {
+      const user = getCurrentUser();
+      if (!user) return [];
+      const rawData = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      
+      // MIGRATION: Ensure all shifts have name and code for consistency
+      const validatedData = rawData.map(s => {
+        if (!s.code || !s.name) {
+          return {
+            ...s,
+            code: s.code || `SH-${new Date(s.startTime).getFullYear()}-${s.id.slice(-6)}`,
+            name: s.name || s.role || 'Security Shift'
+          };
+        }
+        return s;
+      });
+
+      return AccessControlService.filterByScope(user, 'shift', validatedData);
+    },
     getIncidents: () => getProtectedData<Incident[]>(STORAGE_KEYS.INCIDENTS, initialIncidents, 'incident'),
     getAudits: () => getProtectedData<AuditRecord[]>(STORAGE_KEYS.AUDITS, [], 'audit'),
     getSessions: () => getStored<UserSession[]>(STORAGE_KEYS.SESSIONS, []),
@@ -281,9 +321,12 @@ export const useJsonStore = () => {
 
     addShift: (s: Shift) => {
       if (!assertWrite('schedule', 'shift')) return [];
-      const updated = [{ ...s, version: 1 }, ...getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts)];
+      const allShifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const code = generateShiftCode(allShifts);
+      const newShift = { ...s, code, version: 1 };
+      const updated = [newShift, ...allShifts];
       setStored(STORAGE_KEYS.SHIFTS, updated);
-      logAudit({ action: 'SHIFT_CREATED', entityType: 'shift', entityId: s.id, description: `Shift requirement created for ${s.siteName}.`, newValues: s });
+      logAudit({ action: 'SHIFT_CREATED', entityType: 'shift', entityId: newShift.id, description: `Shift [${code}] ${newShift.name} created for ${newShift.siteName}.`, newValues: newShift });
       return updated;
     },
 
@@ -305,9 +348,16 @@ export const useJsonStore = () => {
         throw new Error('STALE_VERSION');
       }
 
-      const updated = all.map(o => o.id === s.id ? { ...s, version: (s.version || 0) + 1 } : o);
+      // Preserve Shift Code (Immutable)
+      const updatedShift = { 
+        ...s, 
+        code: existing?.code || s.code,
+        version: (s.version || 0) + 1 
+      };
+      
+      const updated = all.map(o => o.id === s.id ? updatedShift : o);
       setStored(STORAGE_KEYS.SHIFTS, updated);
-      logAudit({ action: 'SHIFT_UPDATED', entityType: 'shift', entityId: s.id, description: `Shift at ${s.siteName} updated.`, newValues: s });
+      logAudit({ action: 'SHIFT_UPDATED', entityType: 'shift', entityId: s.id, description: `Shift [${updatedShift.code}] updated.`, newValues: updatedShift });
       return updated;
     },
 
@@ -332,7 +382,7 @@ export const useJsonStore = () => {
         action: 'SHIFT_PUBLISHED', 
         entityType: 'shift', 
         entityId: shiftId, 
-        description: `Shift at ${shift.siteName} published and is now operational.`,
+        description: `Shift [${shift.code}] at ${shift.siteName} published and is now operational.`,
         newValues: updatedShift 
       });
 
@@ -389,7 +439,7 @@ export const useJsonStore = () => {
         action: 'CLAIM_REQUESTED', 
         entityType: 'shift_assignment', 
         entityId: newAssignment.id, 
-        description: `Officer ${guard.name} requested to claim ${role} position at ${shift.siteName}`,
+        description: `Officer ${guard.name} requested to claim ${role} position for Shift ${shift.code}`,
         newValues: newAssignment
       });
 
@@ -435,7 +485,7 @@ export const useJsonStore = () => {
         action: 'CLAIM_APPROVED', 
         entityType: 'shift_assignment', 
         entityId: assignmentId, 
-        description: `Dispatcher approved ${assignment.guardName} for ${assignment.rolePerformed} at ${shift.siteName}` 
+        description: `Dispatcher approved ${assignment.guardName} for ${assignment.rolePerformed} on Shift ${shift.code}` 
       });
 
       return finalShifts;
@@ -463,7 +513,7 @@ export const useJsonStore = () => {
         action: 'CLAIM_REJECTED', 
         entityType: 'shift_assignment', 
         entityId: assignmentId, 
-        description: `Claim for ${shift.siteName} rejected. Reason: ${reason || 'N/A'}` 
+        description: `Claim for Shift ${shift.code} rejected. Reason: ${reason || 'N/A'}` 
       });
 
       return finalShifts;
@@ -494,7 +544,7 @@ export const useJsonStore = () => {
         action: 'CLAIM_WITHDRAWN', 
         entityType: 'shift_assignment', 
         entityId: assignmentId, 
-        description: `Guard withdrew claim for ${shift.siteName}` 
+        description: `Guard withdrew claim for Shift ${shift.code}` 
       });
 
       return finalShifts;
@@ -517,7 +567,7 @@ export const useJsonStore = () => {
         action: 'GUARD_ASSIGNED', 
         entityType: 'shift_assignment', 
         entityId: assignment.id, 
-        description: `Assigned ${assignment.guardName} to ${shift.siteName} as ${assignment.rolePerformed}`,
+        description: `Assigned ${assignment.guardName} to Shift ${shift.code} as ${assignment.rolePerformed}`,
         newValues: assignment
       });
 
@@ -555,7 +605,7 @@ export const useJsonStore = () => {
         action: 'SHIFT_GUARD_SWAPPED', 
         entityType: 'shift_assignment', 
         entityId: assignmentId, 
-        description: `Swapped ${oldGuardName} with ${newGuard.name} as ${assignment.rolePerformed}`,
+        description: `Swapped ${oldGuardName} with ${newGuard.name} on Shift ${shift.code}`,
         metadata: { previous: oldGuardName, replacement: newGuard.name, role: assignment.rolePerformed }
       });
 
@@ -583,7 +633,7 @@ export const useJsonStore = () => {
         action: 'GUARD_REMOVED', 
         entityType: 'shift_assignment', 
         entityId: assignmentId, 
-        description: `Removed ${assignment?.guardName} from ${shift.siteName}` 
+        description: `Removed ${assignment?.guardName} from Shift ${shift.code}` 
       });
 
       return finalShifts;
