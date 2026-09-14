@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -428,7 +427,7 @@ export default function ShiftsManagement() {
             <div className="space-y-2">
               <label className="text-sm font-bold">Target Site</label>
               <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select site..." /></SelectTrigger>
                 <SelectContent>
                   {sites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
