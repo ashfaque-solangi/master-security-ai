@@ -19,7 +19,8 @@ import {
   Building2,
   Send,
   Timer,
-  Hash
+  Hash,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Card,
@@ -269,9 +270,21 @@ export default function SchedulingPage() {
                 <div className="flex-1 p-3 space-y-4">
                   {dayShifts.map(shift => {
                     const required = shift.requirements.reduce((a, b) => a + b.count, 0);
-                    const assignedCount = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status)).length;
+                    const activeAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
+                    const assignedCount = activeAssignments.length;
                     const pendingCount = shift.assignments.filter(a => a.status === 'Pending').length;
+                    
                     const isUnderstaffed = assignedCount < required;
+                    const isOverstaffed = assignedCount > required;
+                    const isPerfectlyStaffed = assignedCount === required;
+
+                    // Group level conflict check
+                    const conflicts = activeAssignments.map(asg => {
+                      const guard = guards.find(g => g.id === asg.guardId);
+                      if (!guard) return null;
+                      const validation = validateGuardAssignment(guard, shift, shifts, leaveRecords, asg.rolePerformed);
+                      return !validation.isValid ? { guard, validation } : null;
+                    }).filter(c => c !== null);
                     
                     return (
                       <Card 
@@ -281,28 +294,77 @@ export default function SchedulingPage() {
                         onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} 
                         className={`p-4 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-xl relative overflow-hidden group/shift transition-all hover:-translate-y-1 ${shift.status === 'Draft' ? 'opacity-60 bg-slate-50 border-dashed border' : 'bg-white'}`}
                       >
-                        <div className={`absolute left-0 top-0 w-1 h-full ${shift.status === 'Draft' ? 'bg-slate-300' : isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
+                        <div className={`absolute left-0 top-0 w-1 h-full ${
+                          shift.status === 'Draft' ? 'bg-slate-300' : 
+                          isUnderstaffed ? 'bg-red-500' : 
+                          isOverstaffed ? 'bg-amber-500' : 
+                          'bg-primary'
+                        }`} />
+                        
                         <div className="flex justify-between items-start mb-2">
                            <span className="text-[7px] font-black text-slate-400 uppercase font-mono">{shift.code}</span>
-                           <Badge variant="outline" className={`text-[7px] font-black px-1.5 h-4 border-none ${isUnderstaffed ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                             {assignedCount}/{required} POSTS
-                           </Badge>
+                           <div className="flex items-center gap-1.5">
+                              {conflicts.length > 0 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center text-red-500">
+                                      <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="p-3 bg-red-900 text-white rounded-xl border-none shadow-2xl">
+                                    <div className="space-y-2">
+                                      <p className="text-[10px] font-black uppercase tracking-widest border-b border-white/20 pb-1">Scheduling Conflicts</p>
+                                      {conflicts.map((c, i) => (
+                                        <div key={i} className="space-y-0.5">
+                                          <p className="text-[9px] font-black italic uppercase">{c?.guard.name}</p>
+                                          <p className="text-[8px] font-bold text-red-200">• {c?.validation.message}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              <Badge variant="outline" className={`text-[7px] font-black px-1.5 h-4 border-none shadow-sm ${
+                                isUnderstaffed ? 'bg-red-50 text-red-600' : 
+                                isOverstaffed ? 'bg-amber-50 text-amber-600' : 
+                                'bg-green-50 text-green-600'
+                              }`}>
+                                {assignedCount}/{required} POSTS
+                              </Badge>
+                           </div>
                         </div>
+
                         <div className="mb-3">
                           <p className="text-[10px] font-black uppercase truncate text-slate-800 italic leading-none">{shift.name}</p>
                           <p className="text-[8px] font-bold text-primary uppercase truncate mt-1">{shift.siteName}</p>
                         </div>
+
                         <div className="space-y-1.5">
-                          {shift.assignments.filter(a => a.status === 'Assigned').slice(0, 3).map(asg => (
-                            <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 text-[8px] font-bold">
-                               <div className="h-3 w-3 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[6px]">
-                                 {asg.guardName.charAt(0)}
+                          {activeAssignments.slice(0, 3).map(asg => {
+                             const guard = guards.find(g => g.id === asg.guardId);
+                             const fatigue = guard ? getFatigueScore(guard) : 'LOW';
+                             return (
+                               <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 text-[8px] font-bold relative group/guard">
+                                  <div className={`h-3 w-3 rounded-full flex items-center justify-center text-[6px] text-white ${
+                                    fatigue === 'CRITICAL' ? 'bg-red-600' :
+                                    fatigue === 'HIGH' ? 'bg-amber-500' :
+                                    'bg-primary'
+                                  }`}>
+                                    {asg.guardName.charAt(0)}
+                                  </div>
+                                  <span className="truncate flex-1">{asg.guardName}</span>
                                </div>
-                               <span className="truncate flex-1">{asg.guardName}</span>
+                             );
+                          })}
+                          
+                          {assignedCount > 3 && (
+                            <div className="text-center">
+                               <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest">+ {assignedCount - 3} More Assigned</p>
                             </div>
-                          ))}
+                          )}
+
                           {pendingCount > 0 && (
-                            <div className="flex items-center gap-1 text-[7px] text-amber-600 font-black uppercase mt-1">
+                            <div className="flex items-center gap-1 text-[7px] text-amber-600 font-black uppercase mt-1 justify-center bg-amber-50 rounded-md py-0.5">
                                <Timer className="w-2.5 h-2.5" /> {pendingCount} PENDING BID{pendingCount > 1 ? 'S' : ''}
                             </div>
                           )}
@@ -388,10 +450,12 @@ export default function SchedulingPage() {
                   <div className="space-y-3">
                     {selectedShift && getPositionSlots(selectedShift).map((slot, idx) => {
                       let validationResult = { isValid: true, message: '' };
+                      let fatigue = 'LOW';
                       if (slot.assignment) {
                         const guard = guards.find(g => g.id === slot.assignment!.guardId);
                         if (guard) {
                           validationResult = validateGuardAssignment(guard, selectedShift, shifts, leaveRecords, slot.assignment.rolePerformed);
+                          fatigue = getFatigueScore(guard);
                         }
                       }
                       return (
@@ -405,7 +469,19 @@ export default function SchedulingPage() {
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="text-sm font-black text-slate-800 uppercase italic">{slot.assignment.guardName}</p>
-                                    {!validationResult.isValid && <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse" />}
+                                    {!validationResult.isValid && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="bg-red-600 text-white border-none font-bold text-[10px]">
+                                          {validationResult.message}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {fatigue !== 'LOW' && (
+                                      <Badge className={fatigue === 'CRITICAL' ? 'bg-red-500' : 'bg-amber-500'}>FATIGUE: {fatigue}</Badge>
+                                    )}
                                   </div>
                                   <p className="text-[9px] font-bold text-primary uppercase tracking-widest mt-0.5">{slot.role.replace(/_/g, ' ')}</p>
                                 </div>
