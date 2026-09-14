@@ -1,4 +1,5 @@
 
+'use client';
 /**
  * @fileOverview Centralized Access Control Service
  * Responsible for RBAC and Data Scope enforcement across the platform.
@@ -49,7 +50,7 @@ export class AccessControlService {
         // Clients only see their own organization data
         if (entityType === 'client') return record.id === user.clientId;
         if (entityType === 'site' || entityType === 'incident' || entityType === 'shift') {
-          return record.clientId === user.clientId || record.siteId?.startsWith(user.clientId);
+          return record.clientId === user.clientId || record.siteId === user.clientId;
         }
         return false;
 
@@ -78,6 +79,7 @@ export class AccessControlService {
    * Filters an array of records based on the user's authorized scope.
    */
   static filterByScope<T>(user: User, entityType: string, records: T[]): T[] {
+    if (!user) return [];
     if (user.role === 'SUPER_ADMIN') return records;
     return records.filter(record => this.canAccessRecord(user, entityType, record));
   }
@@ -86,6 +88,7 @@ export class AccessControlService {
    * Mutation guard. Throws or returns false if action not permitted on specific target.
    */
   static assertMutation(user: User, action: PermissionAction, entityType: string, targetRecord?: any): boolean {
+    if (!user) return false;
     if (!this.can(user, action)) return false;
     if (targetRecord && !this.canAccessRecord(user, entityType, targetRecord)) return false;
     return true;

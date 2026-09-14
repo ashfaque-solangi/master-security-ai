@@ -1,32 +1,27 @@
 
 import { User, UserRole, PermissionAction } from './types';
 
-export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit'];
+export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit', 'location'];
 
 /**
  * Mapping of Platform Roles to their allowed Permission Actions.
- * These are the base capabilities. User-level overrides can extend these.
  */
 export const rolePermissions: Record<UserRole, PermissionAction[]> = {
-  'SUPER_ADMIN': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit'],
-  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'audit'],
-  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'audit'],
-  'DISPATCHER': ['view', 'schedule'],
+  'SUPER_ADMIN': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit', 'location'],
+  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'audit', 'location'],
+  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'audit', 'location'],
+  'DISPATCHER': ['view', 'schedule', 'location'],
   'SCHEDULER': ['view', 'schedule'],
-  'SITE_MANAGER': ['view', 'manage'],
+  'SITE_MANAGER': ['view', 'manage', 'location'],
   'HR_MANAGER': ['view', 'hr'],
   'COMPLIANCE_MANAGER': ['view', 'hr'],
   'FINANCE_MANAGER': ['view', 'finance'],
   'GUARD': ['guard'],
-  'CLIENT_ADMIN': ['client', 'view'],
-  'CLIENT_VIEWER': ['view'],
+  'CLIENT_ADMIN': ['client', 'view', 'location'],
+  'CLIENT_VIEWER': ['view', 'location'],
   'SUBCONTRACTOR_ADMIN': ['view', 'manage']
 };
 
-/**
- * Navigation Permission Map.
- * Used by UI to hide/show sidebar items based on base access.
- */
 export const navItemPermissions: Record<string, PermissionAction> = {
   '/dashboard': 'view',
   '/guard-portal': 'guard',
@@ -52,6 +47,8 @@ export const navItemPermissions: Record<string, PermissionAction> = {
   '/settings': 'manage',
   '/security': 'audit',
   '/audit': 'audit',
+  '/users': 'manage',
+  '/roles': 'manage',
 };
 
 export function hasPermission(user: User, action: PermissionAction): boolean {

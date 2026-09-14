@@ -18,7 +18,7 @@ export type UserRole =
   | 'CLIENT_VIEWER'
   | 'SUBCONTRACTOR_ADMIN';
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit';
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit' | 'location';
 
 export type User = {
   id: string;
@@ -36,17 +36,40 @@ export type User = {
   extraPermissions?: PermissionAction[];
 };
 
-export type DocumentType = 'SOP' | 'Post Order' | 'Risk Assessment' | 'Contract' | 'Licence' | 'Certificate';
+export type DocumentType = 'SOP' | 'POST_ORDER' | 'RISK_ASSESSMENT' | 'CONTRACT' | 'LICENCE' | 'CERTIFICATE' | 'ID' | 'TRAINING';
 
 export type MockDocument = {
   id: string;
+  organizationId: string;
+  clientId?: string;
+  siteId?: string;
   name: string;
   type: DocumentType;
   version: string;
   uploadedBy: string;
   uploadedAt: string;
-  status: 'Current' | 'Archived';
+  status: 'Current' | 'Archived' | 'Draft';
+  expiryDate?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
   scope: 'Site' | 'Client' | 'Global';
+};
+
+export type Contract = {
+  id: string;
+  organizationId: string;
+  clientId: string;
+  siteId?: string;
+  contractNumber: string;
+  startDate: string;
+  endDate: string;
+  status: 'Active' | 'Expired' | 'Pending' | 'Draft' | 'Terminated';
+  billingRate: number;
+  guardRate: number;
+  requiredHours: number;
+  kpis: string[];
+  sla: string;
+  penalties: string;
 };
 
 export type Client = {
@@ -58,18 +81,7 @@ export type Client = {
   phone: string;
   status: 'Active' | 'Inactive';
   industry: string;
-  contracts?: Contract[];
-};
-
-export type Contract = {
-  id: string;
-  contractNumber: string;
-  startDate: string;
-  endDate: string;
-  status: 'Active' | 'Expired' | 'Pending';
-  billingRate: number;
-  guardRate: number;
-  kpis: string[];
+  accountOwner?: string;
 };
 
 export type Site = {
@@ -85,13 +97,16 @@ export type Site = {
   operatingHours: string;
   requiredGuardCount: number;
   requiredRoles: string[];
+  requiredSkills: string[];
+  requiredQualifications: string[];
   riskLevel: Severity;
   activeGuardsCount: number;
   openShifts: number;
   healthScore: number;
   revenuePerMonth: number;
   instructions?: string;
-  documents?: MockDocument[];
+  patrolFrequency?: string;
+  patrolType?: string;
 };
 
 export type Subcontractor = {
@@ -127,7 +142,48 @@ export type Guard = {
   isAvailable: boolean;
   preferredSites?: string[];
   unavailableDates?: string[];
-  recruitmentStage?: 'Shortlisted' | 'Interview' | 'Validation' | 'Contract' | 'Training' | 'Active';
+  recruitmentStage?: RecruitmentStage;
+};
+
+export type RecruitmentStage = 
+  | 'JOB_POSTED' | 'APPLICATION' | 'SHORTLISTED' | 'INTERVIEW' 
+  | 'DOCUMENT_COLLECTION' | 'VALIDATION' | 'VERIFICATION' 
+  | 'CONTRACT' | 'TRAINING' | 'ONBOARDING' | 'ACTIVE' | 'REJECTED';
+
+export type Applicant = {
+  id: string;
+  organizationId: string;
+  jobPostId: string;
+  name: string;
+  email: string;
+  phone: string;
+  currentStage: RecruitmentStage;
+  status: 'Pending' | 'Accepted' | 'Rejected';
+  appliedDate: string;
+  experience: string;
+  notes: string;
+};
+
+export type JobPost = {
+  id: string;
+  organizationId: string;
+  siteId: string;
+  title: string;
+  requiredRoles: string[];
+  count: number;
+  status: 'Open' | 'Closed';
+  closingDate: string;
+};
+
+export type Interview = {
+  id: string;
+  applicantId: string;
+  date: string;
+  interviewer: string;
+  type: 'Phone' | 'F2F' | 'Technical';
+  score: number;
+  result: 'Pass' | 'Fail' | 'Pending';
+  notes: string;
 };
 
 export type ShiftAssignment = {
@@ -175,6 +231,46 @@ export type Incident = {
   timestamp: string;
 };
 
+export type SOSAlert = {
+  id: string;
+  organizationId: string;
+  siteId: string;
+  siteName: string;
+  guardId: string;
+  guardName: string;
+  timestamp: string;
+  status: 'Active' | 'Resolved';
+  severity: 'Critical';
+};
+
+export type Alarm = {
+  id: string;
+  organizationId: string;
+  siteId: string;
+  siteName: string;
+  type: string;
+  severity: Severity;
+  timestamp: string;
+  status: 'Active' | 'Resolved';
+};
+
+export type Vehicle = {
+  id: string;
+  organizationId: string;
+  name: string;
+  status: 'Active' | 'Idle' | 'Maintenance';
+  siteId?: string;
+  lastUpdate: string;
+};
+
+export type Weather = {
+  temp: number;
+  condition: string;
+  wind: string;
+  visibility: string;
+  risk: 'Low' | 'Moderate' | 'High';
+};
+
 export type Visitor = {
   id: string;
   siteId: string;
@@ -194,16 +290,6 @@ export type Invoice = {
   amount: number;
   date: string;
   status: 'Paid' | 'Pending' | 'Overdue';
-};
-
-export type Applicant = {
-  id: string;
-  name: string;
-  role: string;
-  status: 'Applied' | 'Interview' | 'Background Check' | 'Hired' | 'Rejected';
-  appliedDate: string;
-  experience: string;
-  missingDocs: string[];
 };
 
 export type Patrol = {
@@ -235,6 +321,16 @@ export type FormDefinition = {
   status: 'Active' | 'Draft';
 };
 
+export type LeaveRecord = {
+  id: string;
+  guardId: string;
+  type: 'Sick' | 'Annual' | 'Compassionate';
+  startDate: string;
+  endDate: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  reason: string;
+};
+
 export type AuditAction = 
   | 'USER_CREATED' | 'USER_UPDATED' | 'USER_DELETED' | 'ROLE_ASSIGNED'
   | 'GUARD_CREATED' | 'GUARD_UPDATED' | 'GUARD_STATUS_CHANGED'
@@ -246,7 +342,9 @@ export type AuditAction =
   | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
   | 'ASSIGNMENT_REJECTED'
   | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED'
-  | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED';
+  | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED'
+  | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED'
+  | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'CONTRACT_UPDATED';
 
 export type AuditRecord = {
   id: string;
@@ -255,7 +353,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract';
   entityId: string;
   description: string;
   oldValues: any | null;
