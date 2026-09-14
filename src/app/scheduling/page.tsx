@@ -249,7 +249,7 @@ export default function SchedulingPage() {
         <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none">
           <DialogHeader className="p-8 pb-4 bg-slate-900 text-white relative">
             <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase">{selectedShift?.siteName || 'Deployment Detail'}</DialogTitle>
-            <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Operational view for deployment ID: {selectedShift?.id || '...'}</DialogDescription>
+            <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Operational view for deployment ID: {selectedShift?.id || 'ACTIVE_SHFT'}</DialogDescription>
             {selectedShift && (
               <div className="absolute top-8 right-8">
                 <Badge className="bg-primary text-white font-black">{selectedShift.priority} PRIORITY</Badge>
@@ -327,7 +327,7 @@ export default function SchedulingPage() {
             <DialogTitle className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" /> AI Candidate Pool
             </DialogTitle>
-            <DialogDescription className="text-xs font-bold text-slate-400 uppercase">Proposing qualified candidates for {targetRole || 'selected role'}</DialogDescription>
+            <DialogDescription className="text-xs font-bold text-slate-400 uppercase">Proposing qualified candidates for {targetRole || 'authorized roles'} based on compliance.</DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto bg-slate-50">
             {suggestions.map(({ guard, validation }) => (

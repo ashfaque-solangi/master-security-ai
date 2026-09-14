@@ -150,7 +150,7 @@ export default function WorkforcePage() {
         <div className="space-y-1">
           <h1 className="text-3xl font-black tracking-tight">Workforce Registry</h1>
           <p className="text-muted-foreground font-medium">
-            Manage deployments, track compliance, and audit field personnel.
+            Manage deployments, track compliance, and audit field personnel across authorized sites.
           </p>
         </div>
 
@@ -163,7 +163,7 @@ export default function WorkforcePage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Register New Officer</DialogTitle>
-              <DialogDescription>Create a new profile for a security guard including compliance status.</DialogDescription>
+              <DialogDescription>Create a new profile for a security guard including compliance and initial deployment status.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -289,7 +289,7 @@ export default function WorkforcePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Officer Profile</DialogTitle>
-            <DialogDescription>Modify status, availability, and contact details for this guard.</DialogDescription>
+            <DialogDescription>Modify status, availability, and contact details for this field guard record.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -324,7 +324,7 @@ export default function WorkforcePage() {
             <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
               <div className="space-y-0.5">
                 <label className="text-sm font-bold">Ready for Deployment</label>
-                <p className="text-xs text-muted-foreground">Officer availability toggle.</p>
+                <p className="text-xs text-muted-foreground">Officer availability toggle for the scheduling pool.</p>
               </div>
               <Switch checked={isAvailable} onCheckedChange={setIsAvailable} />
             </div>

@@ -165,7 +165,7 @@ export default function IncidentsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Report New Incident</DialogTitle>
-              <DialogDescription>Fill in the details from the field report.</DialogDescription>
+              <DialogDescription>Fill in the details from the field report for system processing.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -221,7 +221,7 @@ export default function IncidentsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Incident Report</DialogTitle>
-            <DialogDescription>Modify details for incident ID: {selectedIncident?.id || '...'}.</DialogDescription>
+            <DialogDescription>Modify details for incident ID: {selectedIncident?.id || 'ACTIVE_RECORD'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -298,7 +298,7 @@ export default function IncidentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Reports</CardTitle>
-          <CardDescription>A live list of all incidents managed in the system.</CardDescription>
+          <CardDescription>A live list of all incidents managed in the system across your organization.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

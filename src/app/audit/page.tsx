@@ -223,7 +223,7 @@ export default function AuditTrailPage() {
               AUDIT LOG DETAIL
             </DialogTitle>
             <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">
-              Record reference: {selectedAudit?.id || 'N/A'}
+              Record reference: {selectedAudit?.id || 'GLOBAL_LOG'}
             </DialogDescription>
           </DialogHeader>
 

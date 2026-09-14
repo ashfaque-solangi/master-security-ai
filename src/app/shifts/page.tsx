@@ -216,7 +216,7 @@ export default function ShiftsManagement() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>New Shift Requirement</DialogTitle>
-                <DialogDescription>Define a new operational shift for a site.</DialogDescription>
+                <DialogDescription>Define a new operational shift requirement for an authorized site location.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -422,7 +422,7 @@ export default function ShiftsManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Shift Details</DialogTitle>
-            <DialogDescription>Modify parameters for deployment ID: {selectedShift?.id || '...'}.</DialogDescription>
+            <DialogDescription>Modify parameters for deployment record ID: {selectedShift?.id || 'ACTIVE_SHFT'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
