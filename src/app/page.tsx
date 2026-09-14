@@ -1,9 +1,9 @@
-
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJsonStore } from '@/lib/store';
+import { Loader2 } from 'lucide-react';
 
 export default function RootPage() {
   const router = useRouter();
@@ -14,20 +14,16 @@ export default function RootPage() {
     if (!user) {
       router.push('/login');
     } else {
-      // Role-based redirection logic
-      if (user.role === 'Guard') {
-        router.push('/guard-portal');
-      } else if (user.role === 'Client Admin') {
-        router.push('/client-portal');
-      } else {
-        router.push('/dashboard');
-      }
+      router.push('/dashboard');
     }
   }, [router, store]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Authenticating Intelligence...</p>
+      </div>
     </div>
   );
 }

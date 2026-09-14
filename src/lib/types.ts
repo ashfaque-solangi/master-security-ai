@@ -1,4 +1,3 @@
-
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
 export type IncidentStatus = 'Open' | 'In Progress' | 'Resolved' | 'Archived';
 export type IncidentType = 'Intrusion' | 'Fire' | 'Vandalism' | 'Medical' | 'Maintenance' | 'Observation';
@@ -18,7 +17,7 @@ export type UserRole =
   | 'CLIENT_VIEWER'
   | 'SUBCONTRACTOR_ADMIN';
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit' | 'location';
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit' | 'location' | 'ai';
 
 export type User = {
   id: string;
@@ -35,6 +34,16 @@ export type User = {
   guardId?: string;
   extraPermissions?: PermissionAction[];
 };
+
+export interface DashboardDefinition {
+  id: string;
+  title: string;
+  description: string;
+  allowedRoles: UserRole[];
+  requiredPermissions?: PermissionAction[];
+  icon: any;
+  priority: number;
+}
 
 export type DocumentType = 'SOP' | 'POST_ORDER' | 'RISK_ASSESSMENT' | 'CONTRACT' | 'LICENCE' | 'CERTIFICATE' | 'ID' | 'TRAINING';
 
