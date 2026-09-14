@@ -5,15 +5,10 @@ import { usePathname } from 'next/navigation';
 import {
   Shield,
   LayoutDashboard,
-  Radio,
   Calendar,
   Clock3,
-  Map,
-  AlertTriangle,
+  MapPin,
   Users,
-  Briefcase,
-  Sparkles,
-  Star,
   Building,
   FileText,
   Truck,
@@ -22,18 +17,15 @@ import {
   Settings,
   Lock,
   History,
-  MessageSquare,
-  UserCheck,
-  User as UserIcon,
-  Users2,
+  Mail,
   ShieldCheck,
   ArrowRightLeft,
-  ClipboardList,
-  Mail,
-  Zap,
-  Building2,
+  Users2,
+  Map,
+  Activity,
   Layout,
-  User
+  User,
+  UserCheck
 } from 'lucide-react';
 import {
   Sidebar as ShadSidebar,
@@ -58,60 +50,57 @@ const navGroups = [
   {
     label: 'Main',
     items: [
-      { href: '/dashboard', label: 'Executive Insights', icon: LayoutDashboard },
-      { href: '/dashboard?id=command-centre', label: 'Live Command Centre', icon: Radio },
-      { href: '/guard-portal', label: 'My Workspace', icon: UserIcon },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      { href: '/scheduling', label: 'Shift Calendar', icon: Calendar },
-      { href: '/shifts', label: 'Shift Registry', icon: Clock3 },
-      { href: '/assignments', label: 'Workforce Assignments', icon: Users2 },
-      { href: '/deployments', label: 'Deployment Board', icon: ArrowRightLeft },
-      { href: '/patrols', label: 'Patrol Monitoring', icon: Map },
-      { href: '/incidents', label: 'Incident Logs', icon: AlertTriangle },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ],
   },
   {
     label: 'Workforce',
     items: [
-      { href: '/workforce', label: 'Officer Registry', icon: Users },
-      { href: '/recruitment', label: 'Recruitment Pipeline', icon: Briefcase },
-      { href: '/performance', label: 'Performance Analytics', icon: Star },
+      { href: '/workforce', label: 'Guards', icon: Users },
+      { href: '/users', label: 'Users', icon: User },
+      { href: '/security', label: 'Roles & Permissions', icon: Lock },
+    ],
+  },
+  {
+    label: 'Clients & Sites',
+    items: [
+      { href: '/clients', label: 'Clients', icon: Building },
+      { href: '/sites', label: 'Sites', icon: MapPin },
+      { href: '/contracts', label: 'Contracts & SOPs', icon: FileText },
+      { href: '/subcontractors', label: 'Subcontractors', icon: UserCheck },
+    ],
+  },
+  {
+    label: 'Scheduling',
+    items: [
+      { href: '/scheduling', label: 'Shift Calendar', icon: Calendar },
+      { href: '/shifts', label: 'Shifts', icon: Clock3 },
+    ],
+  },
+  {
+    label: 'Deployments',
+    items: [
+      { href: '/deployments', label: 'Deployments', icon: ArrowRightLeft },
+      { href: '/assignments', label: 'Workforce Assignments', icon: Users2 },
     ],
   },
   {
     label: 'Compliance',
     items: [
-      { href: '/compliance', label: 'Compliance Command', icon: ShieldCheck },
+      { href: '/compliance', label: 'Compliance Dashboard', icon: ShieldCheck },
     ],
   },
   {
-    label: 'Corporate',
+    label: 'Operations',
     items: [
-      { href: '/clients', label: 'Client Accounts', icon: Building },
-      { href: '/sites', label: 'Site Blueprint', icon: FileText },
-      { href: '/contracts', label: 'Contracts & SOPs', icon: ClipboardList },
-      { href: '/subcontractors', label: 'Partner Registry', icon: UserCheck },
-      { href: '/fleet', label: 'Fleet & Equipment', icon: Truck },
-      { href: '/forms', label: 'Reporting Templates', icon: Layout },
-    ],
-  },
-  {
-    label: 'Financials',
-    items: [
-      { href: '/payroll', label: 'Payroll & Compensation', icon: CreditCard },
-      { href: '/invoices', label: 'Invoicing & Billing', icon: Receipt },
+      { href: '/patrols', label: 'Patrol Monitoring', icon: Map },
+      { href: '/analytics', label: 'Live Operations', icon: Activity },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { href: '/users', label: 'Identity Hub', icon: Users },
       { href: '/audit', label: 'Operational Audit', icon: History },
-      { href: '/security', label: 'System Hardening', icon: Lock },
       { href: '/settings', label: 'Global Configuration', icon: Settings },
       { href: '/inbox', label: 'Unified Comms', icon: Mail },
     ],
