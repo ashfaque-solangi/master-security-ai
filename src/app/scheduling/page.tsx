@@ -24,7 +24,8 @@ import {
   Building2,
   Send,
   Timer,
-  Hash
+  Hash,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Card,
@@ -42,8 +43,14 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useJsonStore } from '@/lib/store';
-import { Shift, Guard, ShiftAssignment, AuditRecord, LeaveRecord, WorkforceRole } from '@/lib/types';
+import { Shift, Guard, ShiftAssignment, AuditRecord, LeaveRecord, WorkforceRole, Site } from '@/lib/types';
 import { 
   format, 
   startOfWeek, 
@@ -68,6 +75,7 @@ export default function SchedulingPage() {
   const { toast } = useToast();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [guards, setGuards] = useState<Guard[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -92,6 +100,7 @@ export default function SchedulingPage() {
   const refreshData = () => {
     setShifts(store.getShifts());
     setGuards(store.getGuards());
+    setSites(store.getSites());
     setLeaveRecords(store.getLeave());
   };
 
@@ -120,12 +129,14 @@ export default function SchedulingPage() {
         if (!['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(asg.status)) continue;
         const guard = guards.find(g => g.id === asg.guardId);
         if (guard) {
+          const site = sites.find(s => s.id === shift.siteId);
           const validation = validateGuardAssignment(
             guard, 
             proposedShift, 
             shifts, 
             leaveRecords,
-            asg.rolePerformed
+            asg.rolePerformed,
+            site
           );
           if (!validation.isValid) {
             toast({
@@ -167,9 +178,10 @@ export default function SchedulingPage() {
     setSelectedShift(shift);
     setTargetRole(role);
     
+    const site = sites.find(s => s.id === shift.siteId);
     const pool = guards.map(g => ({
       guard: g,
-      validation: validateGuardAssignment(g, shift, shifts, leaveRecords, role)
+      validation: validateGuardAssignment(g, shift, shifts, leaveRecords, role, site)
     })).sort((a, b) => (a.validation.isValid === b.validation.isValid ? 0 : a.validation.isValid ? -1 : 1));
 
     setSuggestions(pool);
@@ -204,9 +216,10 @@ export default function SchedulingPage() {
     setTargetAssignment(asg);
     setTargetRole(asg.rolePerformed);
     
+    const site = sites.find(s => s.id === shift.siteId);
     const pool = guards.map(g => ({
       guard: g,
-      validation: validateGuardAssignment(g, shift, shifts, leaveRecords, asg.rolePerformed)
+      validation: validateGuardAssignment(g, shift, shifts, leaveRecords, asg.rolePerformed, site)
     })).sort((a, b) => (a.validation.isValid === b.validation.isValid ? 0 : a.validation.isValid ? -1 : 1));
 
     setSuggestions(pool);
@@ -303,300 +316,391 @@ export default function SchedulingPage() {
     return slots;
   };
 
+  const getShiftHealth = (shift: Shift) => {
+    const operationalAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
+    const conflicts: { guardName: string, message: string }[] = [];
+    let maxFatigue: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+    const site = sites.find(s => s.id === shift.siteId);
+
+    operationalAssignments.forEach(asg => {
+      const guard = guards.find(g => g.id === asg.guardId);
+      if (guard) {
+        const validation = validateGuardAssignment(guard, shift, shifts, leaveRecords, asg.rolePerformed, site);
+        if (!validation.isValid) {
+          conflicts.push({ guardName: guard.name, message: validation.message });
+        }
+        const fatigue = getFatigueScore(guard);
+        const fatigueWeights = { 'LOW': 0, 'MEDIUM': 1, 'HIGH': 2, 'CRITICAL': 3 };
+        if (fatigueWeights[fatigue] > fatigueWeights[maxFatigue]) {
+          maxFatigue = fatigue;
+        }
+      }
+    });
+
+    return { conflicts, maxFatigue };
+  };
+
   return (
-    <div className="flex flex-col gap-8 pb-20">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-black tracking-tight text-slate-800 uppercase italic">Scheduling Command</h1>
-          <p className="text-muted-foreground font-medium flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-primary" /> Team-Based Position Hub
-          </p>
+    <TooltipProvider>
+      <div className="flex flex-col gap-8 pb-20">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black tracking-tight text-slate-800 uppercase italic">Scheduling Command</h1>
+            <p className="text-muted-foreground font-medium flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-primary" /> Team-Based Position Hub
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11" onClick={() => { setIsAutoFilling(true); setTimeout(() => { store.autoFillAllShifts(); refreshData(); setIsAutoFilling(false); }, 1000); }}>
+              {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              AI AUTO-OPTIMIZE
+            </Button>
+            <Button className="bg-primary text-white rounded-full px-6 shadow-lg h-11">
+              <Plus className="mr-2 h-4 w-4" /> Create Shift
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11" onClick={() => { setIsAutoFilling(true); setTimeout(() => { store.autoFillAllShifts(); refreshData(); setIsAutoFilling(false); }, 1000); }}>
-            {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            AI AUTO-OPTIMIZE
-          </Button>
-          <Button className="bg-primary text-white rounded-full px-6 shadow-lg h-11">
-            <Plus className="mr-2 h-4 w-4" /> Create Shift
-          </Button>
-        </div>
-      </div>
 
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className="rounded-xl"><ChevronLeft /></Button>
-          <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-800">
-            {format(daysToRender[0], 'MMMM yyyy')}
-          </h2>
-          <Button variant="ghost" size="icon" onClick={() => navigate('next')} className="rounded-xl"><ChevronRight /></Button>
+        <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className="rounded-xl"><ChevronLeft /></Button>
+            <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-800">
+              {format(daysToRender[0], 'MMMM yyyy')}
+            </h2>
+            <Button variant="ghost" size="icon" onClick={() => navigate('next')} className="rounded-xl"><ChevronRight /></Button>
+          </div>
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            {(['month', 'week', 'day'] as ViewMode[]).map(v => (
+              <Button key={v} variant={viewMode === v ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode(v)} className="rounded-lg px-6 font-bold uppercase text-[10px] tracking-widest h-8">
+                {v}
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-           {(['month', 'week', 'day'] as ViewMode[]).map(v => (
-             <Button key={v} variant={viewMode === v ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode(v)} className="rounded-lg px-6 font-bold uppercase text-[10px] tracking-widest h-8">
-               {v}
-             </Button>
-           ))}
-        </div>
-      </div>
 
-      {/* Calendar Grid */}
-      <div className={`grid gap-px bg-slate-200 border rounded-2xl overflow-hidden ${viewMode === 'week' ? 'grid-cols-7' : 'grid-cols-1'}`}>
-        {daysToRender.map((day, idx) => {
-          const dayShifts = shifts.filter(s => isSameDay(parseISO(s.startTime), day));
-          return (
-            <div 
-              key={idx} 
-              className="flex flex-col min-h-[300px] bg-white group/day"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => handleDrop(e, day)}
-            >
-              <div className="p-3 text-center border-b bg-slate-50/50">
-                <p className="text-[10px] font-black uppercase text-slate-400">{format(day, 'EEE')}</p>
-                <div className="text-sm font-black text-slate-800">{format(day, 'dd')}</div>
+        {/* Calendar Grid */}
+        <div className={`grid gap-px bg-slate-200 border rounded-2xl overflow-hidden ${viewMode === 'week' ? 'grid-cols-7' : 'grid-cols-1'}`}>
+          {daysToRender.map((day, idx) => {
+            const dayShifts = shifts.filter(s => isSameDay(parseISO(s.startTime), day));
+            return (
+              <div 
+                key={idx} 
+                className="flex flex-col min-h-[300px] bg-white group/day"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDrop(e, day)}
+              >
+                <div className="p-3 text-center border-b bg-slate-50/50">
+                  <p className="text-[10px] font-black uppercase text-slate-400">{format(day, 'EEE')}</p>
+                  <div className="text-sm font-black text-slate-800">{format(day, 'dd')}</div>
+                </div>
+
+                <div className="flex-1 p-2 space-y-3">
+                  {dayShifts.map(shift => {
+                    const required = shift.requirements.reduce((a, b) => a + b.count, 0);
+                    const operationalAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
+                    const pendingClaimsCount = shift.assignments.filter(a => a.status === 'Pending').length;
+                    const assigned = operationalAssignments.length;
+                    const isUnderstaffed = assigned < required;
+                    const isDraft = shift.status === 'Draft';
+                    const { conflicts, maxFatigue } = getShiftHealth(shift);
+
+                    return (
+                      <Card 
+                        key={shift.id} 
+                        draggable
+                        onDragStart={(e) => e.dataTransfer.setData('shiftId', shift.id)}
+                        onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} 
+                        className={`p-3 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-md relative overflow-hidden group/shift transition-opacity ${isDraft ? 'opacity-60 bg-slate-50 border-dashed border' : 'bg-white'}`}
+                      >
+                        <div className={`absolute left-0 top-0 w-1 h-full ${isDraft ? 'bg-slate-300' : isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="flex items-center gap-1">
+                            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{shift.code}</p>
+                            {conflicts.length > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-0.5 text-red-600 animate-pulse">
+                                    <ShieldAlert className="w-2.5 h-2.5" />
+                                    <span className="text-[7px] font-black">{conflicts.length}</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-slate-900 border-slate-800 text-white p-3 rounded-xl max-w-[200px]">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-red-400 mb-2">Scheduling Conflicts</p>
+                                  <div className="space-y-2">
+                                    {conflicts.map((c, i) => (
+                                      <div key={i}>
+                                        <p className="text-[10px] font-black italic">{c.guardName}</p>
+                                        <p className="text-[8px] text-slate-400 font-bold leading-tight">• {c.message}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                          <Badge variant="outline" className={`text-[7px] px-1.5 h-4 border-none font-bold uppercase ${isDraft ? 'bg-slate-200 text-slate-500' : 'bg-slate-50'}`}>
+                            {isDraft ? 'DRAFT' : `${assigned}/${required}`}
+                          </Badge>
+                        </div>
+                        <div className="mb-2">
+                          <p className="text-[9px] font-black uppercase truncate text-slate-800 italic">{shift.name}</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase truncate">{shift.siteName}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          {operationalAssignments.slice(0, 3).map(asg => (
+                            <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50/50 px-2 py-0.5 rounded border border-slate-100 text-[8px] font-bold">
+                               <Users className={`w-2.5 h-2.5 ${isDraft ? 'text-slate-400' : 'text-primary'}`} /> 
+                               <span className="truncate flex-1">{asg.guardName}</span>
+                               <span className="text-[6px] text-slate-400 uppercase">{asg.rolePerformed.replace(/_/g, ' ')}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between mt-1">
+                            <div className="flex items-center gap-1">
+                              {pendingClaimsCount > 0 && (
+                                <div className="flex items-center gap-1 text-[7px] text-amber-500 font-black uppercase bg-amber-50 rounded-full px-2 py-0.5 w-fit">
+                                  <Timer className="w-2.5 h-2.5" /> {pendingClaimsCount} BID{pendingClaimsCount > 1 ? 'S' : ''}
+                                </div>
+                              )}
+                              {!isDraft && isUnderstaffed && (
+                                <div className="flex items-center gap-1 text-[7px] text-red-500 font-black uppercase">
+                                  <XCircle className="w-2.5 h-2.5" /> MISSING
+                                </div>
+                              )}
+                            </div>
+                            {maxFatigue !== 'LOW' && (
+                              <span className={`text-[7px] font-black uppercase italic ${maxFatigue === 'CRITICAL' ? 'text-red-600' : 'text-amber-600'}`}>
+                                Fatigue: {maxFatigue}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
               </div>
+            );
+          })}
+        </div>
 
-              <div className="flex-1 p-2 space-y-3">
-                {dayShifts.map(shift => {
-                  const required = shift.requirements.reduce((a, b) => a + b.count, 0);
-                  const operationalAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
-                  const pendingClaimsCount = shift.assignments.filter(a => a.status === 'Pending').length;
-                  const assigned = operationalAssignments.length;
-                  const isUnderstaffed = assigned < required;
-                  const isDraft = shift.status === 'Draft';
+        {/* Shift Detail / Assignment Management */}
+        <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+          <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+            <DialogHeader className="p-10 bg-slate-900 text-white relative">
+               <div className="absolute top-10 right-10 flex gap-4">
+                  <div className="text-right">
+                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Site Health</p>
+                     <p className="text-xl font-black italic text-green-500">92%</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                     <Building2 className="text-primary w-6 h-6" />
+                  </div>
+               </div>
+               <div className="space-y-1">
+                 <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-widest">
+                    <Hash className="w-3 h-3" /> {selectedShift?.code}
+                 </div>
+                 <DialogTitle className="text-3xl font-black italic tracking-tighter uppercase">{selectedShift?.name}</DialogTitle>
+                 <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">{selectedShift?.siteName}</p>
+               </div>
+            </DialogHeader>
+            
+            <div className="p-10 space-y-10 bg-white max-h-[70vh] overflow-y-auto">
+              <div className="grid md:grid-cols-3 gap-8">
+                <div className="md:col-span-1 space-y-8">
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3 h-3 text-primary" /> Shift Parameters</h3>
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-dashed space-y-4">
+                      <div className="space-y-1">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</p>
+                        <p className="text-sm font-black text-slate-800 italic uppercase">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Time Window</p>
+                        <p className="text-xl font-black text-primary italic">
+                          {selectedShift && `${format(parseISO(selectedShift.startTime), 'HH:mm')} - ${format(parseISO(selectedShift.endTime), 'HH:mm')}`}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+                        <div className="flex items-center justify-between">
+                           <p className={`text-[10px] font-black uppercase italic ${selectedShift?.status === 'Draft' ? 'text-slate-400' : 'text-primary'}`}>{selectedShift?.status}</p>
+                           <Badge variant="outline" className="bg-white text-[8px] uppercase">{selectedShift?.priority}</Badge>
+                        </div>
+                      </div>
+                      {selectedShift?.status === 'Draft' && (
+                        <Button onClick={handlePublish} className="w-full bg-primary text-white h-10 rounded-xl text-[10px] font-black uppercase italic tracking-tighter shadow-lg shadow-primary/20">
+                          <Send className="w-3.5 h-3.5 mr-1.5" /> PUBLISH ROSTER
+                        </Button>
+                      )}
+                    </div>
+                  </div>
 
-                  return (
-                    <Card 
-                      key={shift.id} 
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData('shiftId', shift.id)}
-                      onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} 
-                      className={`p-3 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-md relative overflow-hidden group/shift transition-opacity ${isDraft ? 'opacity-60 bg-slate-50 border-dashed border' : 'bg-white'}`}
-                    >
-                      <div className={`absolute left-0 top-0 w-1 h-full ${isDraft ? 'bg-slate-300' : isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
-                      <div className="flex justify-between items-start mb-1">
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{shift.code}</p>
-                        <Badge variant="outline" className={`text-[7px] px-1.5 h-4 border-none font-bold uppercase ${isDraft ? 'bg-slate-200 text-slate-500' : 'bg-slate-50'}`}>
-                          {isDraft ? 'DRAFT' : `${assigned}/${required}`}
-                        </Badge>
-                      </div>
-                      <div className="mb-2">
-                        <p className="text-[9px] font-black uppercase truncate text-slate-800 italic">{shift.name}</p>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase truncate">{shift.siteName}</p>
-                      </div>
-                      <div className="space-y-1.5">
-                        {operationalAssignments.slice(0, 3).map(asg => (
-                          <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50/50 px-2 py-0.5 rounded border border-slate-100 text-[8px] font-bold">
-                             <Users className={`w-2.5 h-2.5 ${isDraft ? 'text-slate-400' : 'text-primary'}`} /> 
-                             <span className="truncate flex-1">{asg.guardName}</span>
-                             <span className="text-[6px] text-slate-400 uppercase">{asg.rolePerformed.replace(/_/g, ' ')}</span>
+                  <div className="space-y-4">
+                     <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2 border-b pb-3 border-amber-100"><Timer className="w-3 h-3" /> Pending Bids</h3>
+                     <div className="space-y-3">
+                        {selectedShift?.assignments.filter(a => a.status === 'Pending').map(claim => (
+                          <div key={claim.id} className="p-4 border border-amber-100 bg-amber-50/50 rounded-2xl space-y-3">
+                             <div className="flex justify-between items-start">
+                                <div>
+                                   <p className="text-sm font-black text-slate-800 italic">{claim.guardName}</p>
+                                   <p className="text-[9px] font-bold text-amber-600 uppercase mt-0.5">{claim.rolePerformed.replace(/_/g, ' ')}</p>
+                                </div>
+                                <Timer className="h-3 w-3 text-amber-400" />
+                             </div>
+                             <div className="flex gap-2">
+                                <Button size="sm" className="flex-1 bg-green-600 text-white font-black text-[9px] h-8 rounded-lg" onClick={() => handleApproveClaim(claim)}>APPROVE</Button>
+                                <Button size="sm" variant="ghost" className="flex-1 text-red-600 font-black text-[9px] h-8 rounded-lg" onClick={() => handleRejectClaim(claim)}>REJECT</Button>
+                             </div>
                           </div>
                         ))}
-                        {pendingClaimsCount > 0 && (
-                          <div className="flex items-center gap-1 mt-1 text-[7px] text-amber-500 font-black uppercase bg-amber-50 rounded-full px-2 py-0.5 w-fit">
-                            <Timer className="w-2.5 h-2.5" /> {pendingClaimsCount} PENDING BID{pendingClaimsCount > 1 ? 'S' : ''}
-                          </div>
+                        {selectedShift?.assignments.filter(a => a.status === 'Pending').length === 0 && (
+                          <p className="text-center text-[9px] font-black uppercase text-slate-300 py-4 italic">No pending requests</p>
                         )}
-                        {!isDraft && isUnderstaffed && (
-                          <div className="mt-1 flex items-center gap-1 text-[7px] text-red-500 font-black uppercase">
-                            <XCircle className="w-2.5 h-2.5" /> MISSING POSITIONS
+                     </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 space-y-6">
+                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Users className="w-3 h-3 text-primary" /> Site Roster / Position Breakdown</h3>
+                  <div className="space-y-3">
+                    {selectedShift && getPositionSlots(selectedShift).map((slot, idx) => {
+                      let validationResult = { isValid: true, message: '' };
+                      let fatigue = 'LOW';
+                      if (slot.assignment) {
+                        const guard = guards.find(g => g.id === slot.assignment!.guardId);
+                        if (guard) {
+                          const site = sites.find(s => s.id === selectedShift.siteId);
+                          validationResult = validateGuardAssignment(guard, selectedShift, shifts, leaveRecords, slot.assignment.rolePerformed, site);
+                          fatigue = getFatigueScore(guard);
+                        }
+                      }
+
+                      return (
+                        <div key={idx} className={`flex items-center justify-between p-4 border rounded-2xl bg-white shadow-sm transition-all group ${slot.assignment ? 'hover:border-primary' : 'border-dashed border-red-200 bg-red-50/20'}`}>
+                          <div className="flex items-center gap-4">
+                            {slot.assignment ? (
+                              <>
+                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-[10px] border shadow-inner group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20 transition-colors">
+                                  {slot.assignment.guardName.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-black text-slate-800 uppercase italic">{slot.assignment.guardName}</p>
+                                    {!validationResult.isValid && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="bg-red-600 text-white border-none font-bold text-[10px] p-2 rounded-lg shadow-xl">
+                                          {validationResult.message}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <p className="text-[9px] font-bold text-primary uppercase tracking-widest">{slot.role.replace(/_/g, ' ')}</p>
+                                    {fatigue !== 'LOW' && (
+                                      <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none ${fatigue === 'CRITICAL' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
+                                        {fatigue} FATIGUE
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="h-10 w-10 rounded-2xl bg-white border border-dashed border-red-300 flex items-center justify-center">
+                                  <Plus className="w-4 h-4 text-red-300" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-black text-red-500 uppercase italic">OPEN POSITION</p>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">REQUIRED: {slot.role.replace(/_/g, ' ')}</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            {slot.assignment ? (
+                              <>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-primary rounded-xl" onClick={() => openSwap(selectedShift, slot.assignment!)}><RefreshCw className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-destructive rounded-xl" onClick={() => removeAssignment(slot.assignment!)}><Trash2 className="h-4 w-4" /></Button>
+                              </>
+                            ) : (
+                              <Button variant="outline" size="sm" className="h-9 px-4 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-black text-[9px] uppercase italic tracking-tighter" onClick={() => openAddGuard(selectedShift, slot.role)}>
+                                <UserPlus className="h-3 w-3 mr-2" /> Assign Personnel
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* SWAP / REPLACEMENT / ADD MODAL */}
+        <Dialog open={isSwapOpen || isAddGuardOpen} onOpenChange={(val) => { setIsSwapOpen(val); setIsAddGuardOpen(val); }}>
+          <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+            <DialogHeader className="p-8 bg-slate-900 text-white">
+              <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
+                {isSwapOpen ? <RefreshCw className="w-6 h-6 text-primary" /> : <UserPlus className="w-6 h-6 text-primary" />}
+                {isSwapOpen ? 'Swap Personnel' : 'Fill Position'}
+              </DialogTitle>
+              <DialogDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                Position: <span className="text-primary italic">{targetRole.replace(/_/g, ' ')}</span>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto bg-slate-50">
+              {suggestions.map(({ guard, validation }) => (
+                <div 
+                  key={guard.id} 
+                  onClick={() => validation.isValid && (isSwapOpen ? handleSwap(guard) : handleAddAssignment(guard))} 
+                  className={`flex items-center justify-between p-5 border rounded-[2rem] bg-white shadow-sm transition-all ${
+                    validation.isValid 
+                      ? 'hover:border-primary cursor-pointer group' 
+                      : 'opacity-50 grayscale cursor-not-allowed border-dashed'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-200 group-hover:bg-primary/10 group-hover:text-primary transition-colors">{guard.name.charAt(0)}</div>
+                    <div>
+                      <p className="text-sm font-black text-slate-800 uppercase italic">{guard.name}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        {validation.isValid ? (
+                          <>
+                            <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none rounded-full ${getFatigueScore(guard) === 'LOW' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                              {getFatigueScore(guard)} FATIGUE
+                            </Badge>
+                            <div className="flex items-center gap-1 text-[7px] text-slate-400 font-bold uppercase">
+                               <ShieldCheck className="w-2 h-2 text-green-500" /> Qualified
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-[8px] font-black text-red-500 uppercase leading-none">
+                            <XCircle className="w-2.5 h-2.5" /> {validation.code.replace(/_/g, ' ')}
                           </div>
                         )}
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
+                    </div>
+                  </div>
+                  {validation.isValid && (
+                    <Button size="icon" variant="ghost" className="rounded-full group-hover:bg-primary group-hover:text-white transition-all">
+                      <ChevronRight className="w-5 h-5" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {suggestions.length === 0 && (
+                <div className="p-12 text-center text-slate-400 italic font-black uppercase text-xs">No personnel matched search criteria</div>
+              )}
             </div>
-          );
-        })}
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* Shift Detail / Assignment Management */}
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
-          <DialogHeader className="p-10 bg-slate-900 text-white relative">
-             <div className="absolute top-10 right-10 flex gap-4">
-                <div className="text-right">
-                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Site Health</p>
-                   <p className="text-xl font-black italic text-green-500">92%</p>
-                </div>
-                <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                   <Building2 className="text-primary w-6 h-6" />
-                </div>
-             </div>
-             <div className="space-y-1">
-               <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-widest">
-                  <Hash className="w-3 h-3" /> {selectedShift?.code}
-               </div>
-               <DialogTitle className="text-3xl font-black italic tracking-tighter uppercase">{selectedShift?.name}</DialogTitle>
-               <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">{selectedShift?.siteName}</p>
-             </div>
-          </DialogHeader>
-          
-          <div className="p-10 space-y-10 bg-white max-h-[70vh] overflow-y-auto">
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="md:col-span-1 space-y-8">
-                <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3 h-3 text-primary" /> Shift Parameters</h3>
-                  <div className="p-6 bg-slate-50 rounded-3xl border border-dashed space-y-4">
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</p>
-                      <p className="text-sm font-black text-slate-800 italic uppercase">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMM dd')}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Time Window</p>
-                      <p className="text-xl font-black text-primary italic">
-                        {selectedShift && `${format(parseISO(selectedShift.startTime), 'HH:mm')} - ${format(parseISO(selectedShift.endTime), 'HH:mm')}`}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Status</p>
-                      <div className="flex items-center justify-between">
-                         <p className={`text-[10px] font-black uppercase italic ${selectedShift?.status === 'Draft' ? 'text-slate-400' : 'text-primary'}`}>{selectedShift?.status}</p>
-                         <Badge variant="outline" className="bg-white text-[8px] uppercase">{selectedShift?.priority}</Badge>
-                      </div>
-                    </div>
-                    {selectedShift?.status === 'Draft' && (
-                      <Button onClick={handlePublish} className="w-full bg-primary text-white h-10 rounded-xl text-[10px] font-black uppercase italic tracking-tighter shadow-lg shadow-primary/20">
-                        <Send className="w-3.5 h-3.5 mr-1.5" /> PUBLISH ROSTER
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                   <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2 border-b pb-3 border-amber-100"><Timer className="w-3 h-3" /> Pending Bids</h3>
-                   <div className="space-y-3">
-                      {selectedShift?.assignments.filter(a => a.status === 'Pending').map(claim => (
-                        <div key={claim.id} className="p-4 border border-amber-100 bg-amber-50/50 rounded-2xl space-y-3">
-                           <div className="flex justify-between items-start">
-                              <div>
-                                 <p className="text-sm font-black text-slate-800 italic">{claim.guardName}</p>
-                                 <p className="text-[9px] font-bold text-amber-600 uppercase mt-0.5">{claim.rolePerformed.replace(/_/g, ' ')}</p>
-                              </div>
-                              <Timer className="h-3 w-3 text-amber-400" />
-                           </div>
-                           <div className="flex gap-2">
-                              <Button size="sm" className="flex-1 bg-green-600 text-white font-black text-[9px] h-8 rounded-lg" onClick={() => handleApproveClaim(claim)}>APPROVE</Button>
-                              <Button size="sm" variant="ghost" className="flex-1 text-red-600 font-black text-[9px] h-8 rounded-lg" onClick={() => handleRejectClaim(claim)}>REJECT</Button>
-                           </div>
-                        </div>
-                      ))}
-                      {selectedShift?.assignments.filter(a => a.status === 'Pending').length === 0 && (
-                        <p className="text-center text-[9px] font-black uppercase text-slate-300 py-4 italic">No pending requests</p>
-                      )}
-                   </div>
-                </div>
-              </div>
-
-              <div className="md:col-span-2 space-y-6">
-                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Users className="w-3 h-3 text-primary" /> Site Roster / Position Breakdown</h3>
-                <div className="space-y-3">
-                  {selectedShift && getPositionSlots(selectedShift).map((slot, idx) => (
-                    <div key={idx} className={`flex items-center justify-between p-4 border rounded-2xl bg-white shadow-sm transition-all group ${slot.assignment ? 'hover:border-primary' : 'border-dashed border-red-200 bg-red-50/20'}`}>
-                      <div className="flex items-center gap-4">
-                         {slot.assignment ? (
-                           <>
-                             <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-[10px] border shadow-inner group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20 transition-colors">
-                               {slot.assignment.guardName.charAt(0)}
-                             </div>
-                             <div>
-                                <p className="text-sm font-black text-slate-800 uppercase italic">{slot.assignment.guardName}</p>
-                                <p className="text-[9px] font-bold text-primary uppercase tracking-widest">{slot.role.replace(/_/g, ' ')}</p>
-                             </div>
-                           </>
-                         ) : (
-                           <>
-                             <div className="h-10 w-10 rounded-2xl bg-white border border-dashed border-red-300 flex items-center justify-center">
-                                <Plus className="w-4 h-4 text-red-300" />
-                             </div>
-                             <div>
-                                <p className="text-sm font-black text-red-500 uppercase italic">OPEN POSITION</p>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">REQUIRED: {slot.role.replace(/_/g, ' ')}</p>
-                             </div>
-                           </>
-                         )}
-                      </div>
-                      <div className="flex gap-1">
-                         {slot.assignment ? (
-                           <>
-                             <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-primary rounded-xl" onClick={() => openSwap(selectedShift, slot.assignment!)}><RefreshCw className="h-4 w-4" /></Button>
-                             <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-destructive rounded-xl" onClick={() => removeAssignment(slot.assignment!)}><Trash2 className="h-4 w-4" /></Button>
-                           </>
-                         ) : (
-                           <Button variant="outline" size="sm" className="h-9 px-4 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-black text-[9px] uppercase italic tracking-tighter" onClick={() => openAddGuard(selectedShift, slot.role)}>
-                             <UserPlus className="h-3 w-3 mr-2" /> Assign Personnel
-                           </Button>
-                         )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* SWAP / REPLACEMENT / ADD MODAL */}
-      <Dialog open={isSwapOpen || isAddGuardOpen} onOpenChange={(val) => { setIsSwapOpen(val); setIsAddGuardOpen(val); }}>
-        <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="p-8 bg-slate-900 text-white">
-            <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
-              {isSwapOpen ? <RefreshCw className="w-6 h-6 text-primary" /> : <UserPlus className="w-6 h-6 text-primary" />}
-              {isSwapOpen ? 'Swap Personnel' : 'Fill Position'}
-            </DialogTitle>
-            <DialogDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-              Position: <span className="text-primary italic">{targetRole.replace(/_/g, ' ')}</span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto bg-slate-50">
-            {suggestions.map(({ guard, validation }) => (
-              <div 
-                key={guard.id} 
-                onClick={() => validation.isValid && (isSwapOpen ? handleSwap(guard) : handleAddAssignment(guard))} 
-                className={`flex items-center justify-between p-5 border rounded-[2rem] bg-white shadow-sm transition-all ${
-                  validation.isValid 
-                    ? 'hover:border-primary cursor-pointer group' 
-                    : 'opacity-50 grayscale cursor-not-allowed border-dashed'
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-200 group-hover:bg-primary/10 group-hover:text-primary transition-colors">{guard.name.charAt(0)}</div>
-                  <div>
-                    <p className="text-sm font-black text-slate-800 uppercase italic">{guard.name}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      {validation.isValid ? (
-                        <>
-                          <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none rounded-full ${getFatigueScore(guard) === 'LOW' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                            {getFatigueScore(guard)} FATIGUE
-                          </Badge>
-                          <div className="flex items-center gap-1 text-[7px] text-slate-400 font-bold uppercase">
-                             <ShieldCheck className="w-2 h-2 text-green-500" /> Qualified
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-[8px] font-black text-red-500 uppercase leading-none">
-                          <XCircle className="w-2.5 h-2.5" /> {validation.code.replace(/_/g, ' ')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {validation.isValid && (
-                  <Button size="icon" variant="ghost" className="rounded-full group-hover:bg-primary group-hover:text-white transition-all">
-                    <ChevronRight className="w-5 h-5" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            {suggestions.length === 0 && (
-              <div className="p-12 text-center text-slate-400 italic font-black uppercase text-xs">No personnel matched search criteria</div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </TooltipProvider>
   );
 }
