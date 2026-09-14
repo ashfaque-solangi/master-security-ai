@@ -28,7 +28,12 @@ import {
   Users2,
   ShieldCheck,
   ArrowRightLeft,
-  ClipboardList
+  ClipboardList,
+  Mail,
+  Zap,
+  Building2,
+  Layout,
+  User
 } from 'lucide-react';
 import {
   Sidebar as ShadSidebar,
@@ -46,25 +51,25 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useJsonStore } from '@/lib/store';
 import { AccessControlService } from '@/lib/access-control';
 import { navItemPermissions } from '@/lib/permissions';
-import { User } from '@/lib/types';
+import { User as UserType } from '@/lib/types';
 import { useEffect, useState } from 'react';
 
 const navGroups = [
   {
     label: 'Main',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/dashboard?id=command-centre', label: 'Command Centre', icon: Radio },
+      { href: '/dashboard', label: 'Executive Insights', icon: LayoutDashboard },
+      { href: '/dashboard?id=command-centre', label: 'Live Command Centre', icon: Radio },
       { href: '/guard-portal', label: 'My Workspace', icon: UserIcon },
     ],
   },
   {
     label: 'Operations',
     items: [
-      { href: '/scheduling', label: 'Scheduling', icon: Calendar },
+      { href: '/scheduling', label: 'Shift Calendar', icon: Calendar },
       { href: '/shifts', label: 'Shift Registry', icon: Clock3 },
-      { href: '/assignments', label: 'Guard Assignments', icon: Users2 },
-      { href: '/deployments', label: 'Deployments', icon: ArrowRightLeft },
+      { href: '/assignments', label: 'Workforce Assignments', icon: Users2 },
+      { href: '/deployments', label: 'Deployment Board', icon: ArrowRightLeft },
       { href: '/patrols', label: 'Patrol Monitoring', icon: Map },
       { href: '/incidents', label: 'Incident Logs', icon: AlertTriangle },
     ],
@@ -72,10 +77,15 @@ const navGroups = [
   {
     label: 'Workforce',
     items: [
-      { href: '/workforce', label: 'Officer List', icon: Users },
-      { href: '/recruitment', label: 'Recruitment Hub', icon: Briefcase },
-      { href: '/compliance', label: 'Compliance & SIA', icon: Sparkles },
-      { href: '/performance', label: 'Performance KPIs', icon: Star },
+      { href: '/workforce', label: 'Officer Registry', icon: Users },
+      { href: '/recruitment', label: 'Recruitment Pipeline', icon: Briefcase },
+      { href: '/performance', label: 'Performance Analytics', icon: Star },
+    ],
+  },
+  {
+    label: 'Compliance',
+    items: [
+      { href: '/compliance', label: 'Compliance Command', icon: ShieldCheck },
     ],
   },
   {
@@ -83,19 +93,27 @@ const navGroups = [
     items: [
       { href: '/clients', label: 'Client Accounts', icon: Building },
       { href: '/sites', label: 'Site Blueprint', icon: FileText },
-      { href: '/subcontractors', label: 'External Partners', icon: Users2 },
-      { href: '/fleet', label: 'Fleet & Assets', icon: Truck },
-      { href: '/payroll', label: 'Payroll & Costs', icon: CreditCard },
-      { href: '/invoices', label: 'Billing Engine', icon: Receipt },
+      { href: '/contracts', label: 'Contracts & SOPs', icon: ClipboardList },
+      { href: '/subcontractors', label: 'Partner Registry', icon: UserCheck },
+      { href: '/fleet', label: 'Fleet & Equipment', icon: Truck },
+      { href: '/forms', label: 'Reporting Templates', icon: Layout },
+    ],
+  },
+  {
+    label: 'Financials',
+    items: [
+      { href: '/payroll', label: 'Payroll & Compensation', icon: CreditCard },
+      { href: '/invoices', label: 'Invoicing & Billing', icon: Receipt },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { href: '/users', label: 'System Users', icon: Users },
-      { href: '/audit', label: 'Audit Logs', icon: History },
-      { href: '/security', label: 'Network Security', icon: Lock },
-      { href: '/settings', label: 'Global Settings', icon: Settings },
+      { href: '/users', label: 'Identity Hub', icon: Users },
+      { href: '/audit', label: 'Operational Audit', icon: History },
+      { href: '/security', label: 'System Hardening', icon: Lock },
+      { href: '/settings', label: 'Global Configuration', icon: Settings },
+      { href: '/inbox', label: 'Unified Comms', icon: Mail },
     ],
   },
 ];
@@ -103,7 +121,7 @@ const navGroups = [
 export function Sidebar() {
   const pathname = usePathname();
   const store = useJsonStore();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
 
   useEffect(() => {
     setCurrentUser(store.getCurrentUser());
