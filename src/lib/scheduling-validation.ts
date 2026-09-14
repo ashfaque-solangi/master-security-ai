@@ -3,7 +3,7 @@
  * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), Role Qualifications, and Compliance.
  */
 
-import { Shift, Guard, LeaveRecord } from './types';
+import { Shift, Guard, LeaveRecord, Site } from './types';
 import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast, format } from 'date-fns';
 
 export type ValidationResult = {
@@ -53,7 +53,8 @@ export function validateGuardAssignment(
   targetShift: Shift,
   allShifts: Shift[],
   leaveRecords: LeaveRecord[],
-  targetRole?: string
+  targetRole?: string,
+  site?: Site
 ): ValidationResult {
   
   // RULE 13: Compliance Blocker (Expired/Missing Licence)
@@ -81,6 +82,18 @@ export function validateGuardAssignment(
       code: 'ROLE_NOT_QUALIFIED',
       message: `Guard is not qualified for the role: ${targetRole}.`
     };
+  }
+
+  // WEB-04: Site-Specific Qualification Check
+  if (site && site.requiredQualifications && site.requiredQualifications.length > 0) {
+    const missingQuals = site.requiredQualifications.filter(q => !guard.qualifiedRoles.includes(q));
+    if (missingQuals.length > 0) {
+      return {
+        isValid: false,
+        code: 'CERTIFICATION_REQUIRED',
+        message: `Guard is missing site-specific qualifications: ${missingQuals.join(', ')}`
+      };
+    }
   }
 
   const shiftStart = parseISO(targetShift.startTime);

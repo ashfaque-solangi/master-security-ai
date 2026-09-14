@@ -95,6 +95,22 @@ export type MockDocument = {
   verifiedAt?: string;
   verifiedBy?: string;
   scope: 'Site' | 'Client' | 'Global';
+  content?: string;
+};
+
+export type RiskAssessmentHazard = {
+  id: string;
+  hazard: string;
+  riskLevel: Severity;
+  controls: string;
+};
+
+export type ContractRate = {
+  role: string;
+  weekdayRate: number;
+  weekendRate: number;
+  holidayRate: number;
+  overtimeRate: number;
 };
 
 export type Contract = {
@@ -103,27 +119,33 @@ export type Contract = {
   clientId: string;
   siteId?: string;
   contractNumber: string;
+  title: string;
   startDate: string;
   endDate: string;
   status: 'Active' | 'Expired' | 'Pending' | 'Draft' | 'Terminated';
-  billingRate: number;
-  guardRate: number;
+  billingRate: number; // Legacy simple rate
+  guardRate: number;   // Legacy simple rate
+  rates?: ContractRate[];
   requiredHours: number;
   kpis: string[];
   sla: string;
   penalties: string;
+  terms?: string;
 };
 
 export type Client = {
   id: string;
   organizationId: string;
   name: string;
+  clientCode?: string;
   contactPerson: string;
   email: string;
   phone: string;
-  status: 'Active' | 'Inactive';
+  status: 'Active' | 'Inactive' | 'Archived';
   industry: string;
   accountOwner?: string;
+  address: string;
+  notes?: string;
 };
 
 export type Site = {
@@ -352,8 +374,9 @@ export type LeaveRecord = {
 export type AuditAction = 
   | 'USER_CREATED' | 'USER_UPDATED' | 'USER_DELETED' | 'ROLE_ASSIGNED'
   | 'GUARD_CREATED' | 'GUARD_UPDATED' | 'GUARD_STATUS_CHANGED'
-  | 'CLIENT_CREATED' | 'CLIENT_UPDATED'
-  | 'SITE_CREATED' | 'SITE_UPDATED'
+  | 'CLIENT_CREATED' | 'CLIENT_UPDATED' | 'CLIENT_STATUS_CHANGED'
+  | 'SITE_CREATED' | 'SITE_UPDATED' | 'SITE_STATUS_CHANGED'
+  | 'CONTRACT_CREATED' | 'CONTRACT_UPDATED' | 'CONTRACT_STATUS_CHANGED'
   | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'SHIFT_PUBLISHED' | 'SHIFT_RESCHEDULED'
   | 'GUARD_ASSIGNED' | 'GUARD_REMOVED' | 'GUARD_REPLACED' | 'SHIFT_GUARD_SWAPPED'
   | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
@@ -362,7 +385,7 @@ export type AuditAction =
   | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED' | 'LOGIN_BLOCKED_DEVICE_LIMIT'
   | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED'
   | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED'
-  | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'CONTRACT_UPDATED'
+  | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'DOCUMENT_CREATED' | 'DOCUMENT_VERSION_CREATED' | 'CONTRACT_UPDATED'
   | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT'
   | 'SESSION_REVOKED'
   | 'CONCURRENT_UPDATE_REJECTED';

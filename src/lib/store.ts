@@ -231,7 +231,7 @@ export const useJsonStore = () => {
     getPatrols: () => getProtectedData<Patrol[]>(STORAGE_KEYS.PATROLS, initialPatrols, 'view'),
     getPayroll: () => getProtectedData<PayrollRecord[]>(STORAGE_KEYS.PAYROLL, initialPayroll, 'finance'),
     getVisitors: () => getProtectedData<Visitor[]>(STORAGE_KEYS.VISITORS, initialVisitors, 'view'),
-    getDocuments: () => getProtectedData<MockDocument[]>(STORAGE_KEYS.DOCUMENTS, initialDocs, 'hr'),
+    getDocuments: () => getProtectedData<MockDocument[]>(STORAGE_KEYS.DOCUMENTS, initialDocs, 'document'),
     getContracts: () => getProtectedData<Contract[]>(STORAGE_KEYS.CONTRACTS, initialContracts, 'contract'),
     getForms: () => getStored<FormDefinition[]>(STORAGE_KEYS.FORMS, initialForms),
     getApplicants: () => getProtectedData<Applicant[]>(STORAGE_KEYS.APPLICANTS, initialApplicants, 'hr'),
@@ -460,7 +460,7 @@ export const useJsonStore = () => {
           email: applicant.email,
           status: 'Active',
           complianceStatus: 'Compliant',
-          licenceExpiry: addDays(new Date(), 365).toISOString(),
+          licenceExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString(),
           docsMissing: 0,
           performanceScore: 100,
           weeklyHours: 0,
@@ -506,6 +506,7 @@ export const useJsonStore = () => {
       if (!assertWrite('manage', 'client')) return [];
       const updated = [c, ...getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients)];
       setStored(STORAGE_KEYS.CLIENTS, updated);
+      logAudit({ action: 'CLIENT_CREATED', entityType: 'client', entityId: c.id, description: `New client account ${c.name} registered.` });
       return updated;
     },
     updateClient: (c: Client) => {
@@ -513,6 +514,7 @@ export const useJsonStore = () => {
       const all = getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients);
       const updated = all.map(o => o.id === c.id ? c : o);
       setStored(STORAGE_KEYS.CLIENTS, updated);
+      logAudit({ action: 'CLIENT_UPDATED', entityType: 'client', entityId: c.id, description: `Client profile updated for ${c.name}.` });
       return updated;
     },
     deleteClient: (id: string) => {
@@ -520,6 +522,7 @@ export const useJsonStore = () => {
       const all = getStored<Client[]>(STORAGE_KEYS.CLIENTS, initialClients);
       const updated = all.filter(o => o.id !== id);
       setStored(STORAGE_KEYS.CLIENTS, updated);
+      logAudit({ action: 'CLIENT_STATUS_CHANGED', entityType: 'client', entityId: id, description: `Client account archived.` });
       return updated;
     },
 
@@ -527,6 +530,7 @@ export const useJsonStore = () => {
       if (!assertWrite('manage', 'site')) return [];
       const updated = [s, ...getStored<Site[]>(STORAGE_KEYS.SITES, initialSites)];
       setStored(STORAGE_KEYS.SITES, updated);
+      logAudit({ action: 'SITE_CREATED', entityType: 'site', entityId: s.id, description: `New operational site ${s.name} created.` });
       return updated;
     },
     updateSite: (s: Site) => {
@@ -534,6 +538,7 @@ export const useJsonStore = () => {
       const all = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
       const updated = all.map(o => o.id === s.id ? s : o);
       setStored(STORAGE_KEYS.SITES, updated);
+      logAudit({ action: 'SITE_UPDATED', entityType: 'site', entityId: s.id, description: `Site parameters updated for ${s.name}.` });
       return updated;
     },
     deleteSite: (id: string) => {
@@ -541,6 +546,7 @@ export const useJsonStore = () => {
       const all = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
       const updated = all.filter(o => o.id !== id);
       setStored(STORAGE_KEYS.SITES, updated);
+      logAudit({ action: 'SITE_STATUS_CHANGED', entityType: 'site', entityId: id, description: `Operational site archived.` });
       return updated;
     },
 
@@ -610,6 +616,43 @@ export const useJsonStore = () => {
       return updated;
     },
 
+    addContract: (c: Contract) => {
+      if (!assertWrite('finance', 'contract')) return [];
+      const updated = [c, ...getStored<Contract[]>(STORAGE_KEYS.CONTRACTS, initialContracts)];
+      setStored(STORAGE_KEYS.CONTRACTS, updated);
+      logAudit({ action: 'CONTRACT_CREATED', entityType: 'contract', entityId: c.id, description: `New service agreement ${c.contractNumber} registered.` });
+      return updated;
+    },
+    updateContract: (c: Contract) => {
+      if (!assertWrite('finance', 'contract', c)) return [];
+      const all = getStored<Contract[]>(STORAGE_KEYS.CONTRACTS, initialContracts);
+      const updated = all.map(o => o.id === c.id ? c : o);
+      setStored(STORAGE_KEYS.CONTRACTS, updated);
+      logAudit({ action: 'CONTRACT_UPDATED', entityType: 'contract', entityId: c.id, description: `Contract terms updated for ${c.contractNumber}.` });
+      return updated;
+    },
+
+    addDocument: (doc: MockDocument) => {
+      if (!assertWrite('manage', 'document')) return [];
+      const all = getStored<MockDocument[]>(STORAGE_KEYS.DOCUMENTS, initialDocs);
+      
+      // Automatic versioning: if document with same name/site exists, archive previous
+      const updated = [doc, ...all.map(d => 
+        (d.name === doc.name && d.siteId === doc.siteId && d.status === 'Current') 
+        ? { ...d, status: 'Archived' as const } 
+        : d
+      )];
+      
+      setStored(STORAGE_KEYS.DOCUMENTS, updated);
+      logAudit({ 
+        action: doc.version === '1.0' ? 'DOCUMENT_CREATED' : 'DOCUMENT_VERSION_CREATED', 
+        entityType: 'document', 
+        entityId: doc.id, 
+        description: `Version ${doc.version} of ${doc.name} uploaded.` 
+      });
+      return updated;
+    },
+
     logAudit,
     resetToDemo: () => {
       Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
@@ -631,7 +674,7 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.CONTRACTS, initialContracts);
       setStored(STORAGE_KEYS.DOCUMENTS, initialDocs);
       setStored(STORAGE_KEYS.LEAVE, initialLeave);
-      logAudit({ action: 'SYSTEM_UPDATED', entityType: 'system', entityId: 'DEMO', description: 'Seeded high-fidelity demo dataset.' });
+      logAudit({ action: 'SYSTEM_UPDATED', entityType: 'system', entityId: 'DEMO', description: 'Seeded high-fidelity deterministic records.' });
       window.location.reload();
     }
   };
