@@ -26,7 +26,9 @@ import {
   UserCheck,
   User as UserIcon,
   Users2,
-  ShieldCheck
+  ShieldCheck,
+  ArrowRightLeft,
+  ClipboardList
 } from 'lucide-react';
 import {
   Sidebar as ShadSidebar,
@@ -61,10 +63,10 @@ const navGroups = [
     items: [
       { href: '/scheduling', label: 'Scheduling', icon: Calendar },
       { href: '/shifts', label: 'Shift Registry', icon: Clock3 },
+      { href: '/assignments', label: 'Guard Assignments', icon: Users2 },
+      { href: '/deployments', label: 'Deployments', icon: ArrowRightLeft },
       { href: '/patrols', label: 'Patrol Monitoring', icon: Map },
       { href: '/incidents', label: 'Incident Logs', icon: AlertTriangle },
-      { href: '/visitors', label: 'Visitor Logs', icon: UserCheck },
-      { href: '/inbox', label: 'Unified Inbox', icon: MessageSquare },
     ],
   },
   {

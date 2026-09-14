@@ -2,10 +2,6 @@
 
 /**
  * @fileOverview SecureGuard Command Storage Service
- * PERSISTENCE ARCHITECTURE NOTE:
- * Scheduling and operational data currently persists locally via localStorage.
- * For shared backend persistence, the getStored and setStored methods below 
- * serve as the primary abstraction boundary for Firebase/Firestore integration.
  */
 
 import { 
@@ -34,36 +30,36 @@ import {
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
   AuditRecord, AuditAction, 
   SOSAlert, Alarm, Vehicle, Contract, 
-  RecruitmentStage, UserSession, MockDocument, LeaveRecord, ShiftAssignment,
+  UserSession, MockDocument, LeaveRecord, ShiftAssignment,
   PermissionAction
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
 
 const STORAGE_KEYS = {
-  GUARDS: 'sg_guards_p7_v1',
-  SITES: 'sg_sites_p7_v1',
-  USERS: 'sg_users_p7_v1',
-  CLIENTS: 'sg_clients_p7_v1',
-  SUBS: 'sg_subs_p7_v1',
-  SHIFTS: 'sg_shifts_p7_v1',
-  INCIDENTS: 'sg_incidents_p7_v1',
-  VISITORS: 'sg_visitors_p7_v1',
-  INVOICES: 'sg_invoices_p7_v1',
-  APPLICANTS: 'sg_applicants_p7_v1',
-  PATROLS: 'sg_patrols_p7_v1',
-  PAYROLL: 'sg_payroll_p7_v1',
-  FORMS: 'sg_forms_p7_v1',
-  AUDITS: 'sg_audits_p7_v1',
-  CURRENT_USER: 'sg_current_user_p7_v1',
-  CURRENT_SESSION_ID: 'sg_current_session_id_p7_v1',
-  SESSIONS: 'sg_sessions_p7_v1',
-  SOS: 'sg_sos_p7_v1',
-  ALARMS: 'sg_alarms_p7_v1',
-  VEHICLES: 'sg_vehicles_p7_v1',
-  CONTRACTS: 'sg_contracts_p7_v1',
-  DOCUMENTS: 'sg_docs_p7_v1',
-  LEAVE: 'sg_leave_p7_v1'
+  GUARDS: 'sg_guards_p10_v2',
+  SITES: 'sg_sites_p10_v2',
+  USERS: 'sg_users_p10_v2',
+  CLIENTS: 'sg_clients_p10_v2',
+  SUBS: 'sg_subs_p10_v2',
+  SHIFTS: 'sg_shifts_p10_v2',
+  INCIDENTS: 'sg_incidents_p10_v2',
+  VISITORS: 'sg_visitors_p10_v2',
+  INVOICES: 'sg_invoices_p10_v2',
+  APPLICANTS: 'sg_applicants_p10_v2',
+  PATROLS: 'sg_patrols_p10_v2',
+  PAYROLL: 'sg_payroll_p10_v2',
+  FORMS: 'sg_forms_p10_v2',
+  AUDITS: 'sg_audits_p10_v2',
+  CURRENT_USER: 'sg_current_user_p10_v2',
+  CURRENT_SESSION_ID: 'sg_current_session_id_p10_v2',
+  SESSIONS: 'sg_sessions_p10_v2',
+  SOS: 'sg_sos_p10_v2',
+  ALARMS: 'sg_alarms_p10_v2',
+  VEHICLES: 'sg_vehicles_p10_v2',
+  CONTRACTS: 'sg_contracts_p10_v2',
+  DOCUMENTS: 'sg_docs_p10_v2',
+  LEAVE: 'sg_leave_p10_v2'
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -348,6 +344,68 @@ export const useJsonStore = () => {
       return updated;
     },
 
+    deployShift: (shiftId: string, siteId: string) => {
+      const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const sites = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
+      const shift = shifts.find(s => s.id === shiftId);
+      const site = sites.find(s => s.id === siteId);
+      if (!shift || !site || !assertWrite('schedule', 'shift', shift)) return shifts;
+
+      // REVALIDATE ALL GUARDS AGAINST NEW SITE
+      const allShifts = shifts;
+      const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
+      for (const asg of shift.assignments) {
+        const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === asg.guardId);
+        if (guard) {
+          const v = validateGuardAssignment(guard, shift, allShifts, allLeave, asg.rolePerformed, site);
+          if (!v.isValid) throw new Error(`Guard ${guard.name} ineligible for site ${site.name}: ${v.message}`);
+        }
+      }
+
+      const updatedShift: Shift = { ...shift, siteId, siteName: site.name, version: (shift.version || 0) + 1 };
+      const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      logAudit({ action: 'SHIFT_DEPLOYED', entityType: 'shift', entityId: shiftId, description: `Shift [${shift.code}] deployed to ${site.name}`, newValues: { siteId, siteName: site.name } });
+      return updated;
+    },
+
+    moveShift: (shiftId: string, newSiteId: string) => {
+      const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const sites = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
+      const shift = shifts.find(s => s.id === shiftId);
+      const newSite = sites.find(s => s.id === newSiteId);
+      if (!shift || !newSite || !assertWrite('schedule', 'shift', shift)) return shifts;
+
+      const oldSiteName = shift.siteName;
+      // REVALIDATE ALL GUARDS
+      const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
+      for (const asg of shift.assignments) {
+        const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === asg.guardId);
+        if (guard) {
+          const v = validateGuardAssignment(guard, shift, shifts, allLeave, asg.rolePerformed, newSite);
+          if (!v.isValid) throw new Error(`Deployment Blocked: ${guard.name} is ineligible for ${newSite.name} (${v.message})`);
+        }
+      }
+
+      const updatedShift: Shift = { ...shift, siteId: newSiteId, siteName: newSite.name, version: (shift.version || 0) + 1 };
+      const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      logAudit({ action: 'SHIFT_DEPLOYMENT_CHANGED', entityType: 'shift', entityId: shiftId, description: `Shift [${shift.code}] moved from ${oldSiteName} to ${newSite.name}`, newValues: { from: oldSiteName, to: newSite.name } });
+      return updated;
+    },
+
+    undeployShift: (shiftId: string) => {
+      const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = shifts.find(s => s.id === shiftId);
+      if (!shift || !assertWrite('schedule', 'shift', shift)) return shifts;
+
+      const updatedShift: Shift = { ...shift, siteId: '', siteName: 'Not Deployed', version: (shift.version || 0) + 1 };
+      const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      logAudit({ action: 'SHIFT_UNDEPLOYED', entityType: 'shift', entityId: shiftId, description: `Shift [${shift.code}] undeployed.` });
+      return updated;
+    },
+
     submitClaim: (shiftId: string, guardId: string, role: string) => {
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = all.find(s => s.id === shiftId);
@@ -437,6 +495,47 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
       logAudit({ action: 'GUARD_REMOVED', entityType: 'shift_assignment', entityId: assignmentId, description: `Removed guard from ${shift.code}` });
       return finalShifts;
+    },
+
+    changeAssignmentRole: (shiftId: string, assignmentId: string, newRole: string) => {
+      const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = shifts.find(s => s.id === shiftId);
+      if (!shift || !assertWrite('schedule', 'shift', shift)) return shifts;
+
+      const assignment = shift.assignments.find(a => a.id === assignmentId);
+      if (!assignment) return shifts;
+
+      const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === assignment.guardId);
+      if (guard) {
+        const v = validateGuardAssignment(guard, shift, shifts, getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave), newRole);
+        if (!v.isValid) throw new Error(`Role Change Blocked: ${v.message}`);
+      }
+
+      const updatedAssignments = shift.assignments.map(a => a.id === assignmentId ? { ...a, rolePerformed: newRole } : a);
+      const updatedShift: Shift = { ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 };
+      const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      logAudit({ action: 'ROLE_CHANGED', entityType: 'shift_assignment', entityId: assignmentId, description: `Changed role for ${assignment.guardName} to ${newRole}` });
+      return updated;
+    },
+
+    replaceGuard: (shiftId: string, oldAssignmentId: string, newGuard: Guard) => {
+      const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = shifts.find(s => s.id === shiftId);
+      if (!shift || !assertWrite('schedule', 'shift', shift)) return shifts;
+
+      const oldAsg = shift.assignments.find(a => a.id === oldAssignmentId);
+      if (!oldAsg) return shifts;
+
+      const v = validateGuardAssignment(newGuard, shift, shifts, getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave), oldAsg.rolePerformed);
+      if (!v.isValid) throw new Error(`Replacement Blocked: ${v.message}`);
+
+      const updatedAssignments = shift.assignments.map(a => a.id === oldAssignmentId ? { ...a, guardId: newGuard.id, guardName: newGuard.name, assignedAt: new Date().toISOString(), status: 'Assigned' as const } : a);
+      const updatedShift: Shift = { ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 };
+      const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      logAudit({ action: 'GUARD_REPLACED', entityType: 'shift_assignment', entityId: oldAssignmentId, description: `Replaced personnel with ${newGuard.name} on ${shift.code}` });
+      return updated;
     },
 
     autoFillAllShifts: () => {

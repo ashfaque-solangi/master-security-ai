@@ -123,8 +123,8 @@ export type Contract = {
   startDate: string;
   endDate: string;
   status: 'Active' | 'Expired' | 'Pending' | 'Draft' | 'Terminated';
-  billingRate: number; // Legacy simple rate
-  guardRate: number;   // Legacy simple rate
+  billingRate: number;
+  guardRate: number;
   rates?: ContractRate[];
   requiredHours: number;
   kpis: string[];
@@ -387,7 +387,7 @@ export type AuditAction =
   | 'CLAIM_REQUESTED' | 'CLAIM_APPROVED' | 'CLAIM_REJECTED' | 'CLAIM_WITHDRAWN'
   | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
   | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
-  | 'ASSIGNMENT_REJECTED'
+  | 'ASSIGNMENT_REJECTED' | 'ROLE_CHANGED' | 'GUARD_REPLACED'
   | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED' | 'LOGIN_BLOCKED_DEVICE_LIMIT'
   | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED'
   | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED'
@@ -395,7 +395,8 @@ export type AuditAction =
   | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT'
   | 'SESSION_REVOKED'
   | 'CONCURRENT_UPDATE_REJECTED'
-  | 'SHIFT_PUBLISHED';
+  | 'SHIFT_PUBLISHED'
+  | 'SHIFT_DEPLOYED' | 'SHIFT_DEPLOYMENT_CHANGED' | 'SHIFT_UNDEPLOYED';
 
 export type AuditRecord = {
   id: string;

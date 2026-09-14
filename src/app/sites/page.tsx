@@ -20,7 +20,10 @@ import {
   ChevronRight,
   ShieldCheck,
   MoreVertical,
-  ClipboardList
+  ClipboardList,
+  Building,
+  Info,
+  Hash
 } from 'lucide-react';
 import {
   Card,
@@ -61,6 +64,7 @@ import { useJsonStore } from '@/lib/store';
 import { Site, Severity, Shift, Client, MockDocument } from '@/lib/types';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function SitesPage() {
   const store = useJsonStore();
@@ -68,9 +72,8 @@ export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [documents, setDocuments] = useState<MockDocument[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Selection
@@ -93,12 +96,11 @@ export default function SitesPage() {
     setSites(store.getSites());
     setShifts(store.getShifts());
     setClients(store.getClients());
-    setDocuments(store.getDocuments());
   };
 
   const handleAdd = () => {
     if (!name || !clientId || !code) {
-      toast({ title: 'Missing Info', description: 'Name, Client and Code are required.', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Name, Client and Site Code are mandatory.', variant: 'destructive' });
       return;
     }
     const client = clients.find(c => c.id === clientId);
@@ -128,7 +130,7 @@ export default function SitesPage() {
       refreshData();
       setIsCreateOpen(false);
       resetForm();
-      toast({ title: 'Site Created', description: `${name} has been operationalized.` });
+      toast({ title: 'Site Created', description: `${name} (${code}) has been operationalized.` });
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
@@ -160,11 +162,10 @@ export default function SitesPage() {
     s.clientName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getSiteStats = (siteId: string) => {
+  const getSiteOperationalData = (siteId: string) => {
     const siteShifts = shifts.filter(s => s.siteId === siteId);
-    const active = siteShifts.filter(s => s.status === 'In Progress').length;
-    const guards = siteShifts.flatMap(s => s.assignments?.filter(a => a.status === 'On Site').map(a => a.guardName) || []);
-    return { active, guards: Array.from(new Set(guards)) };
+    const assignedCount = siteShifts.reduce((acc, s) => acc + s.assignments.filter(a => a.status === 'Assigned').length, 0);
+    return { shifts: siteShifts, guardCount: assignedCount };
   };
 
   return (
@@ -177,20 +178,10 @@ export default function SitesPage() {
 
         <div className="flex items-center gap-3">
           <div className="flex bg-slate-100 p-1 rounded-2xl h-12 shadow-inner">
-            <Button 
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
-              size="sm" 
-              className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10"
-              onClick={() => setViewMode('grid')}
-            >
+            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10">
               <LayoutGrid className="w-4 h-4 mr-2" /> Grid
             </Button>
-            <Button 
-              variant={viewMode === 'table' ? 'secondary' : 'ghost'} 
-              size="sm" 
-              className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10"
-              onClick={() => setViewMode('table')}
-            >
+            <Button variant={viewMode === 'table' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('table')} className="rounded-xl px-6 font-black uppercase text-[10px] italic h-10">
               <List className="w-4 h-4 mr-2" /> Table
             </Button>
           </div>
@@ -204,13 +195,13 @@ export default function SitesPage() {
             <DialogContent className="rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
               <DialogHeader className="bg-slate-900 text-white p-8">
                 <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">Initialize Site</DialogTitle>
-                <DialogDescription className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mt-1">Register a new operational location in the platform.</DialogDescription>
+                <DialogDescription className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mt-1">Register a new physical location for security deployment.</DialogDescription>
               </DialogHeader>
               <div className="p-8 space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Site Title</label>
-                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Delta Warehouse" className="rounded-xl h-11" />
+                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Northgate Mall" className="rounded-xl h-11" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Parent Client</label>
@@ -224,7 +215,7 @@ export default function SitesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Site Code (Unique)</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Unique Site Code</label>
                     <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="SITE-LHR-001" className="rounded-xl h-11" />
                   </div>
                   <div className="space-y-2">
@@ -241,8 +232,8 @@ export default function SitesPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Physical Deployment Address</label>
-                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Command Way, HQ" className="rounded-xl h-11" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Deployment Address</label>
+                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Command Way, Lahore" className="rounded-xl h-11" />
                 </div>
               </div>
               <DialogFooter className="p-8 bg-slate-50">
@@ -257,7 +248,7 @@ export default function SitesPage() {
       <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 max-w-xl">
         <Search className="ml-3 h-5 w-5 text-slate-400" />
         <Input 
-          placeholder="Filter operational units by name, code or client..." 
+          placeholder="Search site identity, code or client..." 
           className="border-none shadow-none focus-visible:ring-0 text-xs font-bold"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -265,10 +256,65 @@ export default function SitesPage() {
         <Button variant="ghost" size="icon" className="text-slate-400 hover:text-primary"><Filter className="h-4 w-4" /></Button>
       </div>
 
-      {viewMode === 'grid' ? (
+      {viewMode === 'table' ? (
+        <Card className="border-none shadow-sm overflow-hidden rounded-[2rem] bg-white">
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Identity / Code</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest">Client Partner</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest">Active Shifts</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Status</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Guards</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest text-right px-8">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredSites.map(site => {
+                const { shifts: siteShifts, guardCount } = getSiteOperationalData(site.id);
+                return (
+                  <TableRow key={site.id} onClick={() => setSelectedSite(site)} className="hover:bg-slate-50/50 transition-colors cursor-pointer h-20">
+                    <TableCell className="px-8">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                          <Building2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800 italic uppercase tracking-tight">{site.name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold font-mono uppercase tracking-widest">{site.code}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-black text-slate-600 text-xs italic uppercase">{site.clientName}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {siteShifts.slice(0, 2).map(s => (
+                          <Badge key={s.id} variant="outline" className="bg-slate-50 border-none text-[8px] font-bold h-4">{s.name}</Badge>
+                        ))}
+                        {siteShifts.length > 2 && <Badge variant="outline" className="bg-slate-50 border-none text-[8px] font-bold h-4">+{siteShifts.length - 2} MORE</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className={`text-[8px] font-black uppercase rounded-full px-3 h-5 border-none shadow-sm ${
+                        site.status === 'Active' ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-500'
+                      }`}>
+                        {site.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center font-black text-slate-800 text-lg italic">{guardCount}</TableCell>
+                    <TableCell className="text-right px-8">
+                      <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-300 hover:text-primary rounded-xl"><ChevronRight className="h-5 w-5" /></Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
+      ) : (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {filteredSites.map((site) => {
-            const stats = getSiteStats(site.id);
+            const { shifts: siteShifts, guardCount } = getSiteOperationalData(site.id);
             return (
               <Card key={site.id} onClick={() => setSelectedSite(site)} className="group border-none shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden bg-white rounded-[2rem]">
                 <div className={`absolute top-0 left-0 w-full h-1.5 ${
@@ -302,19 +348,14 @@ export default function SitesPage() {
                       <p className="text-xs font-black text-slate-700 truncate italic uppercase">{site.clientName}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">Operational Health</p>
-                      <div className="flex items-center gap-1.5">
-                        <Activity className={`h-3 w-3 ${site.healthScore > 90 ? 'text-green-500' : 'text-amber-500'}`} />
-                        <p className={`text-xs font-black italic ${site.healthScore > 90 ? 'text-green-600' : 'text-amber-600'}`}>
-                          {site.healthScore}%
-                        </p>
-                      </div>
+                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">Deployments</p>
+                      <p className="text-xs font-black text-slate-700 truncate italic uppercase">{siteShifts.length} SHIFTS</p>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Live Posting</span>
-                      <span className="text-sm font-black text-slate-800 italic">{stats.active} ACTIVE</span>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Personnel</span>
+                      <span className="text-sm font-black text-slate-800 italic">{guardCount} GUARDS</span>
                     </div>
                     <Button variant="ghost" size="icon" className="text-slate-300 group-hover:text-primary"><ChevronRight className="h-5 w-5" /></Button>
                   </div>
@@ -323,66 +364,9 @@ export default function SitesPage() {
             );
           })}
         </div>
-      ) : (
-        <Card className="border-none shadow-sm overflow-hidden rounded-[2rem] bg-white">
-          <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Operational Unit</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest">Client Partner</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest">Risk Level</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Health</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest text-right px-8">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSites.map(site => (
-                <TableRow key={site.id} onClick={() => setSelectedSite(site)} className="hover:bg-slate-50/50 transition-colors cursor-pointer h-20">
-                  <TableCell className="px-8">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                        <Building2 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="font-black text-slate-800 italic uppercase italic tracking-tight">{site.name}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate max-w-[200px]">{site.address}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-black text-slate-600 text-xs italic uppercase">{site.clientName}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`text-[8px] font-black uppercase rounded-full px-3 h-5 border-none shadow-sm ${
-                      site.riskLevel === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'
-                    }`}>
-                      {site.riskLevel}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span className={`text-xs font-black italic ${site.healthScore > 90 ? 'text-green-600' : 'text-amber-600'}`}>
-                      {site.healthScore}%
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right px-8">
-                     <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary"><Pencil className="h-4 w-4" /></Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-slate-400 hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); handleDelete(site.id); }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
       )}
 
-      {/* Detail Dialog */}
+      {/* Site Detail Dialog */}
       <Dialog open={!!selectedSite} onOpenChange={(val) => !val && setSelectedSite(null)}>
         <DialogContent className="max-w-5xl p-0 overflow-hidden rounded-[3rem] border-none shadow-2xl">
           <DialogHeader className="bg-slate-900 text-white p-10 relative">
@@ -404,9 +388,8 @@ export default function SitesPage() {
           <Tabs defaultValue="overview" className="bg-white">
             <TabsList className="bg-slate-50 w-full justify-start h-16 px-10 border-b rounded-none gap-8">
               <TabsTrigger value="overview" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Site Intelligence</TabsTrigger>
-              <TabsTrigger value="shifts" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Post Shifts</TabsTrigger>
-              <TabsTrigger value="requirements" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Qualifications</TabsTrigger>
-              <TabsTrigger value="documents" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">SOP & Orders</TabsTrigger>
+              <TabsTrigger value="shifts" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Deployed Shifts</TabsTrigger>
+              <TabsTrigger value="guards" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Assigned Team</TabsTrigger>
             </TabsList>
 
             <div className="p-10 max-h-[60vh] overflow-y-auto">
@@ -415,72 +398,62 @@ export default function SitesPage() {
                   <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Clock className="h-3 w-3 text-primary" /> Operating Window</p>
                      <p className="text-2xl font-black italic text-slate-800">{selectedSite?.operatingHours}</p>
-                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Contractual Deployment Coverage</p>
                   </Card>
                   <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
-                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Shield className="h-3 w-3 text-primary" /> Security Profile</p>
+                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Shield className="h-3 w-3 text-primary" /> Risk Profile</p>
                      <p className="text-2xl font-black italic text-slate-800 uppercase">{selectedSite?.riskLevel} RISK</p>
-                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Authoritative Threat Assessment</p>
                   </Card>
                   <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
-                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><ClipboardList className="h-3 w-3 text-primary" /> Guard Quota</p>
-                     <p className="text-2xl font-black italic text-slate-800">{selectedSite?.requiredGuardCount} OFFICERS</p>
-                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Base Personnel Requirement</p>
+                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Users className="h-3 w-3 text-primary" /> Health Score</p>
+                     <p className="text-2xl font-black italic text-slate-800">{selectedSite?.healthScore}%</p>
                   </Card>
                 </div>
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-3">Operational Instructions</h4>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-3">Operational Post Orders</h4>
                   <div className="p-8 bg-slate-50 rounded-[2rem] border border-dashed text-sm font-medium text-slate-600 leading-relaxed italic">
-                    {selectedSite?.instructions}
+                    {selectedSite?.instructions || 'Follow standard operating procedures. Maintain logs of all visitor access.'}
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="shifts" className="m-0 space-y-4">
-                 {shifts.filter(s => s.siteId === selectedSite?.id).map(shift => (
-                    <div key={shift.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all">
+                {shifts.filter(s => s.siteId === selectedSite?.id).map(shift => (
+                  <div key={shift.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all">
+                    <div className="flex items-center gap-5">
+                      <div className="h-12 w-12 rounded-2xl bg-white border flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors shadow-sm">
+                        <Clock className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{shift.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                          {format(new Date(shift.startTime), 'MMM dd, HH:mm')} - {format(new Date(shift.endTime), 'HH:mm')} • {shift.code}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className={`text-[8px] font-black h-6 px-4 rounded-full uppercase ${
+                      shift.status === 'Draft' ? 'bg-slate-200 text-slate-600' :
+                      shift.status === 'Open' ? 'bg-red-100 text-red-600' :
+                      'bg-primary text-white'
+                    }`}>{shift.status}</Badge>
+                  </div>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="guards" className="m-0 space-y-4">
+                 {shifts.filter(s => s.siteId === selectedSite?.id).flatMap(s => s.assignments).map(asg => (
+                    <div key={asg.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] flex items-center justify-between">
                        <div className="flex items-center gap-5">
-                          <div className="h-12 w-12 rounded-2xl bg-white border flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors shadow-sm">
-                             <Clock className="h-6 w-6" />
+                          <div className="h-10 w-10 rounded-full bg-white border flex items-center justify-center font-black text-slate-400 text-xs">
+                             {asg.guardName.charAt(0)}
                           </div>
                           <div>
-                             <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{shift.name}</p>
-                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                               {format(new Date(shift.startTime), 'HH:mm')} - {format(new Date(shift.endTime), 'HH:mm')} • {shift.code}
-                             </p>
+                             <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{asg.guardName}</p>
+                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{asg.rolePerformed}</p>
                           </div>
                        </div>
-                       <Badge className="bg-slate-200 text-slate-600 font-black h-6 px-4 rounded-full text-[10px] uppercase">{shift.status}</Badge>
+                       <Badge variant="outline" className="text-[8px] font-black px-4">{asg.status}</Badge>
                     </div>
                  ))}
-              </TabsContent>
-
-              <TabsContent value="requirements" className="m-0 space-y-8">
-                 <div className="grid md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Users className="h-3 w-3 text-primary" /> Authorized Roles</h4>
-                       <div className="flex flex-wrap gap-2">
-                          {selectedSite?.requiredRoles.map(r => (
-                            <Badge key={r} className="bg-slate-900 text-white font-black italic px-4 py-1.5 rounded-xl uppercase text-[9px]">{r.replace(/_/g, ' ')}</Badge>
-                          ))}
-                       </div>
-                    </div>
-                    <div className="space-y-6">
-                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><ShieldCheck className="h-3 w-3 text-primary" /> Mandatory Qualifications</h4>
-                       <div className="flex flex-wrap gap-2">
-                          {selectedSite?.requiredQualifications.map(q => (
-                            <Badge key={q} variant="outline" className="border-primary text-primary font-black italic px-4 py-1.5 rounded-xl uppercase text-[9px]">{q.replace(/_/g, ' ')}</Badge>
-                          ))}
-                       </div>
-                    </div>
-                 </div>
-              </TabsContent>
-
-              <TabsContent value="documents" className="m-0">
-                 <div className="p-20 text-center bg-slate-50 rounded-[2.5rem] border border-dashed">
-                    <FileText className="h-10 w-10 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-400 font-black italic uppercase text-xs tracking-widest opacity-40">Post orders and documents are available in the Site Registry.</p>
-                 </div>
               </TabsContent>
             </div>
           </Tabs>
