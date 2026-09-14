@@ -222,7 +222,9 @@ export default function AuditTrailPage() {
               <ShieldAlert className="h-6 w-6 text-primary" />
               AUDIT LOG DETAIL
             </DialogTitle>
-            <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Record ID: {selectedAudit?.id}</DialogDescription>
+            <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">
+              Record reference: {selectedAudit?.id || 'N/A'}
+            </DialogDescription>
           </DialogHeader>
 
           {selectedAudit && (

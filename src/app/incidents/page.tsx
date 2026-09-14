@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -81,6 +82,7 @@ export default function IncidentsPage() {
   const handleCreate = () => {
     const incident: Incident = {
       id: `INC-${Date.now()}`,
+      organizationId: store.getCurrentUser()?.organizationId || 'ORG-001',
       siteId: 'SITE-CUSTOM',
       siteName: siteName,
       guardId: 'GRD-ADMIN',
@@ -219,7 +221,7 @@ export default function IncidentsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Incident Report</DialogTitle>
-            <DialogDescription>Modify details for incident {selectedIncident?.id}.</DialogDescription>
+            <DialogDescription>Modify details for incident ID: {selectedIncident?.id || '...'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

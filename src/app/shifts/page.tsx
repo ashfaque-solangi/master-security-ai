@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -92,7 +93,7 @@ export default function ShiftsManagement() {
 
     const newShift: Shift = {
       id: `SHF-${Date.now()}`,
-      organizationId: 'ORG-GLOBAL-001',
+      organizationId: store.getCurrentUser()?.organizationId || 'ORG-001',
       siteId: selectedSiteId,
       siteName: site?.name || 'Unknown Site',
       assignments: [],
@@ -212,7 +213,7 @@ export default function ShiftsManagement() {
                 <Plus className="mr-2 h-4 w-4" /> Create Requirement
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>New Shift Requirement</DialogTitle>
                 <DialogDescription>Define a new operational shift for a site.</DialogDescription>
@@ -421,7 +422,7 @@ export default function ShiftsManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Shift Details</DialogTitle>
-            <DialogDescription>Modify the timing or role for this deployment.</DialogDescription>
+            <DialogDescription>Modify parameters for deployment ID: {selectedShift?.id || '...'}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

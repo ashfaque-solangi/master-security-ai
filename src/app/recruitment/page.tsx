@@ -155,11 +155,15 @@ export default function RecruitmentHub() {
       <Dialog open={!!selectedApp} onOpenChange={(val) => !val && setSelectedApp(null)}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
           <DialogHeader className="p-8 bg-slate-900 text-white relative">
-             <div className="absolute top-8 right-8">
-                <Badge className="bg-primary text-white font-black px-4">{selectedApp?.currentStage.replace(/_/g, ' ')}</Badge>
-             </div>
+             {selectedApp && (
+               <div className="absolute top-8 right-8">
+                  <Badge className="bg-primary text-white font-black px-4">{selectedApp.currentStage.replace(/_/g, ' ')}</Badge>
+               </div>
+             )}
              <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">Candidate Profile</DialogTitle>
-             <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Review candidate details, documents, and move them through the onboarding pipeline.</DialogDescription>
+             <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">
+               Review details for {selectedApp?.name || 'Applicant'} and move them through the onboarding pipeline.
+             </DialogDescription>
           </DialogHeader>
           <div className="p-8 grid md:grid-cols-2 gap-8">
             <div className="space-y-6">
