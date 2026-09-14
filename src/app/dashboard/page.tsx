@@ -6,7 +6,7 @@ import {
   Users, UserCheck, ShieldAlert, AlertTriangle, Radio, Navigation, 
   CloudSun, Zap, Activity, Clock, ShieldCheck, MapPin, 
   MessageSquare, Briefcase, TrendingUp, Search, CheckCircle2,
-  Truck, Bell, Wifi
+  Truck, Bell, Wifi, ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,11 +25,10 @@ export default function OperationalCommandCentre() {
     setMounted(true);
     setLiveEvents(store.getLiveEvents());
 
-    // Event Simulation
     const interval = setInterval(() => {
       const demoEvents: any[] = [
-        { id: `EV-${Date.now()}`, timestamp: new Date().toISOString(), type: 'GUARD_CHECKED_IN', siteName: 'Tech Hub HQ', description: 'Marcus Thorne checked in for Shift A', severity: 'Low' },
-        { id: `EV-${Date.now() + 1}`, timestamp: new Date().toISOString(), type: 'PATROL_STARTED', siteName: 'Retail Park East', description: 'Exterior patrol initiated by Sarah Jenkins', severity: 'Low' },
+        { id: `EV-${Date.now()}`, timestamp: new Date().toISOString(), type: 'GUARD_CHECKED_IN', siteName: 'Tech Hub HQ', description: 'Marcus Thorne checked in for Night Shift', severity: 'Low' },
+        { id: `EV-${Date.now() + 1}`, timestamp: new Date().toISOString(), type: 'SOS_TRIGGERED', siteName: 'Retail Park East', description: 'Emergency alert from Sarah Jenkins', severity: 'Critical' },
       ];
       const randomEvent = demoEvents[Math.floor(Math.random() * demoEvents.length)];
       setLiveEvents(prev => [randomEvent, ...prev].slice(0, 10));
@@ -44,11 +43,9 @@ export default function OperationalCommandCentre() {
   const shifts = store.getShifts();
   const incidents = store.getIncidents();
   const sos = store.getSOS();
-  const alarms = store.getAlarms();
   const vehicles = store.getVehicles();
 
-  // Metrics
-  const activeStaff = shifts.filter(s => s.status === 'In Progress').reduce((acc, s) => acc + s.assignments.length, 0);
+  const activeStaff = shifts.filter(s => s.status === 'In Progress').reduce((acc, s) => acc + (s.assignments?.length || 0), 0);
   const totalRequired = shifts.reduce((acc, s) => acc + s.requirements.reduce((rAcc, r) => rAcc + r.count, 0), 0);
   const openPositions = totalRequired - activeStaff;
   const coverage = totalRequired > 0 ? (activeStaff / totalRequired) * 100 : 100;
@@ -59,7 +56,6 @@ export default function OperationalCommandCentre() {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3 uppercase italic">
@@ -81,7 +77,6 @@ export default function OperationalCommandCentre() {
         </div>
       </div>
 
-      {/* Primary KPI Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="command-gradient border-none text-white rounded-3xl shadow-lg">
           <CardHeader className="pb-2">
@@ -134,10 +129,8 @@ export default function OperationalCommandCentre() {
         </Card>
       </div>
 
-      {/* Main Operations Panels */}
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
-          {/* Live Command Timeline */}
           <Card className="border-none shadow-sm rounded-[2.5rem] overflow-hidden bg-white">
             <CardHeader className="bg-slate-900 text-white flex flex-row items-center justify-between px-8 py-6">
               <div className="flex items-center gap-3">
@@ -163,7 +156,9 @@ export default function OperationalCommandCentre() {
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-2">{format(new Date(event.timestamp), 'HH:mm:ss')}</p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-primary font-black text-[10px] uppercase">TRACE</Button>
+                    <Button variant="ghost" size="sm" asChild className="text-primary font-black text-[10px] uppercase">
+                      <Link href={event.type === 'SOS_TRIGGERED' ? '/incidents' : '/dashboard'}>TRACE</Link>
+                    </Button>
                   </div>
                 )) : (
                   <div className="p-20 text-center text-muted-foreground italic font-black uppercase tracking-widest opacity-20">Monitoring Data Bus...</div>
@@ -173,7 +168,6 @@ export default function OperationalCommandCentre() {
           </Card>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {/* Personnel Monitor */}
             <Card className="border-none shadow-sm rounded-[2rem] bg-white">
               <CardHeader className="px-8 pt-8">
                 <CardTitle className="text-xs font-black uppercase text-slate-400 tracking-[0.15em] flex items-center gap-2">
@@ -187,8 +181,8 @@ export default function OperationalCommandCentre() {
                       <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center font-black text-slate-500 text-xs">{g.name.charAt(0)}</div>
                       <div>
                         <p className="text-sm font-black text-slate-800 italic">{g.name}</p>
-                        <p className="text-[10px] font-bold text-green-500 uppercase flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> GPS ACTIVE
+                        <p className="text-[9px] font-bold text-green-500 uppercase flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Checked In
                         </p>
                       </div>
                     </div>
@@ -198,7 +192,6 @@ export default function OperationalCommandCentre() {
               </CardContent>
             </Card>
 
-            {/* Mobile Fleet */}
             <Card className="border-none shadow-sm rounded-[2rem] bg-white">
               <CardHeader className="px-8 pt-8">
                 <CardTitle className="text-xs font-black uppercase text-slate-400 tracking-[0.15em] flex items-center gap-2">
@@ -209,7 +202,9 @@ export default function OperationalCommandCentre() {
                 {vehicles.map(v => (
                   <div key={v.id} className="flex items-center justify-between p-4 border border-dashed rounded-2xl bg-white hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-4">
-                      <div className="p-2 bg-primary/10 rounded-xl text-primary"><Truck className="h-5 w-5" /></div>
+                      <div className={`p-2 rounded-xl ${v.status === 'Active' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400'}`}>
+                        <Truck className="h-5 w-5" />
+                      </div>
                       <div>
                         <p className="text-sm font-black text-slate-800 uppercase">{v.name}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">{v.status}</p>
@@ -223,10 +218,9 @@ export default function OperationalCommandCentre() {
           </div>
         </div>
 
-        {/* Intelligence Sidebar */}
         <div className="space-y-8">
           <Card className="bg-slate-900 border-none text-white shadow-2xl rounded-[2.5rem] overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-12 opacity-5">
+            <div className="absolute top-0 right-0 p-10 opacity-5">
               <ShieldCheck className="h-48 w-48" />
             </div>
             <CardHeader className="p-10 pb-4">
@@ -239,7 +233,7 @@ export default function OperationalCommandCentre() {
               <div className="bg-white/5 p-6 rounded-3xl border border-white/10 backdrop-blur-xl">
                 <p className="text-xs font-black uppercase text-primary tracking-widest mb-3">SITE HEALTH RISK</p>
                 <p className="text-sm font-bold text-white/90 leading-relaxed italic">
-                  Detecting a coverage gap at <span className="underline decoration-primary">Retail Park East</span> for the upcoming night shift.
+                  Detecting a coverage gap at <span className="underline decoration-primary">Retail Park East</span> for upcoming shifts.
                 </p>
                 <div className="mt-6 flex items-center gap-2">
                   <Badge className="bg-red-500 text-[9px] font-black">CRITICAL</Badge>

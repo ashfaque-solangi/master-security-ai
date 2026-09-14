@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -110,12 +111,6 @@ export default function WorkforcePage() {
     resetForm();
   };
 
-  const toggleAvailability = (guard: Guard) => {
-    const updatedGuard = { ...guard, isAvailable: !guard.isAvailable };
-    const updated = store.updateGuard(updatedGuard);
-    setGuards(updated);
-  };
-
   const handleDelete = (id: string) => {
     const updated = store.deleteGuard(id);
     setGuards(updated);
@@ -142,7 +137,6 @@ export default function WorkforcePage() {
 
   if (!isMounted) return null;
 
-  // Helper to find guard's current shift
   const getCurrentShift = (guardId: string) => {
     return shifts.find(s => 
       s.assignments?.some(a => a.guardId === guardId) && 
@@ -169,7 +163,7 @@ export default function WorkforcePage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Register New Officer</DialogTitle>
-              <DialogDescription>Create a new profile for a security guard.</DialogDescription>
+              <DialogDescription>Create a new profile for a security guard including compliance status.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -221,14 +215,6 @@ export default function WorkforcePage() {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-sm:hidden">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search officers..." className="pl-10 h-10 rounded-xl bg-white border-none shadow-sm" />
-        </div>
-        <Button variant="outline" className="rounded-xl border-none shadow-sm bg-white"><Filter className="mr-2 h-4 w-4" /> Filter Status</Button>
-      </div>
-
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {guards.map((guard) => {
           const currentShift = getCurrentShift(guard.id);
@@ -257,7 +243,6 @@ export default function WorkforcePage() {
                     <DropdownMenuItem onClick={() => openEdit(guard)}>
                       <Pencil className="mr-2 h-4 w-4" /> Edit Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem>View Performance</DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive font-bold" onClick={() => handleDelete(guard.id)}>
                       <Trash2 className="mr-2 h-4 w-4" /> Delete Profile
                     </DropdownMenuItem>
@@ -282,35 +267,16 @@ export default function WorkforcePage() {
                     </Badge>
                   </div>
                 </div>
-
-                <div className="pt-4 border-t border-slate-50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{guard.weeklyHours}h / week</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-bold text-muted-foreground uppercase">Deployable</span>
-                      <Switch 
-                        className="scale-75"
-                        checked={guard.isAvailable} 
-                        onCheckedChange={() => toggleAvailability(guard)}
-                      />
-                    </div>
+                <div className="pt-4 border-t border-slate-50">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                    <div className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {guard.weeklyHours}h/wk</div>
+                    <Badge variant="outline" className="text-[8px]">{guard.isAvailable ? 'READY' : 'BUSY'}</Badge>
                   </div>
-                  
-                  <div className="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-100/50">
+                  <div className="p-3 bg-slate-50 rounded-xl mt-3">
                     <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest flex items-center gap-1">
-                      <MapPin className="h-2.5 w-2.5" /> Current Deployment
+                      <MapPin className="h-2.5 w-2.5" /> Deployment
                     </p>
-                    {currentShift ? (
-                      <div className="space-y-1">
-                        <p className="text-xs font-black text-slate-700">{currentShift.siteName}</p>
-                        <p className="text-[10px] text-primary font-bold">{currentShift.role}</p>
-                      </div>
-                    ) : (
-                      <p className="text-xs font-bold text-slate-400 italic">No active assignment</p>
-                    )}
+                    <p className="text-xs font-black text-slate-700 mt-1">{currentShift?.siteName || 'No active post'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -318,6 +284,57 @@ export default function WorkforcePage() {
           );
         })}
       </div>
+
+      <Dialog open={isEditOpen} onOpenChange={(val) => { setIsEditOpen(val); if (!val) resetForm(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Officer Profile</DialogTitle>
+            <DialogDescription>Modify status, availability, and contact details for this guard.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-600">Full Name</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-600">Status</label>
+                <Select value={status} onValueChange={(v) => setStatus(v as GuardStatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="On Break">On Break</SelectItem>
+                    <SelectItem value="Off Duty">Off Duty</SelectItem>
+                    <SelectItem value="Suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-600">Compliance</label>
+                <Select value={compliance} onValueChange={(v) => setCompliance(v as ComplianceStatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Compliant">Compliant</SelectItem>
+                    <SelectItem value="Expiring Soon">Expiring Soon</SelectItem>
+                    <SelectItem value="Non-Compliant">Non-Compliant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
+              <div className="space-y-0.5">
+                <label className="text-sm font-bold">Ready for Deployment</label>
+                <p className="text-xs text-muted-foreground">Officer availability toggle.</p>
+              </div>
+              <Switch checked={isAvailable} onCheckedChange={setIsAvailable} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdate} className="bg-primary">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -56,6 +56,7 @@ This document outlines the total work completed for the **SecureGuard Command** 
 - **Visual Funnel**: 11-stage recruitment pipeline from `JOB_POSTED` to `ACTIVE` duty.
 - **Document Vault**: Metadata tracking for Right to Work, ID, and Background Checks with verification workflows.
 - **Onboarding Checklist**: Automated guard eligibility tracking based on document completion.
+- **Auto-Provisioning**: Moving an applicant to `ACTIVE` status automatically creates a corresponding Officer profile in the workforce registry.
 
 ---
 
@@ -72,7 +73,7 @@ This document outlines the total work completed for the **SecureGuard Command** 
 
 ---
 
-## 📅 Scheduling Brain (Previously Completed)
+## 📅 Scheduling Brain (Phase 2 Completed)
 - **Rule 1 (No Overlaps)**: Hard blocker for concurrent shifts.
 - **Rule 4 & 5 (The Midnight Rule)**: Accurate cross-midnight hour splitting for 16-hour daily limit enforcement.
 - **AI Auto-Fill**: Global optimization engine that fills team quotas while respecting all hard constraints.
@@ -84,3 +85,4 @@ This document outlines the total work completed for the **SecureGuard Command** 
 - **TypeScript**: 100% Type-safe and normalized.
 - **Build**: Production-ready.
 - **Security**: Cross-tenant isolation verified via "Org B" tests.
+- **Accessibility**: All Dialog components updated with ARIA titles and headers.

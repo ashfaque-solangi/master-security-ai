@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, 
   DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 const STAGES: RecruitmentStage[] = [
   'JOB_POSTED', 'APPLICATION', 'SHORTLISTED', 'INTERVIEW', 
@@ -29,6 +29,7 @@ const STAGES: RecruitmentStage[] = [
 
 export default function RecruitmentHub() {
   const store = useJsonStore();
+  const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [applicants, setApplicants] = useState<any[]>([]);
   const [selectedApp, setSelectedApp] = useState<any | null>(null);
@@ -41,7 +42,12 @@ export default function RecruitmentHub() {
   const moveApplicant = (id: string, nextStage: RecruitmentStage) => {
     const updated = store.updateRecruitmentStage(id, nextStage);
     setApplicants(updated);
-    toast({ title: "Stage Updated", description: `Candidate moved to ${nextStage.replace(/_/g, ' ')}` });
+    toast({ 
+      title: "Stage Updated", 
+      description: nextStage === 'ACTIVE' 
+        ? `Candidate moved to ACTIVE duty and guard profile provisioned.` 
+        : `Candidate moved to ${nextStage.replace(/_/g, ' ')}` 
+    });
     setSelectedApp(null);
   };
 
@@ -146,7 +152,6 @@ export default function RecruitmentHub() {
         })}
       </div>
 
-      {/* Applicant Detail Dialog */}
       <Dialog open={!!selectedApp} onOpenChange={(val) => !val && setSelectedApp(null)}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
           <DialogHeader className="p-8 bg-slate-900 text-white relative">
@@ -154,7 +159,7 @@ export default function RecruitmentHub() {
                 <Badge className="bg-primary text-white font-black px-4">{selectedApp?.currentStage.replace(/_/g, ' ')}</Badge>
              </div>
              <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">Candidate Profile</DialogTitle>
-             <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">{selectedApp?.name} • {selectedApp?.email}</DialogDescription>
+             <DialogDescription className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Review candidate details, documents, and move them through the onboarding pipeline.</DialogDescription>
           </DialogHeader>
           <div className="p-8 grid md:grid-cols-2 gap-8">
             <div className="space-y-6">
