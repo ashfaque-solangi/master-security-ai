@@ -18,6 +18,8 @@ import { patients } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 
 export default function PatientsPage() {
+  const patientList = patients ?? [];
+
   return (
     <div className="flex flex-col gap-6">
        <div className="flex items-center justify-between">
@@ -47,7 +49,7 @@ export default function PatientsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {patients.map((patient) => (
+              {patientList.map((patient) => (
                 <TableRow key={patient.id}>
                   <TableCell className="font-medium">
                     <Link
@@ -64,6 +66,13 @@ export default function PatientsPage() {
                   <TableCell>{patient.sampleCount}</TableCell>
                 </TableRow>
               ))}
+              {patientList.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                    No patient records found.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

@@ -9,6 +9,8 @@ import { Progress } from '@/components/ui/progress';
 import { bloodBankInventory } from '@/lib/data';
 
 export default function BloodBankPage() {
+  const inventory = bloodBankInventory ?? [];
+
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-1">
@@ -21,7 +23,7 @@ export default function BloodBankPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {bloodBankInventory.map((unit) => {
+        {inventory.map((unit) => {
           const isLow = unit.quantity < unit.lowStockThreshold;
           const progressValue = (unit.quantity / (unit.lowStockThreshold * 2)) * 100;
 
@@ -49,6 +51,11 @@ export default function BloodBankPage() {
             </Card>
           );
         })}
+        {inventory.length === 0 && (
+          <div className="col-span-full py-10 text-center text-muted-foreground">
+            No inventory data available.
+          </div>
+        )}
       </div>
     </div>
   );

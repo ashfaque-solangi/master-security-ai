@@ -1,192 +1,293 @@
 import { 
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
   Invoice, Applicant, SOSAlert, Alarm, Vehicle, Contract,
-  Patrol, PayrollRecord, Visitor, FormDefinition, MockDocument, LeaveRecord,
-  PatrolCheckpoint, PatrolRoute
+  BloodUnit, Patient, Sample, PayrollRecord, Visitor, FormDefinition,
+  Patrol, MockDocument, LeaveRecord
 } from './types';
-import { addDays, set, subDays, subHours } from 'date-fns';
-
-const now = new Date();
-const ORG_A = 'ORG-GLOBAL-001';
-
-const createTimestamp = (daysOffset: number, hour: number, minute: number = 0) => {
-  return set(addDays(now, daysOffset), { hours: hour, minutes: minute, seconds: 0, milliseconds: 0 }).toISOString();
-};
 
 export const users: User[] = [
-  { id: 'USR-ADMIN', organizationId: ORG_A, name: 'Alex Thompson', email: 'admin@secureguard.com', role: 'SUPER_ADMIN', status: 'Active', password: 'password123' },
-  { id: 'USR-OPS', organizationId: ORG_A, name: 'Sarah Miller', email: 'ops@secureguard.com', role: 'OPERATIONS_MANAGER', status: 'Active', password: 'password123' },
-  { id: 'USR-GUARD-1', organizationId: ORG_A, name: 'Marcus Thorne', email: 'm.thorne@security.com', role: 'GUARD', status: 'Active', password: 'password123', guardId: 'GRD-101' },
-  { id: 'USR-COMP', organizationId: ORG_A, name: 'Compliance Officer', email: 'compliance@secureguard.com', role: 'COMPLIANCE_MANAGER', status: 'Active', password: 'password123' }
+  {
+    id: 'USR-001',
+    organizationId: 'ORG-001',
+    name: 'Admin User',
+    email: 'admin@secureguard.com',
+    role: 'SUPER_ADMIN',
+    status: 'Active',
+    password: 'password123'
+  },
+  {
+    id: 'USR-002',
+    organizationId: 'ORG-001',
+    name: 'Ops Manager',
+    email: 'ops@secureguard.com',
+    role: 'OPERATIONS_MANAGER',
+    status: 'Active',
+    password: 'password123'
+  },
+  {
+    id: 'USR-003',
+    organizationId: 'ORG-001',
+    name: 'Marcus Thorne',
+    email: 'm.thorne@security.com',
+    role: 'GUARD',
+    status: 'Active',
+    password: 'password123',
+    guardId: 'GRD-001'
+  },
+  {
+    id: 'USR-004',
+    organizationId: 'ORG-001',
+    name: 'Partner Client',
+    email: 'client@secureguard.com',
+    role: 'CLIENT_ADMIN',
+    status: 'Active',
+    password: 'password123',
+    clientId: 'CL-001'
+  }
 ];
 
 export const clients: Client[] = [
-  { id: 'CL-001', organizationId: ORG_A, name: 'Northgate Retail Group', contactPerson: 'John Hammond', email: 'j.hammond@northgate.com', phone: '+44 20 7123 4567', status: 'Active', industry: 'Retail', address: '123 Retail Lane, London' },
-  { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics', address: '50 Logistics Way, Dartford' }
+  {
+    id: 'CL-001',
+    organizationId: 'ORG-001',
+    name: 'Global Tech Corp',
+    contactPerson: 'Sarah Chen',
+    email: 's.chen@globaltech.com',
+    phone: '+44 20 7123 4567',
+    status: 'Active',
+    industry: 'Technology',
+    address: '1 Tech Plaza, London',
+    clientCode: 'C-101'
+  },
+  {
+    id: 'CL-002',
+    organizationId: 'ORG-001',
+    name: 'Nakatomi Plaza',
+    contactPerson: 'Joe Takagi',
+    email: 'takagi@nakatomi.com',
+    phone: '+44 20 8987 6543',
+    status: 'Active',
+    industry: 'Real Estate',
+    address: 'Century City, London',
+    clientCode: 'C-202'
+  }
 ];
 
-export const sites: Site[] = Array.from({ length: 25 }).map((_, i) => {
-  const client = clients[i % clients.length];
-  const siteNames = ['Main Gate', 'North Wing', 'South Gate', 'Perimeter Patrol', 'Reception Desk', 'CCTV Room', 'Loading Bay', 'Server Room', 'Retail Floor', 'Executive Suite'];
-  const name = `${client.name} - ${siteNames[i % siteNames.length]}`;
-  const code = `SITE-${client.name.substring(0, 3).toUpperCase()}-${101 + i}`;
-  return {
-    id: `SITE-${101 + i}`,
-    organizationId: client.organizationId,
-    name,
-    code,
-    clientId: client.id,
-    clientName: client.name,
-    address: `${10 + i} ${client.industry} Way, London`,
-    contactInfo: `Desk: 020 ${7000 + i} ${1000 + i}`,
-    status: 'Active',
-    operatingHours: '24/7',
-    requiredGuardCount: (i % 3) + 2,
-    requiredRoles: ['SECURITY_GUARD', (i % 3 === 0 ? 'CCTV_OPERATOR' : 'SITE_LEAD')],
-    requiredSkills: i % 2 === 0 ? ['First Aid'] : [],
-    requiredQualifications: i % 3 === 0 ? ['SIA_CCTV'] : ['SIA_DOOR'],
-    riskLevel: i % 4 === 0 ? 'High' : i % 3 === 0 ? 'Critical' : 'Medium',
-    activeGuardsCount: 0,
-    healthScore: 85 + (i % 15),
-    revenuePerMonth: 5000 + (i * 1000),
+export const sites: Site[] = [
+  {
+    id: 'SITE-001',
+    organizationId: 'ORG-001',
+    name: 'Tech Hub HQ',
+    clientId: 'CL-001',
+    clientName: 'Global Tech Corp',
+    address: 'Old Street, London',
+    riskLevel: 'Medium',
+    activeGuardsCount: 2,
+    healthScore: 95,
+    revenuePerMonth: 12000,
     openShifts: 0,
-    instructions: 'Monitor perimeter fence every 60 mins. Log all deliveries.',
-    patrolFrequency: '60 mins',
-    patrolType: 'Checkpoint'
-  };
-});
-
-export const guards: Guard[] = Array.from({ length: 80 }).map((_, i) => {
-  const names = ['Marcus Thorne', 'Sarah Jenkins', 'Ahmed Khan', 'Leo Varga', 'Emma Watson', 'John Wick', 'Sarah Connor', 'Peter Parker', 'Bruce Wayne', 'Tony Stark'];
-  const name = names[i % names.length] + (i > 9 ? ` ${i}` : '');
-  const roles = ['SECURITY_GUARD', 'CCTV_OPERATOR', 'SITE_LEAD', 'FIRE_MARSHAL'];
-  
-  // Specific Compliance scenarios for first 5 guards
-  let siaExpiry = addDays(now, 120).toISOString();
-  let dbsExpiry = addDays(now, 200).toISOString();
-  let rtwExpiry = addDays(now, 365).toISOString();
-  let complianceStatus: any = 'Compliant';
-
-  if (i === 1) { siaExpiry = addDays(now, 15).toISOString(); complianceStatus = 'Expiring Soon'; } // Expiring 15d
-  if (i === 2) { siaExpiry = subDays(now, 1).toISOString(); complianceStatus = 'Expired'; } // Expired
-  if (i === 3) { dbsExpiry = addDays(now, 50).toISOString(); complianceStatus = 'Expiring Soon'; } // 50d alert
-  if (i === 4) { complianceStatus = 'Missing'; siaExpiry = ''; dbsExpiry = ''; } // Missing
-
-  return {
-    id: `GRD-${101 + i}`,
-    organizationId: ORG_A,
-    name,
-    email: `${name.toLowerCase().replace(/ /g, '.')}@security.com`,
+    code: 'SITE-LHR-101',
     status: 'Active',
-    complianceStatus,
-    licenceExpiry: siaExpiry,
-    siaNumber: `SIA-${Math.floor(Math.random() * 1000000)}`,
-    dbsNumber: `DBS-${Math.floor(Math.random() * 1000000)}`,
-    dbsExpiry: dbsExpiry,
-    rtwType: 'Passport',
-    rtwExpiry: rtwExpiry,
-    docsMissing: i === 4 ? 3 : 0,
-    performanceScore: 85 + (i % 15),
-    weeklyHours: 0,
-    isAvailable: true,
-    qualifiedRoles: [roles[i % roles.length], 'SECURITY_GUARD'],
-    skills: i % 2 === 0 ? ['First Aid'] : [],
-    primaryRole: roles[i % roles.length] as any
-  };
-});
-
-export const shifts: Shift[] = Array.from({ length: 60 }).map((_, i) => {
-  const site = sites[i % sites.length];
-  const dayOffset = Math.floor(i / 6);
-  const hourStart = (i % 3) * 8;
-  const start = createTimestamp(dayOffset, hourStart);
-  const end = createTimestamp(dayOffset, hourStart + 8);
-  
-  const status: any = i % 8 === 0 ? 'Draft' : i % 5 === 0 ? 'Open' : 'Published';
-  const shiftName = `${site.name} - ${i % 3 === 0 ? 'Morning' : i % 3 === 1 ? 'Afternoon' : 'Night'} Security`;
-  
-  const shiftAssignments: any[] = [];
-  if (status !== 'Draft' && i % 2 === 0) {
-    const assignedCount = Math.min(site.requiredGuardCount, 2);
-    for (let j = 0; j < assignedCount; j++) {
-      const guard = guards[(i + j * 7) % guards.length];
-      shiftAssignments.push({
-        id: `ASG-${i}-${j}`,
-        guardId: guard.id,
-        guardName: guard.name,
-        rolePerformed: site.requiredRoles[j % site.requiredRoles.length],
-        status: 'Assigned',
-        assignedAt: subDays(now, 2).toISOString(),
-        assignedBy: 'Sarah Miller'
-      });
-    }
+    operatingHours: '24/7'
+  },
+  {
+    id: 'SITE-002',
+    organizationId: 'ORG-001',
+    name: 'Nakatomi Executive Floors',
+    clientId: 'CL-002',
+    clientName: 'Nakatomi Plaza',
+    address: 'The City, London',
+    riskLevel: 'High',
+    activeGuardsCount: 3,
+    healthScore: 88,
+    revenuePerMonth: 18500,
+    openShifts: 1,
+    code: 'SITE-LHR-202',
+    status: 'Active',
+    operatingHours: '24/7'
   }
+];
 
-  return {
-    id: `SHF-${101 + i}`,
-    organizationId: ORG_A,
-    siteId: site.id,
-    siteName: site.name,
-    name: shiftName,
-    code: `SH-2024-${(101 + i).toString().padStart(6, '0')}`,
-    startTime: start,
-    endTime: end,
-    status,
-    priority: i % 10 === 0 ? 'Urgent' : 'Routine',
-    requirements: site.requiredRoles.map(r => ({ role: r, count: 1 })),
-    assignments: shiftAssignments,
-    role: site.requiredRoles[0],
+export const guards: Guard[] = [
+  {
+    id: 'GRD-001',
+    organizationId: 'ORG-001',
+    name: 'Marcus Thorne',
+    email: 'm.thorne@security.com',
+    status: 'Active',
+    complianceStatus: 'Compliant',
+    licenceExpiry: '2025-12-31T00:00:00Z',
+    siaNumber: 'SIA-1234567890',
+    docsMissing: 0,
+    performanceScore: 98,
+    weeklyHours: 38,
+    isAvailable: true,
+    qualifiedRoles: ['SECURITY_GUARD', 'SITE_LEAD', 'FIRE_MARSHAL'],
+    skills: ['CCTV', 'First Aid', 'Conflict Management']
+  },
+  {
+    id: 'GRD-002',
+    organizationId: 'ORG-001',
+    name: 'Leo Varga',
+    email: 'l.varga@security.com',
+    status: 'On Break',
+    complianceStatus: 'Expiring Soon',
+    licenceExpiry: '2024-04-15T00:00:00Z',
+    siaNumber: 'SIA-0987654321',
+    docsMissing: 1,
+    performanceScore: 92,
+    weeklyHours: 42,
+    isAvailable: true,
+    qualifiedRoles: ['SECURITY_GUARD', 'CCTV_OPERATOR'],
+    skills: ['Vigilance', 'Reporting']
+  }
+];
+
+export const shifts: Shift[] = [
+  {
+    id: 'SH-001',
+    organizationId: 'ORG-001',
+    siteId: 'SITE-001',
+    siteName: 'Tech Hub HQ',
+    name: 'Morning Perimeter Security',
+    code: 'SH-2024-001001',
+    startTime: '2024-03-20T08:00:00Z',
+    endTime: '2024-03-20T16:00:00Z',
+    status: 'In Progress',
+    priority: 'Routine',
+    requirements: [{ role: 'SECURITY_GUARD', count: 2 }],
+    assignments: [
+      {
+        id: 'ASG-001',
+        guardId: 'GRD-001',
+        guardName: 'Marcus Thorne',
+        rolePerformed: 'SECURITY_GUARD',
+        status: 'On Site',
+        assignedAt: '2024-03-19T10:00:00Z',
+        assignedBy: 'Ops Manager'
+      }
+    ],
+    role: 'SECURITY_GUARD',
     version: 1
-  };
-});
+  }
+];
 
-export const incidents: Incident[] = [];
+export const incidents: Incident[] = [
+  {
+    id: 'INC-2024-001',
+    organizationId: 'ORG-001',
+    siteId: 'SITE-002',
+    siteName: 'Nakatomi Executive Floors',
+    guardId: 'GRD-001',
+    guardName: 'Marcus Thorne',
+    type: 'Observation',
+    severity: 'Low',
+    status: 'Resolved',
+    description: 'Unsecured door found on floor 32 during patrol.',
+    timestamp: '2024-03-18T22:30:00Z'
+  }
+];
+
 export const sosAlerts: SOSAlert[] = [];
 export const alarms: Alarm[] = [];
-export const vehicles: Vehicle[] = [];
-export const contracts: Contract[] = [];
-export const applicants: Applicant[] = [];
-export const invoices: Invoice[] = [];
+export const vehicles: Vehicle[] = [
+  {
+    id: 'VH-001',
+    organizationId: 'ORG-001',
+    model: 'Toyota Hilux (Armored)',
+    plate: 'SEC-001',
+    status: 'Available',
+    location: 'Main Depot',
+    fuelLevel: 85,
+    nextService: '2024-06-01T00:00:00Z'
+  }
+];
+
+export const contracts: Contract[] = [
+  {
+    id: 'CON-001',
+    clientId: 'CL-001',
+    title: 'Global Tech HQ Master Services',
+    startDate: '2024-01-01T00:00:00Z',
+    endDate: '2024-12-31T00:00:00Z',
+    status: 'Active',
+    contractNumber: 'CON-2024-GT01',
+    billingRate: 35,
+    guardRate: 18,
+    sla: '98% Post Coverage',
+    kpis: ['On-time arrival', 'Patrol completion', 'Incident response time']
+  }
+];
+
+export const applicants: Applicant[] = [
+  {
+    id: 'APP-001',
+    name: 'Elena Rossi',
+    role: 'Security Officer',
+    status: 'Interview',
+    appliedDate: '2024-03-15T00:00:00Z',
+    experience: '5 Years',
+    currentStage: 'INTERVIEW',
+    email: 'e.rossi@email.com'
+  }
+];
+
+export const invoices: Invoice[] = [
+  {
+    id: 'INV-2024-001',
+    clientName: 'Global Tech Corp',
+    siteName: 'Tech Hub HQ',
+    amount: 14500,
+    status: 'Paid',
+    date: '2024-03-01T00:00:00Z'
+  }
+];
+
 export const subcontractors: Subcontractor[] = [];
 export const payrollRecords: PayrollRecord[] = [];
 export const visitors: Visitor[] = [];
 export const forms: FormDefinition[] = [];
+export const patrols: Patrol[] = [];
 export const documents: MockDocument[] = [];
 export const leaveRecords: LeaveRecord[] = [];
 
-// WEB-07 Demo Data
-export const patrols: Patrol[] = [
+// Legacy Medical Data (Restored for build stability)
+export const bloodBankInventory: BloodUnit[] = [
+  { bloodType: 'A+', quantity: 15, lowStockThreshold: 10 },
+  { bloodType: 'A-', quantity: 5, lowStockThreshold: 10 },
+  { bloodType: 'B+', quantity: 12, lowStockThreshold: 10 },
+  { bloodType: 'B-', quantity: 3, lowStockThreshold: 5 },
+  { bloodType: 'O+', quantity: 25, lowStockThreshold: 20 },
+  { bloodType: 'O-', quantity: 8, lowStockThreshold: 10 },
+  { bloodType: 'AB+', quantity: 6, lowStockThreshold: 5 },
+  { bloodType: 'AB-', quantity: 2, lowStockThreshold: 5 },
+];
+
+export const patients: Patient[] = [
+  { id: 'P001', name: 'John Doe', dateOfBirth: '1985-05-15', gender: 'Male', contact: '555-0101', sampleCount: 2 },
+  { id: 'P002', name: 'Jane Smith', dateOfBirth: '1992-08-22', gender: 'Female', contact: '555-0102', sampleCount: 1 },
+];
+
+export const samples: Sample[] = [
   {
-    id: 'PAT-101',
-    organizationId: ORG_A,
-    siteId: 'SITE-101',
-    siteName: 'Northgate Retail Group - Main Gate',
-    guardId: 'GRD-101',
-    guardName: 'Marcus Thorne',
-    shiftId: 'SHF-101',
-    routeId: 'ROU-101',
-    routeName: 'Night Perimeter Patrol',
-    startTime: subHours(now, 2).toISOString(),
-    completion: 60,
-    checkpoints: 3,
-    totalCheckpoints: 5,
-    status: 'Active'
-  },
-  {
-    id: 'PAT-102',
-    organizationId: ORG_A,
-    siteId: 'SITE-102',
-    siteName: 'Metro Logistics Ltd - North Wing',
-    guardId: 'GRD-102',
-    guardName: 'Sarah Jenkins',
-    shiftId: 'SHF-102',
-    routeId: 'ROU-102',
-    routeName: 'Warehouse Inspection',
-    startTime: subHours(now, 4).toISOString(),
-    endTime: subHours(now, 3).toISOString(),
-    completion: 100,
-    checkpoints: 4,
-    totalCheckpoints: 4,
-    status: 'Completed'
+    id: 'S001',
+    patientId: 'P001',
+    patientName: 'John Doe',
+    testName: 'Complete Blood Count',
+    status: 'Pending Verification',
+    priority: 'Routine',
+    technician: 'Alice Johnson',
+    collectionDate: new Date().toISOString(),
+    turnaroundTime: '24h',
+    results: [
+      { parameter: 'Hemoglobin', value: 14.2, unit: 'g/dL', referenceRange: { min: 13.5, max: 17.5 } },
+      { parameter: 'White Blood Cell', value: 7.5, unit: 'x10^3/uL', referenceRange: { min: 4.5, max: 11.0 } },
+    ],
+    auditTrail: [
+      { user: 'Alice Johnson', action: 'Collected', timestamp: new Date().toISOString() },
+    ],
+    remarks: [],
   }
 ];
+
+export const findSampleById = (id: string) => samples.find(s => s.id === id);

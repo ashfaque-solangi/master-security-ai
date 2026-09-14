@@ -13,46 +13,8 @@ export type UserRole =
   | 'COMPLIANCE_MANAGER'
   | 'FINANCE_MANAGER'
   | 'GUARD'
-  | 'CLIENT_ADMIN'
-  | 'CLIENT_VIEWER'
-  | 'SUBCONTRACTOR_ADMIN';
-
-/**
- * Canonical Workforce Guard Types
- */
-export const WORKFORCE_ROLES = [
-  'SECURITY_GUARD',
-  'CCTV_OPERATOR',
-  'DOOR_SUPERVISOR',
-  'MOBILE_PATROL',
-  'CONTROL_ROOM_OPERATOR',
-  'KEYHOLDER',
-  'FIRST_AID_RESPONDER',
-  'FIRE_MARSHAL',
-  'SITE_SUPERVISOR',
-  'SITE_LEAD'
-] as const;
-
-export type WorkforceRole = typeof WORKFORCE_ROLES[number];
-
-export type PermissionAction = 
-  | 'view' 
-  | 'manage' 
-  | 'finance' 
-  | 'hr' 
-  | 'client' 
-  | 'guard' 
-  | 'schedule' 
-  | 'schedule.publish' 
-  | 'audit' 
-  | 'location' 
-  | 'ai' 
-  | 'compliance.manage' 
-  | 'compliance.override'
-  | 'patrol.view'
-  | 'patrol.manage'
-  | 'patrol.assign'
-  | 'patrol.monitor';
+  | 'CLIENT'
+  | 'SUBCONTRACTOR';
 
 export type User = {
   id: string;
@@ -67,7 +29,7 @@ export type User = {
   siteIds?: string[];
   subcontractorId?: string;
   guardId?: string;
-  extraPermissions?: PermissionAction[];
+  extraPermissions?: string[];
 };
 
 export type SessionStatus = 'Active' | 'LoggedOut' | 'Revoked' | 'Expired';
@@ -90,91 +52,46 @@ export interface DashboardDefinition {
   title: string;
   description: string;
   allowedRoles: UserRole[];
-  requiredPermissions?: PermissionAction[];
+  requiredPermissions?: string[];
   icon: any;
   priority: number;
 }
 
-export type DocumentType = 'SOP' | 'POST_ORDER' | 'RISK_ASSESSMENT' | 'CONTRACT' | 'LICENCE' | 'CERTIFICATE' | 'ID' | 'TRAINING' | 'DBS' | 'RTW';
-
-export type MockDocument = {
-  id: string;
-  organizationId: string;
-  clientId?: string;
-  siteId?: string;
-  guardId?: string;
-  name: string;
-  type: DocumentType;
-  version: string;
-  uploadedBy: string;
-  uploadedAt: string;
-  status: 'Current' | 'Archived' | 'Draft';
-  expiryDate?: string;
-  verifiedAt?: string;
-  verifiedBy?: string;
-  scope: 'Site' | 'Client' | 'Global' | 'Guard';
-  content?: string;
-};
-
-export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended' | 'Inactive' | 'On Leave' | 'Applicant';
-export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant' | 'Pending Verification' | 'Expired' | 'Missing';
+export type GuardStatus = 'Active' | 'On Break' | 'Off Duty' | 'Suspended';
+export type ComplianceStatus = 'Compliant' | 'Expiring Soon' | 'Non-Compliant' | 'Expired' | 'Missing';
 
 export type Guard = {
   id: string;
   organizationId: string;
   name: string;
   email: string;
-  phone?: string;
   status: GuardStatus;
   complianceStatus: ComplianceStatus;
-  qualifiedRoles: string[];
-  skills: string[];
-  licenceExpiry: string; // SIA Expiry
-  siaNumber?: string;
-  dbsNumber?: string;
+  currentSiteId?: string;
+  currentSiteName?: string;
+  licenceExpiry: string;
   dbsExpiry?: string;
-  rtwType?: string;
   rtwExpiry?: string;
+  rtwType?: string;
+  siaNumber?: string;
   docsMissing: number;
   performanceScore: number;
   weeklyHours: number;
   isAvailable: boolean;
-  preferredSites?: string[];
-  unavailableDates?: string[];
-  recruitmentStage?: RecruitmentStage;
-  primaryRole?: WorkforceRole;
+  qualifiedRoles: string[];
+  skills: string[];
   isComplianceOverridden?: boolean;
   overrideReason?: string;
   overrideBy?: string;
+  unavailableDates?: string[];
 };
-
-export type RecruitmentStage = 
-  | 'JOB_POSTED' | 'APPLICATION' | 'SHORTLISTED' | 'INTERVIEW' 
-  | 'DOCUMENT_COLLECTION' | 'VALIDATION' | 'VERIFICATION' 
-  | 'CONTRACT' | 'TRAINING' | 'ONBOARDING' | 'ACTIVE' | 'REJECTED';
-
-export type Applicant = {
-  id: string;
-  organizationId: string;
-  jobPostId: string;
-  name: string;
-  email: string;
-  phone: string;
-  currentStage: RecruitmentStage;
-  status: 'Pending' | 'Accepted' | 'Rejected';
-  appliedDate: string;
-  experience: string;
-  notes: string;
-};
-
-export type ShiftAssignmentStatus = 'Pending' | 'Assigned' | 'Confirmed' | 'In Transit' | 'On Site' | 'Rejected' | 'Withdrawn';
 
 export type ShiftAssignment = {
   id: string;
   guardId: string;
   guardName: string;
   rolePerformed: string;
-  status: ShiftAssignmentStatus;
+  status: 'Assigned' | 'Confirmed' | 'In Transit' | 'On Site' | 'Pending' | 'Rejected' | 'Withdrawn';
   assignedAt: string;
   assignedBy: string;
   checkInTime?: string;
@@ -196,15 +113,12 @@ export type Shift = {
   code: string;
   startTime: string; 
   endTime: string;
-  breakStartTime?: string;
-  breakEndTime?: string;
-  status: 'Draft' | 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Published';
+  status: 'Published' | 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Draft' | 'Cancelled';
   priority: 'Routine' | 'Urgent' | 'STAT';
   requirements: RoleRequirement[];
   assignments: ShiftAssignment[];
   role: string; 
-  version: number;
-  patrolRouteId?: string; // WEB-07: Link to a patrol route
+  version?: number;
 };
 
 export type Incident = {
@@ -255,6 +169,143 @@ export type Vehicle = {
   nextService: string;
 };
 
+export type Client = {
+  id: string;
+  organizationId: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  status: 'Active' | 'Inactive';
+  industry: string;
+  address: string;
+  clientCode?: string;
+  notes?: string;
+};
+
+export type Site = {
+  id: string;
+  organizationId: string;
+  name: string;
+  clientId: string;
+  clientName: string;
+  address: string;
+  riskLevel: Severity;
+  activeGuardsCount: number;
+  healthScore: number;
+  revenuePerMonth: number;
+  openShifts: number;
+  code?: string;
+  contactInfo?: string;
+  status?: 'Active' | 'Inactive';
+  operatingHours?: string;
+  requiredGuardCount?: number;
+  requiredRoles?: string[];
+  requiredQualifications?: string[];
+  requiredSkills?: string[];
+  instructions?: string;
+};
+
+export type Subcontractor = {
+  id: string;
+  name: string;
+  companyReg: string;
+  contactEmail: string;
+  contactPhone: string;
+  status: 'Approved' | 'Pending' | 'Suspended';
+  guardCount: number;
+  rating: number;
+};
+
+export type PayrollRecord = {
+  id: string;
+  guardName: string;
+  period: string;
+  hours: number;
+  amount: number;
+  status: 'Paid' | 'Pending' | 'Approved';
+};
+
+export type Invoice = {
+  id: string;
+  clientName: string;
+  siteName: string;
+  amount: number;
+  status: 'Paid' | 'Pending' | 'Overdue';
+  date: string;
+};
+
+export type Applicant = {
+  id: string;
+  name: string;
+  role: string;
+  status: 'Applied' | 'Interview' | 'Background Check' | 'Hired' | 'Rejected';
+  appliedDate: string;
+  experience: string;
+  currentStage: RecruitmentStage;
+  email: string;
+};
+
+export type RecruitmentStage = 
+  | 'JOB_POSTED' | 'APPLICATION' | 'SHORTLISTED' | 'INTERVIEW' 
+  | 'DOCUMENT_COLLECTION' | 'VALIDATION' | 'VERIFICATION' 
+  | 'CONTRACT' | 'TRAINING' | 'ONBOARDING' | 'ACTIVE';
+
+export type FormDefinition = {
+  id: string;
+  name: string;
+  fields: number;
+  lastModified: string;
+  status: 'Active' | 'Draft';
+};
+
+export type AuditAction = 
+  | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED' | 'LOGIN_BLOCKED_DEVICE_LIMIT'
+  | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'GUARD_ASSIGNED' | 'GUARD_REMOVED'
+  | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED' | 'SYSTEM_UPDATED' | 'DEMO_RESET'
+  | 'SESSION_REVOKED' | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT' | 'GUARD_STATUS_CHANGED'
+  | 'CLAIM_REQUESTED' | 'CLAIM_APPROVED' | 'CLAIM_REJECTED' | 'CLAIM_WITHDRAWN'
+  | 'SHIFT_GUARD_SWAPPED' | 'SHIFT_PUBLISHED' | 'SHIFT_DEPLOYED' | 'SHIFT_UNDEPLOYED'
+  | 'SHIFT_DEPLOYMENT_CHANGED' | 'ROLE_CHANGED' | 'GUARD_REPLACED' | 'AI_SCHEDULING_RUN'
+  | 'CLIENT_CREATED' | 'CLIENT_UPDATED' | 'CLIENT_STATUS_CHANGED' | 'SITE_CREATED' | 'SITE_UPDATED'
+  | 'SITE_STATUS_CHANGED' | 'PATROL_CHECKPOINT_CREATED' | 'PATROL_ROUTE_CREATED' | 'PATROL_SCAN'
+  | 'COMPLIANCE_OVERRIDE' | 'USER_CREATED' | 'USER_UPDATED' | 'USER_DELETED' | 'DOCUMENT_CREATED'
+  | 'CONTRACT_CREATED' | 'CONTRACT_UPDATED';
+
+export type AuditRecord = {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  action: AuditAction;
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document';
+  entityId: string;
+  description: string;
+  oldValues: any | null;
+  newValues: any | null;
+  metadata?: Record<string, any>;
+  status: 'success' | 'warning' | 'error' | 'info' | 'REJECTED';
+  organizationId: string;
+};
+
+export type Contract = {
+  id: string;
+  organizationId?: string;
+  clientId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: 'Active' | 'Expired' | 'Pending';
+  contractNumber: string;
+  billingRate: number;
+  guardRate: number;
+  sla: string;
+  penalties?: string;
+  kpis: string[];
+  terms?: string;
+};
+
 export type Visitor = {
   id: string;
   siteId: string;
@@ -266,39 +317,57 @@ export type Visitor = {
   status: 'Expected' | 'Checked In' | 'Checked Out';
 };
 
-// WEB-07 Patrol System Types
-export type PatrolCheckpointType = 'QR' | 'NFC';
-export type PatrolStatus = 'Scheduled' | 'Active' | 'Completed' | 'Missed' | 'Aborted';
-export type ScanValidationStatus = 'Valid' | 'Out of Sequence' | 'Unexpected';
+export type MockDocument = {
+  id: string;
+  guardId?: string;
+  siteId?: string;
+  name: string;
+  type: string;
+  version: number;
+  status: 'Current' | 'Archived' | 'Draft';
+  expiry?: string;
+  verified: boolean;
+  metadata?: Record<string, any>;
+};
 
-export interface PatrolCheckpoint {
+export type LeaveRecord = {
+  id: string;
+  guardId: string;
+  type: 'Annual' | 'Sick' | 'Unpaid' | 'Emergency';
+  startDate: string;
+  endDate: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  reason?: string;
+};
+
+export type ScanValidationStatus = 'Valid' | 'Missed' | 'Out of Sequence' | 'Unexpected';
+
+export type PatrolCheckpoint = {
   id: string;
   organizationId: string;
   siteId: string;
   name: string;
   code: string;
-  type: PatrolCheckpointType;
-  description?: string;
+  type: 'QR' | 'NFC';
   status: 'Active' | 'Inactive';
   createdAt: string;
   updatedAt: string;
-}
+};
 
-export interface PatrolRoute {
+export type PatrolRoute = {
   id: string;
   organizationId: string;
   siteId: string;
   name: string;
   code: string;
-  description?: string;
   status: 'Active' | 'Inactive';
-  estimatedDuration: number; // in minutes
-  checkpointIds: string[]; // Ordered list of checkpoint IDs
+  estimatedDuration: number; // minutes
+  checkpointIds: string[];
   createdAt: string;
   updatedAt: string;
-}
+};
 
-export interface PatrolEvent {
+export type PatrolEvent = {
   id: string;
   organizationId: string;
   shiftId: string;
@@ -306,113 +375,99 @@ export interface PatrolEvent {
   checkpointId: string;
   guardId: string;
   timestamp: string;
-  scanType: PatrolCheckpointType;
-  sequenceNumber: number; // The order in which it was scanned
+  scanType: 'QR' | 'NFC';
+  sequenceNumber: number;
   validationStatus: ScanValidationStatus;
   isSimulated: boolean;
-}
+};
 
 export type Patrol = {
   id: string;
-  organizationId: string;
-  siteId: string;
-  siteName: string;
-  guardName: string;
-  guardId: string;
   shiftId: string;
   routeId: string;
   routeName: string;
+  siteId: string;
+  siteName: string;
+  guardId: string;
+  guardName: string;
   startTime: string;
   endTime?: string;
-  completion: number; // percentage 0-100
-  checkpoints: number; // count of completed
+  status: 'Active' | 'Completed' | 'Missed' | 'Aborted';
+  checkpoints: number; // completed
   totalCheckpoints: number;
-  status: PatrolStatus;
-};
-
-export type PayrollRecord = {
-  id: string;
-  organizationId: string;
-  guardName: string;
-  period: string;
-  hours: number;
-  amount: number;
-  status: 'Paid' | 'Pending' | 'Approved';
-};
-
-export type FormDefinition = {
-  id: string;
-  name: string;
-  fields: number;
-  lastModified: string;
-  status: 'Active' | 'Draft';
-};
-
-export type LeaveRecord = {
-  id: string;
-  guardId: string;
-  type: 'Sick' | 'Annual' | 'Compassionate' | 'Emergency Leave';
-  startDate: string;
-  endDate: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  reason: string;
-};
-
-export type AuditAction = 
-  | 'USER_CREATED' | 'USER_UPDATED' | 'USER_DELETED' | 'ROLE_ASSIGNED'
-  | 'GUARD_CREATED' | 'GUARD_UPDATED' | 'GUARD_STATUS_CHANGED'
-  | 'CLIENT_CREATED' | 'CLIENT_UPDATED' | 'CLIENT_STATUS_CHANGED'
-  | 'SITE_CREATED' | 'SITE_UPDATED' | 'SITE_STATUS_CHANGED'
-  | 'CONTRACT_CREATED' | 'CONTRACT_UPDATED' | 'CONTRACT_STATUS_CHANGED'
-  | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'SHIFT_PUBLISHED' | 'SHIFT_RESCHEDULED'
-  | 'GUARD_ASSIGNED' | 'GUARD_REMOVED' | 'GUARD_REPLACED' | 'SHIFT_GUARD_SWAPPED'
-  | 'CLAIM_REQUESTED' | 'CLAIM_APPROVED' | 'CLAIM_REJECTED' | 'CLAIM_WITHDRAWN'
-  | 'CONFLICT_DETECTED' | 'AI_SCHEDULING_RUN' | 'AI_ASSIGNMENT_PROPOSED'
-  | 'SWAP_REQUESTED' | 'SWAP_APPROVED' | 'SWAP_REJECTED'
-  | 'ASSIGNMENT_REJECTED' | 'ROLE_CHANGED' | 'GUARD_REPLACED'
-  | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED' | 'LOGIN_BLOCKED_DEVICE_LIMIT'
-  | 'ROLE_CHANGED' | 'SCOPE_CHANGED' | 'PERMISSION_CHANGED'
-  | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED'
-  | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'DOCUMENT_CREATED' | 'DOCUMENT_VERSION_CREATED' | 'CONTRACT_UPDATED'
-  | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT'
-  | 'SESSION_REVOKED'
-  | 'CONCURRENT_UPDATE_REJECTED'
-  | 'SHIFT_PUBLISHED'
-  | 'SHIFT_DEPLOYED' | 'SHIFT_DEPLOYMENT_CHANGED' | 'SHIFT_UNDEPLOYED'
-  | 'COMPLIANCE_RECORD_UPDATED' | 'COMPLIANCE_OVERRIDE' | 'DOC_REJECTED'
-  | 'PATROL_CHECKPOINT_CREATED' | 'PATROL_ROUTE_CREATED' | 'PATROL_STARTED' | 'PATROL_COMPLETED' | 'PATROL_SCAN';
-
-export type AuditRecord = {
-  id: string;
-  timestamp: string;
-  userId: string;
-  userName: string;
-  userRole: string;
-  action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract' | 'session' | 'compliance' | 'patrol';
-  entityId: string;
-  description: string;
-  oldValues: any | null;
-  newValues: any | null;
-  metadata?: Record<string, any>;
-  status: 'success' | 'warning' | 'error' | 'info' | 'REJECTED';
-  organizationId: string;
+  completion: number; // percentage
 };
 
 export type ValidationResult = {
   isValid: boolean;
-  code: 'VALID' | 'SHIFT_OVERLAP' | 'DAILY_HOURS_EXCEEDED' | 'GUARD_UNAVAILABLE' | 'GUARD_ON_LEAVE' | 'ROLE_NOT_QUALIFIED' | 'CERTIFICATION_REQUIRED' | 'GUARD_INACTIVE' | 'SITE_REQUIREMENT_NOT_MET' | 'FATIGUE_LIMIT' | 'COMPLIANCE_BLOCK' | 'REST_PERIOD_VIOLATION';
+  code?: string;
   message: string;
-  details?: any;
 };
 
-export type OperationalEvent = {
+export type PermissionAction = 
+  | 'view' 
+  | 'manage' 
+  | 'finance' 
+  | 'hr' 
+  | 'client' 
+  | 'guard' 
+  | 'schedule' 
+  | 'schedule.publish' 
+  | 'audit' 
+  | 'location' 
+  | 'ai' 
+  | 'compliance.manage' 
+  | 'compliance.override'
+  | 'patrol.view'
+  | 'patrol.manage'
+  | 'patrol.assign'
+  | 'patrol.monitor';
+
+// Legacy Medical Types (Preserved for backward compatibility and build stability)
+export type BloodUnit = {
+  bloodType: string;
+  quantity: number;
+  lowStockThreshold: number;
+};
+
+export type Patient = {
   id: string;
+  name: string;
+  dateOfBirth: string;
+  gender: 'Male' | 'Female' | 'Other';
+  contact: string;
+  sampleCount: number;
+};
+
+export type SampleStatus = 'Collected' | 'Processing' | 'Pending Verification' | 'Verified' | 'Reported' | 'Disposed';
+export type SamplePriority = 'Routine' | 'Urgent' | 'STAT';
+
+export type TestResult = {
+  parameter: string;
+  value: number | null;
+  unit: string;
+  referenceRange: { min: number; max: number };
+};
+
+export type AuditEntry = {
+  user: string;
+  action: string;
   timestamp: string;
-  type: 'GUARD_CHECK_IN' | 'GUARD_CHECK_OUT' | 'SOS_TRIGGERED' | 'INCIDENT_CREATED' | 'PATROL_STARTED' | 'ALARM_TRIGGERED' | 'VEHICLE_UPDATED';
-  siteId: string;
-  siteName: string;
-  description: string;
-  severity: Severity;
-  metadata?: any;
+};
+
+export type Sample = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  testName: string;
+  status: SampleStatus;
+  priority: SamplePriority;
+  technician: string;
+  collectionDate: string;
+  turnaroundTime: string;
+  results: TestResult[];
+  auditTrail: AuditEntry[];
+  remarks: string[];
+  predefinedRules?: string;
+  statisticalData?: string;
 };

@@ -46,7 +46,7 @@ export function ResultEntryForm({ sample, isVerified }: ResultEntryFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      results: sample.results,
+      results: sample?.results ?? [],
     },
     disabled: isVerified,
   });
@@ -56,7 +56,7 @@ export function ResultEntryForm({ sample, isVerified }: ResultEntryFormProps) {
     name: 'results',
   });
 
-  const currentResults = form.watch('results');
+  const currentResults = form.watch('results') ?? [];
   
   const testResultsForAI = currentResults.reduce((acc, result) => {
     if (result.parameter && result.value !== null) {
@@ -70,7 +70,7 @@ export function ResultEntryForm({ sample, isVerified }: ResultEntryFormProps) {
       acc[result.parameter] = result.referenceRange;
     }
     return acc;
-  }, {} as Record<string, { min: number; max: number }>);
+  }, {} as Record<string, { min: number; max: number }>;
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
@@ -120,15 +120,20 @@ export function ResultEntryForm({ sample, isVerified }: ResultEntryFormProps) {
                   />
                 );
               })}
+              {fields.length === 0 && (
+                <div className="col-span-full py-6 text-center text-muted-foreground italic">
+                  No test parameters defined for this sample.
+                </div>
+              )}
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
             <SmartRemarking
-                testName={sample.testName}
+                testName={sample?.testName ?? ''}
                 testResults={testResultsForAI}
                 referenceRanges={referenceRangesForAI}
-                predefinedRules={sample.predefinedRules}
-                statisticalData={sample.statisticalData}
+                predefinedRules={sample?.predefinedRules}
+                statisticalData={sample?.statisticalData}
                 disabled={isVerified}
             />
             <Button type="submit" disabled={isVerified}>
