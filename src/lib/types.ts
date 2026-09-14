@@ -414,6 +414,13 @@ export type AuditRecord = {
   organizationId: string;
 };
 
+export type ValidationResult = {
+  isValid: boolean;
+  code: 'VALID' | 'SHIFT_OVERLAP' | 'DAILY_HOURS_EXCEEDED' | 'GUARD_UNAVAILABLE' | 'GUARD_ON_LEAVE' | 'ROLE_NOT_QUALIFIED' | 'CERTIFICATION_REQUIRED' | 'GUARD_INACTIVE' | 'SITE_REQUIREMENT_NOT_MET' | 'FATIGUE_LIMIT' | 'COMPLIANCE_BLOCK' | 'REST_PERIOD_VIOLATION';
+  message: string;
+  details?: any;
+};
+
 export type OperationalEvent = {
   id: string;
   timestamp: string;

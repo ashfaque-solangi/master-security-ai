@@ -3,21 +3,16 @@
  * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), Role Qualifications, and Compliance.
  */
 
-import { Shift, Guard, LeaveRecord, Site } from './types';
+import { Shift, Guard, LeaveRecord, Site, ValidationResult } from './types';
 import { parseISO, areIntervalsOverlapping, differenceInMinutes, startOfDay, endOfDay, isWithinInterval, isPast, format } from 'date-fns';
 
-export type ValidationResult = {
-  isValid: boolean;
-  code: 'VALID' | 'SHIFT_OVERLAP' | 'DAILY_HOURS_EXCEEDED' | 'GUARD_UNAVAILABLE' | 'GUARD_ON_LEAVE' | 'ROLE_NOT_QUALIFIED' | 'CERTIFICATION_REQUIRED' | 'GUARD_INACTIVE' | 'SITE_REQUIREMENT_NOT_MET' | 'FATIGUE_LIMIT' | 'COMPLIANCE_BLOCK';
-  message: string;
-  details?: any;
-};
-
 export const MAX_DAILY_HOURS = 16;
+export const MANDATORY_REST_MINUTES = 480; // 8 Hours
 
 /**
- * Calculates hours worked by a guard on a specific calendar day,
- * correctly splitting cross-midnight shifts (Rules 4 & 5).
+ * Calculates hours worked by a guard on a specific calendar day.
+ * Note: Still used for reporting daily totals, but sequence accumulation 
+ * is now authoritative for the 16h/8h rest hard block.
  */
 export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift[]): number {
   const startOfTargetDay = startOfDay(day);
@@ -25,7 +20,7 @@ export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift
   let totalMinutes = 0;
 
   const relevantShifts = allShifts.filter(s => 
-    s.assignments?.some(a => a.guardId === guardId) &&
+    s.assignments?.some(a => a.guardId === guardId && ['Assigned', 'Confirmed', 'In Transit', 'On Site', 'Pending'].includes(a.status)) &&
     s.status !== 'Cancelled'
   );
 
@@ -33,7 +28,6 @@ export function calculateDailyHours(guardId: string, day: Date, allShifts: Shift
     const shiftStart = parseISO(shift.startTime);
     const shiftEnd = parseISO(shift.endTime);
 
-    // Intersection logic for cross-midnight precision
     const intersectionStart = shiftStart < startOfTargetDay ? startOfTargetDay : shiftStart;
     const intersectionEnd = shiftEnd > endOfTargetDay ? endOfTargetDay : shiftEnd;
 
@@ -137,7 +131,7 @@ export function validateGuardAssignment(
 
   const overlappingShift = allShifts.find(s => {
     if (s.id === targetShift.id || s.status === 'Cancelled') return false;
-    return s.assignments?.some(a => a.guardId === guard.id) && areIntervalsOverlapping(targetInterval, {
+    return s.assignments?.some(a => a.guardId === guard.id && ['Assigned', 'Confirmed', 'In Transit', 'On Site', 'Pending'].includes(a.status)) && areIntervalsOverlapping(targetInterval, {
       start: parseISO(s.startTime),
       end: parseISO(s.endTime)
     });
@@ -151,25 +145,55 @@ export function validateGuardAssignment(
     };
   }
 
-  // RULE 4 & 5: 16-Hour Limit & Cross-Midnight Calculation
-  const targetDays = [startOfDay(targetInterval.start), startOfDay(targetInterval.end)];
-  const uniqueDays = Array.from(new Set(targetDays.map(d => d.toISOString()))).map(s => parseISO(s));
+  // RULE: 16-Hour Accumulated Duty & 8-Hour Rest Period
+  // We identify duty sequences (shifts separated by less than 8 hours)
+  const activeAssignments = allShifts.filter(s => 
+    s.id !== targetShift.id &&
+    s.status !== 'Cancelled' && 
+    s.assignments?.some(a => 
+      a.guardId === guard.id && 
+      ['Assigned', 'Confirmed', 'In Transit', 'On Site', 'Pending'].includes(a.status)
+    )
+  );
 
-  for (const day of uniqueDays) {
-    const existingHours = calculateDailyHours(guard.id, day, allShifts.filter(s => s.id !== targetShift.id));
+  // Group current assignments and proposed shift chronologically
+  const chronologicalGuardRoster = [...activeAssignments, targetShift].sort((a, b) => 
+    parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime()
+  );
+
+  const dutySequences: Shift[][] = [];
+  if (chronologicalGuardRoster.length > 0) {
+    let currentSeq: Shift[] = [chronologicalGuardRoster[0]];
+    for (let i = 1; i < chronologicalGuardRoster.length; i++) {
+      const prev = chronologicalGuardRoster[i - 1];
+      const curr = chronologicalGuardRoster[i];
+      
+      const gap = differenceInMinutes(parseISO(curr.startTime), parseISO(prev.endTime));
+      
+      // If gap is less than 8 hours, it's one continuous duty sequence
+      if (gap < MANDATORY_REST_MINUTES) {
+        currentSeq.push(curr);
+      } else {
+        dutySequences.push(currentSeq);
+        currentSeq = [curr];
+      }
+    }
+    dutySequences.push(currentSeq);
+  }
+
+  // Find the sequence containing the target shift and check its total duration
+  for (const seq of dutySequences) {
+    const totalMinutes = seq.reduce((sum, s) => sum + differenceInMinutes(parseISO(s.endTime), parseISO(s.startTime)), 0);
     
-    const dayStart = startOfDay(day);
-    const dayEnd = endOfDay(day);
-    const contributionStart = targetInterval.start < dayStart ? dayStart : targetInterval.start;
-    const contributionEnd = targetInterval.end > dayEnd ? dayEnd : targetInterval.end;
-    const contributionHours = contributionStart < contributionEnd ? differenceInMinutes(contributionEnd, contributionStart) / 60 : 0;
-
-    if (existingHours + contributionHours > MAX_DAILY_HOURS) {
-      return {
-        isValid: false,
-        code: 'DAILY_HOURS_EXCEEDED',
-        message: `Exceeds 16-hour hard limit on ${day.toLocaleDateString()}. (Current: ${existingHours.toFixed(1)}h, Adding: ${contributionHours.toFixed(1)}h)`
-      };
+    if (totalMinutes > 960) { // 960 mins = 16 hours
+      if (seq.some(s => s.id === targetShift.id)) {
+        const hours = (totalMinutes / 60).toFixed(1);
+        return {
+          isValid: false,
+          code: 'REST_PERIOD_VIOLATION',
+          message: `Rest Period Violation: Accumulated duty reaches ${hours}h. A mandatory 8-hour rest is required after 16h of duty.`
+        };
+      }
     }
   }
 
