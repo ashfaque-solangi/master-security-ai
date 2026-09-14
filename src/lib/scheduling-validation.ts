@@ -1,6 +1,6 @@
 /**
  * @fileOverview Centralized Scheduling Validation Service (Rule Engine)
- * Implements hard constraints for Overlaps, Daily Limits (Cross-Midnight), Role Qualifications, and Compliance.
+ * Implements hard constraints for Overlaps, Daily Limits (Continuous Duty), Role Qualifications, and Compliance.
  */
 
 import { Shift, Guard, LeaveRecord, Site, ValidationResult } from './types';
