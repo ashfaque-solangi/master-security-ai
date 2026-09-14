@@ -268,7 +268,7 @@ export const useJsonStore = () => {
 
     addShift: (s: Shift) => {
       if (!assertWrite('schedule', 'shift')) return [];
-      const updated = [s, ...getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts)];
+      const updated = [{ ...s, version: 1 }, ...getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts)];
       setStored(STORAGE_KEYS.SHIFTS, updated);
       logAudit({ action: 'SHIFT_CREATED', entityType: 'shift', entityId: s.id, description: `Shift requirement created for ${s.siteName}.`, newValues: s });
       return updated;
@@ -277,7 +277,22 @@ export const useJsonStore = () => {
     updateShift: (s: Shift) => {
       if (!assertWrite('schedule', 'shift', s)) return [];
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
-      const updated = all.map(o => o.id === s.id ? s : o);
+      const existing = all.find(x => x.id === s.id);
+      
+      // OPTIMISTIC CONCURRENCY PROTECTION
+      if (existing && existing.version !== s.version) {
+        logAudit({ 
+          action: 'CONCURRENT_UPDATE_REJECTED', 
+          entityType: 'shift', 
+          entityId: s.id, 
+          description: `Conflict: Stale version (Expected ${existing.version}, Got ${s.version})`,
+          metadata: { attempted: s, current: existing },
+          status: 'error'
+        });
+        throw new Error('STALE_VERSION');
+      }
+
+      const updated = all.map(o => o.id === s.id ? { ...s, version: (s.version || 0) + 1 } : o);
       setStored(STORAGE_KEYS.SHIFTS, updated);
       logAudit({ action: 'SHIFT_UPDATED', entityType: 'shift', entityId: s.id, description: `Shift at ${s.siteName} updated.`, newValues: s });
       return updated;
@@ -300,7 +315,8 @@ export const useJsonStore = () => {
       const updatedShift: Shift = {
         ...shift,
         assignments: [...shift.assignments, assignment],
-        status: 'Claimed'
+        status: 'Claimed',
+        version: (shift.version || 0) + 1
       };
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
@@ -335,7 +351,11 @@ export const useJsonStore = () => {
         } : a
       );
 
-      const updatedShift: Shift = { ...shift, assignments: updatedAssignments };
+      const updatedShift: Shift = { 
+        ...shift, 
+        assignments: updatedAssignments,
+        version: (shift.version || 0) + 1 
+      };
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
       
@@ -357,7 +377,12 @@ export const useJsonStore = () => {
 
       const assignment = shift.assignments.find(a => a.id === assignmentId);
       const updatedAssignments = shift.assignments.filter(a => a.id !== assignmentId);
-      const updatedShift: Shift = { ...shift, assignments: updatedAssignments, status: updatedAssignments.length > 0 ? 'Claimed' : 'Open' };
+      const updatedShift: Shift = { 
+        ...shift, 
+        assignments: updatedAssignments, 
+        status: updatedAssignments.length > 0 ? 'Claimed' : 'Open',
+        version: (shift.version || 0) + 1
+      };
       
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, finalShifts);
@@ -382,6 +407,7 @@ export const useJsonStore = () => {
       const updatedShifts = allShifts.map(s => {
         if (s.status === 'Completed' || s.status === 'Cancelled') return s;
         const assignments = [...s.assignments];
+        let changed = false;
         s.requirements.forEach(req => {
           const filledCount = assignments.filter(a => a.rolePerformed === req.role).length;
           for (let i = 0; i < (req.count - filledCount); i++) {
@@ -400,10 +426,16 @@ export const useJsonStore = () => {
                 assignedAt: new Date().toISOString(),
                 assignedBy: 'AI_AUTO'
               });
+              changed = true;
             }
           }
         });
-        return { ...s, assignments, status: assignments.length > 0 ? 'Claimed' : 'Open' };
+        return { 
+          ...s, 
+          assignments, 
+          status: assignments.length > 0 ? 'Claimed' : 'Open',
+          version: changed ? (s.version || 0) + 1 : s.version
+        };
       });
 
       setStored(STORAGE_KEYS.SHIFTS, updatedShifts);

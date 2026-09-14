@@ -135,9 +135,27 @@ export default function SchedulingPage() {
     }
 
     const updatedShift: Shift = { ...shift, startTime: newStart.toISOString(), endTime: newEnd.toISOString() };
-    store.updateShift(updatedShift);
-    refreshData();
-    toast({ title: "Shift Rescheduled", description: "Entire team successfully moved." });
+    
+    try {
+      store.updateShift(updatedShift);
+      refreshData();
+      toast({ title: "Shift Rescheduled", description: "Entire team successfully moved." });
+    } catch (error: any) {
+      if (error.message === 'STALE_VERSION') {
+        toast({
+          variant: "destructive",
+          title: "Concurrent Conflict",
+          description: "Schedule changed by another user. Your copy is out of date. Refreshing authoritative state..."
+        });
+        refreshData();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "An unexpected error occurred while updating the shift."
+        });
+      }
+    }
   };
 
   const openAddGuard = (shift: Shift, role: string) => {
@@ -384,6 +402,10 @@ export default function SchedulingPage() {
                        <p className="text-sm font-black text-slate-800">{selectedShift?.assignments.length} / {selectedShift?.requirements.reduce((a,b) => a + b.count, 0)} Posts</p>
                        <Badge variant="outline" className="bg-white text-[8px] uppercase">{selectedShift?.priority}</Badge>
                     </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Revision ID</p>
+                    <p className="text-xs font-mono text-slate-500 uppercase">v{selectedShift?.version || 1}</p>
                   </div>
                 </div>
               </div>

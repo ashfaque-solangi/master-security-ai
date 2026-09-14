@@ -21,7 +21,10 @@ export const users: User[] = [
 
 export const clients: Client[] = [
   { id: 'CL-001', organizationId: ORG_A, name: 'Northgate Retail Group', contactPerson: 'John Hammond', email: 'j.hammond@northgate.com', phone: '+44 20 7123 4567', status: 'Active', industry: 'Retail' },
-  { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics' }
+  { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics' },
+  { id: 'CL-003', organizationId: ORG_A, name: 'Westfield Property Services', contactPerson: 'Mark Spencer', email: 'mspencer@westfield.com', phone: '+44 20 7111 2222', status: 'Active', industry: 'Real Estate' },
+  { id: 'CL-004', organizationId: ORG_A, name: 'Corporate City Tower', contactPerson: 'Sarah Kent', email: 'skent@citytower.com', phone: '+44 20 7333 4444', status: 'Active', industry: 'Commercial' },
+  { id: 'CL-005', organizationId: ORG_B, name: 'Sentinel Industrial Hub', contactPerson: 'James Reed', email: 'jreed@sentinel.com', phone: '+44 20 7555 6666', status: 'Active', industry: 'Industrial' }
 ];
 
 export const sites: Site[] = [
@@ -29,6 +32,21 @@ export const sites: Site[] = [
     id: 'SITE-001', organizationId: ORG_A, name: 'Northgate Mall', code: 'NG-01', clientId: 'CL-001', clientName: 'Northgate Retail Group',
     address: '100 Mall Street, London', contactInfo: 'Desk: 020 7123 0001', status: 'Active', operatingHours: '24/7', 
     requiredGuardCount: 4, requiredRoles: ['SECURITY_GUARD', 'CCTV_OPERATOR'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Medium', activeGuardsCount: 0, healthScore: 92, revenuePerMonth: 18500, openShifts: 0
+  },
+  { 
+    id: 'SITE-002', organizationId: ORG_A, name: 'Metro Distribution Centre', code: 'MD-02', clientId: 'CL-002', clientName: 'Metro Logistics Ltd',
+    address: '50 Logistics Way, Dartford', contactInfo: 'Gatehouse: 01322 700 800', status: 'Active', operatingHours: '24/7', 
+    requiredGuardCount: 6, requiredRoles: ['SECURITY_GUARD', 'MOBILE_PATROL'], requiredSkills: [], requiredQualifications: [], riskLevel: 'High', activeGuardsCount: 0, healthScore: 88, revenuePerMonth: 24000, openShifts: 0
+  },
+  { 
+    id: 'SITE-003', organizationId: ORG_A, name: 'Central Office Tower', code: 'CT-03', clientId: 'CL-004', clientName: 'Corporate City Tower',
+    address: '1 City Plaza, London', contactInfo: 'Reception: 020 7900 1000', status: 'Active', operatingHours: '24/7', 
+    requiredGuardCount: 3, requiredRoles: ['SECURITY_GUARD', 'SITE_LEAD'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Low', activeGuardsCount: 0, healthScore: 95, revenuePerMonth: 12000, openShifts: 0
+  },
+  { 
+    id: 'SITE-004', organizationId: ORG_B, name: 'Sentinel Hub A', code: 'SH-01', clientId: 'CL-005', clientName: 'Sentinel Industrial Hub',
+    address: 'Sentinel Park, Birmingham', contactInfo: 'HQ: 0121 500 6000', status: 'Active', operatingHours: '24/7', 
+    requiredGuardCount: 5, requiredRoles: ['SECURITY_GUARD', 'FIRE_MARSHAL'], requiredSkills: [], requiredQualifications: [], riskLevel: 'Critical', activeGuardsCount: 0, healthScore: 82, revenuePerMonth: 30000, openShifts: 0
   }
 ];
 
@@ -68,7 +86,8 @@ export const shifts: Shift[] = [
       { id: 'ASG-1', guardId: 'GRD-001', guardName: 'Marcus Thorne', rolePerformed: 'SECURITY_GUARD', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' },
       { id: 'ASG-2', guardId: 'GRD-002', guardName: 'Sarah Jenkins', rolePerformed: 'CCTV_OPERATOR', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' }
     ],
-    role: 'Team Deployment'
+    role: 'Team Deployment',
+    version: 1
   }
 ];
 

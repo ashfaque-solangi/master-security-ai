@@ -238,6 +238,7 @@ export type Shift = {
   requirements: RoleRequirement[];
   assignments: ShiftAssignment[];
   role: string; 
+  version: number;
 };
 
 export type Incident = {
@@ -363,7 +364,8 @@ export type AuditAction =
   | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED'
   | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'CONTRACT_UPDATED'
   | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT'
-  | 'SESSION_REVOKED';
+  | 'SESSION_REVOKED'
+  | 'CONCURRENT_UPDATE_REJECTED';
 
 export type AuditRecord = {
   id: string;
