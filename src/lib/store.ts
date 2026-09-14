@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -15,8 +14,6 @@ import {
   patrols as initialPatrols,
   payrollRecords as initialPayroll,
   forms as initialForms,
-  jobPosts as initialJobPosts,
-  interviews as initialInterviews,
   sosAlerts as initialSOS,
   alarms as initialAlarms,
   vehicles as initialVehicles,
@@ -27,7 +24,7 @@ import {
 import { 
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
-  AuditRecord, AuditAction, ShiftAssignment, JobPost, Interview, 
+  AuditRecord, AuditAction, JobPost, Interview, 
   SOSAlert, Alarm, Vehicle, MockDocument, Contract, LeaveRecord, OperationalEvent,
   RecruitmentStage
 } from './types';
@@ -50,8 +47,6 @@ const STORAGE_KEYS = {
   FORMS: 'sg_forms_p5_v1',
   AUDITS: 'sg_audits_p5_v1',
   CURRENT_USER: 'sg_current_user_p5_v1',
-  JOB_POSTS: 'sg_jobs_p5_v1',
-  INTERVIEWS: 'sg_interviews_p5_v1',
   SOS: 'sg_sos_p5_v1',
   ALARMS: 'sg_alarms_p5_v1',
   VEHICLES: 'sg_vehicles_p5_v1',
@@ -155,7 +150,6 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.CURRENT_USER, null);
     },
 
-    // Entity Retrieval
     getGuards: () => getProtectedData<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards, 'guard'),
     getSites: () => getProtectedData<Site[]>(STORAGE_KEYS.SITES, initialSites, 'site'),
     getClients: () => getProtectedData<Client[]>(STORAGE_KEYS.CLIENTS, initialClients, 'client'),
@@ -169,10 +163,10 @@ export const useJsonStore = () => {
     getApplicants: () => getProtectedData<Applicant[]>(STORAGE_KEYS.APPLICANTS, initialApplicants, 'guard'),
     getContracts: () => getProtectedData<Contract[]>(STORAGE_KEYS.CONTRACTS, initialContracts, 'contract'),
     getForms: () => getProtectedData<FormDefinition[]>(STORAGE_KEYS.FORMS, initialForms, 'document'),
-    getMessages: () => getStored<any[]>(STORAGE_KEYS.EVENTS, []), // Unified inbox logic
+    getSubcontractors: () => getProtectedData<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors, 'subcontractor'),
+    getMessages: () => getStored<any[]>(STORAGE_KEYS.EVENTS, []),
     getLiveEvents: () => getStored<OperationalEvent[]>(STORAGE_KEYS.EVENTS, []),
 
-    // Mutations
     addSite: (s: Site) => {
       if (!assertWrite('manage', 'site')) return [];
       const updated = [s, ...getStored<Site[]>(STORAGE_KEYS.SITES, initialSites)];
@@ -263,7 +257,6 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.APPLICANTS, updated);
       logAudit({ action: 'SCOPE_CHANGED', entityType: 'guard', entityId: applicantId, description: `Applicant ${applicant.name} moved to ${stage}.` });
       
-      // AUTO-PROVISION GUARD RECORD
       if (stage === 'ACTIVE') {
         const newGuard: Guard = {
           id: `GRD-${applicantId.split('-')[1] || Date.now()}`,

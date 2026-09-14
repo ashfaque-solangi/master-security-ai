@@ -1,4 +1,8 @@
 import { config } from 'dotenv';
 config();
 
-import '@/ai/flows/suggest-relevant-remarks.ts';
+/**
+ * AI Development Entry Point
+ * All legacy medical test remark flows have been removed.
+ * Future security-focused AI flows (Threat Detection, Roster Optimization) will be registered here.
+ */
