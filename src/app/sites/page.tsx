@@ -136,16 +136,6 @@ export default function SitesPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    try {
-      store.deleteSite(id);
-      refreshData();
-      toast({ title: 'Site Archived', description: 'Site has been removed from active deployment.' });
-    } catch (e: any) {
-      toast({ title: 'Deletion Blocked', description: e.message, variant: 'destructive' });
-    }
-  };
-
   const resetForm = () => {
     setName('');
     setAddress('');
@@ -159,12 +149,12 @@ export default function SitesPage() {
   const filteredSites = sites.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+    (s.clientName || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getSiteOperationalData = (siteId: string) => {
     const siteShifts = shifts.filter(s => s.siteId === siteId);
-    const assignedCount = siteShifts.reduce((acc, s) => acc + s.assignments.filter(a => a.status === 'Assigned').length, 0);
+    const assignedCount = siteShifts.reduce((acc, s) => acc + (s.assignments?.filter(a => a.status === 'Assigned')?.length || 0), 0);
     return { shifts: siteShifts, guardCount: assignedCount };
   };
 
@@ -263,7 +253,7 @@ export default function SitesPage() {
               <TableRow>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Identity / Code</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest">Client Partner</TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-widest">Active Shifts</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest">Human-Readable Shifts</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Status</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Guards</TableHead>
                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-right px-8">Actions</TableHead>
@@ -287,11 +277,14 @@ export default function SitesPage() {
                     </TableCell>
                     <TableCell className="font-black text-slate-600 text-xs italic uppercase">{site.clientName}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      <div className="flex flex-wrap gap-1 max-w-[250px]">
                         {siteShifts.slice(0, 2).map(s => (
-                          <Badge key={s.id} variant="outline" className="bg-slate-50 border-none text-[8px] font-bold h-4">{s.name}</Badge>
+                          <Badge key={s.id} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[7px] font-black h-4 px-2 italic uppercase">
+                            {s.name}
+                          </Badge>
                         ))}
-                        {siteShifts.length > 2 && <Badge variant="outline" className="bg-slate-50 border-none text-[8px] font-bold h-4">+{siteShifts.length - 2} MORE</Badge>}
+                        {siteShifts.length > 2 && <Badge variant="outline" className="bg-slate-50 border-none text-[7px] font-black h-4 px-2">+{siteShifts.length - 2} MORE</Badge>}
+                        {siteShifts.length === 0 && <span className="text-[8px] font-bold text-slate-300 italic uppercase">No Scheduled Shifts</span>}
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
@@ -348,14 +341,14 @@ export default function SitesPage() {
                       <p className="text-xs font-black text-slate-700 truncate italic uppercase">{site.clientName}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">Deployments</p>
-                      <p className="text-xs font-black text-slate-700 truncate italic uppercase">{siteShifts.length} SHIFTS</p>
+                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">Deployment Status</p>
+                      <p className="text-xs font-black text-slate-700 truncate italic uppercase">{siteShifts.length} ACTIVE UNITS</p>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Personnel</span>
-                      <span className="text-sm font-black text-slate-800 italic">{guardCount} GUARDS</span>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Personnel Distribution</span>
+                      <span className="text-sm font-black text-slate-800 italic">{guardCount} ASSIGNED OFFICERS</span>
                     </div>
                     <Button variant="ghost" size="icon" className="text-slate-300 group-hover:text-primary"><ChevronRight className="h-5 w-5" /></Button>
                   </div>
@@ -372,11 +365,11 @@ export default function SitesPage() {
           <DialogHeader className="bg-slate-900 text-white p-10 relative">
             <div className="absolute top-10 right-10 flex gap-6">
                 <div className="text-right">
-                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Site Code</p>
+                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Site Reference</p>
                     <p className="text-xl font-black italic text-primary uppercase">{selectedSite?.code}</p>
                 </div>
-                <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                    <ShieldCheck className="text-primary w-6 h-6" />
+                <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner">
+                    <ShieldCheck className="text-primary w-7 h-7" />
                 </div>
             </div>
             <DialogTitle className="text-4xl font-black italic uppercase tracking-tighter">{selectedSite?.name}</DialogTitle>
@@ -389,14 +382,14 @@ export default function SitesPage() {
             <TabsList className="bg-slate-50 w-full justify-start h-16 px-10 border-b rounded-none gap-8">
               <TabsTrigger value="overview" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Site Intelligence</TabsTrigger>
               <TabsTrigger value="shifts" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Deployed Shifts</TabsTrigger>
-              <TabsTrigger value="guards" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Assigned Team</TabsTrigger>
+              <TabsTrigger value="guards" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Personnel Ledger</TabsTrigger>
             </TabsList>
 
             <div className="p-10 max-h-[60vh] overflow-y-auto">
               <TabsContent value="overview" className="m-0 space-y-8">
                 <div className="grid md:grid-cols-3 gap-8">
                   <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
-                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Clock className="h-3 w-3 text-primary" /> Operating Window</p>
+                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Clock className="h-3 w-3 text-primary" /> Availability</p>
                      <p className="text-2xl font-black italic text-slate-800">{selectedSite?.operatingHours}</p>
                   </Card>
                   <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
@@ -404,14 +397,14 @@ export default function SitesPage() {
                      <p className="text-2xl font-black italic text-slate-800 uppercase">{selectedSite?.riskLevel} RISK</p>
                   </Card>
                   <Card className="border-none bg-slate-50 p-6 rounded-3xl space-y-4 shadow-inner">
-                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Users className="h-3 w-3 text-primary" /> Health Score</p>
+                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Users className="h-3 w-3 text-primary" /> Performance Index</p>
                      <p className="text-2xl font-black italic text-slate-800">{selectedSite?.healthScore}%</p>
                   </Card>
                 </div>
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-3">Operational Post Orders</h4>
-                  <div className="p-8 bg-slate-50 rounded-[2rem] border border-dashed text-sm font-medium text-slate-600 leading-relaxed italic">
-                    {selectedSite?.instructions || 'Follow standard operating procedures. Maintain logs of all visitor access.'}
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-3 italic">Authoritative Post Orders</h4>
+                  <div className="p-8 bg-slate-50 rounded-[2rem] border border-dashed text-sm font-medium text-slate-600 leading-relaxed italic shadow-inner">
+                    {selectedSite?.instructions || 'Standard operational procedures apply. All personnel must log arrival and departure via verified GPS terminal.'}
                   </div>
                 </div>
               </TabsContent>
@@ -430,28 +423,28 @@ export default function SitesPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge className={`text-[8px] font-black h-6 px-4 rounded-full uppercase ${
+                    <Badge className={`text-[8px] font-black h-6 px-4 rounded-full uppercase italic ${
                       shift.status === 'Draft' ? 'bg-slate-200 text-slate-600' :
                       shift.status === 'Open' ? 'bg-red-100 text-red-600' :
-                      'bg-primary text-white'
+                      'bg-primary text-white shadow-sm'
                     }`}>{shift.status}</Badge>
                   </div>
                 ))}
               </TabsContent>
 
               <TabsContent value="guards" className="m-0 space-y-4">
-                 {shifts.filter(s => s.siteId === selectedSite?.id).flatMap(s => s.assignments).map(asg => (
+                 {shifts.filter(s => s.siteId === selectedSite?.id).flatMap(s => s.assignments || []).map(asg => (
                     <div key={asg.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] flex items-center justify-between">
                        <div className="flex items-center gap-5">
-                          <div className="h-10 w-10 rounded-full bg-white border flex items-center justify-center font-black text-slate-400 text-xs">
-                             {asg.guardName.charAt(0)}
+                          <div className="h-10 w-10 rounded-full bg-white border flex items-center justify-center font-black text-slate-400 text-xs shadow-inner">
+                             {(asg.guardName || '?').charAt(0)}
                           </div>
                           <div>
                              <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{asg.guardName}</p>
-                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{asg.rolePerformed}</p>
+                             <p className="text-[9px] font-bold text-primary uppercase tracking-widest italic">{asg.rolePerformed?.replace(/_/g, ' ')}</p>
                           </div>
                        </div>
-                       <Badge variant="outline" className="text-[8px] font-black px-4">{asg.status}</Badge>
+                       <Badge variant="outline" className="text-[8px] font-black px-4 h-6 italic rounded-xl">{asg.status}</Badge>
                     </div>
                  ))}
               </TabsContent>

@@ -20,7 +20,8 @@ import {
   Send,
   Timer,
   Hash,
-  AlertTriangle
+  AlertTriangle,
+  MapPin
 } from 'lucide-react';
 import {
   Card,
@@ -77,11 +78,9 @@ export default function SchedulingPage() {
   
   // Modals
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isSwapOpen, setIsSwapOpen] = useState(false);
   const [isAddGuardOpen, setIsAddGuardOpen] = useState(false);
   
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
-  const [targetAssignment, setTargetAssignment] = useState<ShiftAssignment | null>(null);
   const [targetRole, setTargetRole] = useState<string>('');
   const [suggestions, setSuggestions] = useState<{guard: Guard, validation: any}[]>([]);
 
@@ -222,15 +221,15 @@ export default function SchedulingPage() {
           <div className="space-y-1">
             <h1 className="text-3xl font-black tracking-tight text-slate-800 uppercase italic">Scheduling Command</h1>
             <p className="text-muted-foreground font-medium flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-primary" /> Multi-Guard Sequence Optimization
+              <ShieldCheck className="w-4 h-4 text-primary" /> Integrated Workforce Optimization
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11 shadow-sm" onClick={() => { setIsAutoFilling(true); setTimeout(() => { store.autoFillAllShifts(); refreshData(); setIsAutoFilling(false); }, 800); }}>
+            <Button variant="outline" className="border-primary text-primary hover:bg-primary/5 rounded-full px-6 h-11 shadow-sm font-bold" onClick={() => { setIsAutoFilling(true); setTimeout(() => { store.autoFillAllShifts(); refreshData(); setIsAutoFilling(false); }, 800); }}>
               {isAutoFilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               AI AUTO-FILL
             </Button>
-            <Button className="bg-primary text-white rounded-full px-6 shadow-xl h-11">
+            <Button className="bg-primary text-white rounded-full px-6 shadow-xl h-11 font-black italic uppercase tracking-tighter">
               <Plus className="mr-2 h-4 w-4" /> New Sequence
             </Button>
           </div>
@@ -259,7 +258,7 @@ export default function SchedulingPage() {
             return (
               <div 
                 key={idx} 
-                className="flex flex-col min-h-[400px] bg-white group/day relative"
+                className="flex flex-col min-h-[500px] bg-white group/day relative"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, day)}
               >
@@ -269,16 +268,14 @@ export default function SchedulingPage() {
                 </div>
                 <div className="flex-1 p-3 space-y-4">
                   {dayShifts.map(shift => {
-                    const required = shift.requirements.reduce((a, b) => a + b.count, 0);
-                    const activeAssignments = shift.assignments.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
+                    const required = shift.requirements?.reduce((a, b) => a + b.count, 0) || 0;
+                    const activeAssignments = (shift.assignments || []).filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
                     const assignedCount = activeAssignments.length;
-                    const pendingCount = shift.assignments.filter(a => a.status === 'Pending').length;
+                    const pendingCount = (shift.assignments || []).filter(a => a.status === 'Pending').length;
                     
                     const isUnderstaffed = assignedCount < required;
                     const isOverstaffed = assignedCount > required;
-                    const isPerfectlyStaffed = assignedCount === required;
-
-                    // Group level conflict check
+                    
                     const conflicts = activeAssignments.map(asg => {
                       const guard = guards.find(g => g.id === asg.guardId);
                       if (!guard) return null;
@@ -301,19 +298,20 @@ export default function SchedulingPage() {
                           'bg-primary'
                         }`} />
                         
-                        <div className="flex justify-between items-start mb-2">
-                           <span className="text-[7px] font-black text-slate-400 uppercase font-mono">{shift.code}</span>
+                        <div className="flex justify-between items-start mb-3">
+                           <span className="text-[8px] font-black text-slate-400 uppercase font-mono">{shift.code}</span>
                            <div className="flex items-center gap-1.5">
                               {conflicts.length > 0 && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <div className="flex items-center text-red-500">
-                                      <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
+                                    <div className="flex items-center text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md border border-red-100">
+                                      <ShieldAlert className="w-3 h-3 mr-1" />
+                                      <span className="text-[8px] font-black">{conflicts.length}</span>
                                     </div>
                                   </TooltipTrigger>
-                                  <TooltipContent className="p-3 bg-red-900 text-white rounded-xl border-none shadow-2xl">
+                                  <TooltipContent className="p-3 bg-red-900 text-white rounded-xl border-none shadow-2xl max-w-xs">
                                     <div className="space-y-2">
-                                      <p className="text-[10px] font-black uppercase tracking-widest border-b border-white/20 pb-1">Scheduling Conflicts</p>
+                                      <p className="text-[10px] font-black uppercase tracking-widest border-b border-white/20 pb-1">Safety Rule Violations</p>
                                       {conflicts.map((c, i) => (
                                         <div key={i} className="space-y-0.5">
                                           <p className="text-[9px] font-black italic uppercase">{c?.guard.name}</p>
@@ -324,7 +322,7 @@ export default function SchedulingPage() {
                                   </TooltipContent>
                                 </Tooltip>
                               )}
-                              <Badge variant="outline" className={`text-[7px] font-black px-1.5 h-4 border-none shadow-sm ${
+                              <Badge variant="outline" className={`text-[8px] font-black px-2 h-4 border-none shadow-sm ${
                                 isUnderstaffed ? 'bg-red-50 text-red-600' : 
                                 isOverstaffed ? 'bg-amber-50 text-amber-600' : 
                                 'bg-green-50 text-green-600'
@@ -334,38 +332,48 @@ export default function SchedulingPage() {
                            </div>
                         </div>
 
-                        <div className="mb-3">
-                          <p className="text-[10px] font-black uppercase truncate text-slate-800 italic leading-none">{shift.name}</p>
-                          <p className="text-[8px] font-bold text-primary uppercase truncate mt-1">{shift.siteName}</p>
+                        <div className="mb-4">
+                          <p className="text-xs font-black uppercase truncate text-slate-800 italic tracking-tight">{shift.name}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                             <MapPin className="w-2.5 h-2.5 text-primary" />
+                             <p className="text-[9px] font-bold text-slate-400 uppercase truncate">{shift.siteName}</p>
+                          </div>
+                          <div className="flex items-center gap-1 mt-1">
+                             <Clock className="w-2.5 h-2.5 text-slate-300" />
+                             <p className="text-[9px] font-bold text-slate-400 uppercase truncate">
+                                {format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}
+                             </p>
+                          </div>
                         </div>
 
                         <div className="space-y-1.5">
-                          {activeAssignments.slice(0, 3).map(asg => {
+                          {activeAssignments.slice(0, 2).map(asg => {
                              const guard = guards.find(g => g.id === asg.guardId);
                              const fatigue = guard ? getFatigueScore(guard) : 'LOW';
                              return (
-                               <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 text-[8px] font-bold relative group/guard">
-                                  <div className={`h-3 w-3 rounded-full flex items-center justify-center text-[6px] text-white ${
+                               <div key={asg.id} className="flex items-center gap-2 bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-100 text-[9px] font-bold relative group/guard">
+                                  <div className={`h-4 w-4 rounded-full flex items-center justify-center text-[7px] text-white shrink-0 ${
                                     fatigue === 'CRITICAL' ? 'bg-red-600' :
                                     fatigue === 'HIGH' ? 'bg-amber-500' :
                                     'bg-primary'
                                   }`}>
-                                    {asg.guardName.charAt(0)}
+                                    {(asg.guardName || '?').charAt(0)}
                                   </div>
-                                  <span className="truncate flex-1">{asg.guardName}</span>
+                                  <span className="truncate flex-1 text-slate-700">{asg.guardName}</span>
+                                  <span className="text-[7px] font-black text-slate-400 uppercase">{asg.rolePerformed?.split('_')[0]}</span>
                                </div>
                              );
                           })}
                           
-                          {assignedCount > 3 && (
-                            <div className="text-center">
-                               <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest">+ {assignedCount - 3} More Assigned</p>
+                          {assignedCount > 2 && (
+                            <div className="flex items-center justify-center py-1 bg-slate-100/50 rounded-lg border border-dashed">
+                               <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">+ {assignedCount - 2} Assigned Personnel</p>
                             </div>
                           )}
 
                           {pendingCount > 0 && (
-                            <div className="flex items-center gap-1 text-[7px] text-amber-600 font-black uppercase mt-1 justify-center bg-amber-50 rounded-md py-0.5">
-                               <Timer className="w-2.5 h-2.5" /> {pendingCount} PENDING BID{pendingCount > 1 ? 'S' : ''}
+                            <div className="flex items-center gap-1 text-[8px] text-amber-600 font-black uppercase mt-1 justify-center bg-amber-50 rounded-md py-1 border border-amber-100 animate-pulse">
+                               <Timer className="w-3 h-3" /> {pendingCount} PENDING BID{pendingCount > 1 ? 'S' : ''}
                             </div>
                           )}
                         </div>
@@ -378,17 +386,17 @@ export default function SchedulingPage() {
           })}
         </div>
 
-        {/* Shift Detail / Site Roster Management */}
+        {/* Site Roster / Detail Management */}
         <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
           <DialogContent className="max-w-5xl p-0 overflow-hidden rounded-[3rem] border-none shadow-2xl">
             <DialogHeader className="p-10 bg-slate-900 text-white relative">
                <div className="absolute top-10 right-10 flex gap-6">
                   <div className="text-right">
-                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Site Code</p>
-                     <p className="text-xl font-black italic text-primary uppercase">{selectedShift?.code.split('-').pop()}</p>
+                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Shift Reference</p>
+                     <p className="text-xl font-black italic text-primary uppercase">{selectedShift?.code?.split('-')?.pop()}</p>
                   </div>
-                  <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                     <Building2 className="text-primary w-6 h-6" />
+                  <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                     <Building2 className="text-primary w-7 h-7" />
                   </div>
                </div>
                <div className="space-y-1">
@@ -396,7 +404,10 @@ export default function SchedulingPage() {
                     <Hash className="w-3 h-3" /> {selectedShift?.code}
                  </div>
                  <DialogTitle className="text-3xl font-black italic tracking-tighter uppercase">{selectedShift?.name}</DialogTitle>
-                 <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">{selectedShift?.siteName}</p>
+                 <div className="flex items-center gap-2 mt-2">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">{selectedShift?.siteName}</p>
+                 </div>
                </div>
             </DialogHeader>
             
@@ -404,42 +415,42 @@ export default function SchedulingPage() {
               <div className="grid md:grid-cols-3 gap-10">
                 <div className="md:col-span-1 space-y-10">
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3.5 h-3.5 text-primary" /> Deployment Window</h3>
+                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-3"><Clock className="w-3.5 h-3.5 text-primary" /> Duty Interval</h3>
                     <div className="p-6 bg-slate-50 rounded-3xl border border-dashed space-y-5 shadow-inner">
                       <div className="space-y-1">
-                        <p className="text-[8px] font-black text-slate-400 uppercase">Operational Date</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Deployment Date</p>
                         <p className="text-sm font-black text-slate-800 italic uppercase">{selectedShift && format(parseISO(selectedShift.startTime), 'EEEE, MMMM dd')}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[8px] font-black text-slate-400 uppercase">Shift Duration</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Operational Window</p>
                         <p className="text-2xl font-black text-primary italic">
                           {selectedShift && `${format(parseISO(selectedShift.startTime), 'HH:mm')} - ${format(parseISO(selectedShift.endTime), 'HH:mm')}`}
                         </p>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Total Duty: 8.0 Hours</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Total Duration: {selectedShift && differenceInHours(parseISO(selectedShift.endTime), parseISO(selectedShift.startTime))}h</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                     <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2 border-b pb-3 border-amber-100"><Zap className="w-3.5 h-3.5" /> Pending Claims</h3>
+                     <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2 border-b pb-3 border-amber-100"><Zap className="w-3.5 h-3.5" /> Pending Bids</h3>
                      <div className="space-y-3">
-                        {selectedShift?.assignments.filter(a => a.status === 'Pending').map(claim => (
+                        {selectedShift?.assignments?.filter(a => a.status === 'Pending').map(claim => (
                           <div key={claim.id} className="p-5 border border-amber-100 bg-amber-50/30 rounded-2xl space-y-3">
                              <div className="flex justify-between items-start">
                                 <div>
                                    <p className="text-xs font-black text-slate-800 italic">{claim.guardName}</p>
-                                   <p className="text-[8px] font-bold text-amber-600 uppercase mt-0.5">{claim.rolePerformed.replace(/_/g, ' ')}</p>
+                                   <p className="text-[8px] font-bold text-amber-600 uppercase mt-0.5">{claim.rolePerformed?.replace(/_/g, ' ')}</p>
                                 </div>
-                                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center border text-[8px] font-black">?</div>
+                                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center border text-[8px] font-black italic">?</div>
                              </div>
                              <div className="flex gap-2">
-                                <Button size="sm" className="flex-1 bg-green-600 text-white font-black text-[9px] h-8 rounded-xl" onClick={() => handleApproveClaim(claim)}>APPROVE</Button>
-                                <Button size="sm" variant="ghost" className="flex-1 text-red-600 font-black text-[9px] h-8 rounded-xl" onClick={() => handleRejectClaim(claim)}>REJECT</Button>
+                                <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white font-black text-[9px] h-9 rounded-xl" onClick={() => handleApproveClaim(claim)}>APPROVE</Button>
+                                <Button size="sm" variant="ghost" className="flex-1 text-red-600 hover:bg-red-50 font-black text-[9px] h-9 rounded-xl" onClick={() => handleRejectClaim(claim)}>REJECT</Button>
                              </div>
                           </div>
                         ))}
-                        {selectedShift?.assignments.filter(a => a.status === 'Pending').length === 0 && (
-                          <p className="text-center text-[9px] font-black uppercase text-slate-300 py-6 italic border border-dashed rounded-3xl">No pending requests</p>
+                        {selectedShift?.assignments?.filter(a => a.status === 'Pending').length === 0 && (
+                          <p className="text-center text-[9px] font-black uppercase text-slate-300 py-8 italic border border-dashed rounded-3xl">No pending workforce requests</p>
                         )}
                      </div>
                   </div>
@@ -463,8 +474,8 @@ export default function SchedulingPage() {
                           <div className="flex items-center gap-4">
                             {slot.assignment ? (
                               <>
-                                <div className="h-10 w-10 rounded-2xl bg-slate-50 border flex items-center justify-center font-black text-[11px] text-slate-400 group-hover:text-primary transition-colors shadow-inner">
-                                  {slot.assignment.guardName.charAt(0)}
+                                <div className="h-12 w-12 rounded-2xl bg-slate-50 border flex items-center justify-center font-black text-xs text-slate-400 group-hover:text-primary transition-colors shadow-inner">
+                                  {slot.assignment.guardName?.charAt(0)}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
@@ -474,36 +485,39 @@ export default function SchedulingPage() {
                                         <TooltipTrigger asChild>
                                           <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse cursor-help" />
                                         </TooltipTrigger>
-                                        <TooltipContent side="right" className="bg-red-600 text-white border-none font-bold text-[10px]">
+                                        <TooltipContent side="right" className="bg-red-600 text-white border-none font-bold text-[10px] p-3 rounded-xl shadow-xl">
                                           {validationResult.message}
                                         </TooltipContent>
                                       </Tooltip>
                                     )}
                                     {fatigue !== 'LOW' && (
-                                      <Badge className={fatigue === 'CRITICAL' ? 'bg-red-500' : 'bg-amber-500'}>FATIGUE: {fatigue}</Badge>
+                                      <Badge className={`text-[8px] font-black px-2 ${fatigue === 'CRITICAL' ? 'bg-red-500' : 'bg-amber-500'}`}>FATIGUE: {fatigue}</Badge>
                                     )}
                                   </div>
-                                  <p className="text-[9px] font-bold text-primary uppercase tracking-widest mt-0.5">{slot.role.replace(/_/g, ' ')}</p>
+                                  <p className="text-[9px] font-bold text-primary uppercase tracking-widest mt-0.5">{slot.role?.replace(/_/g, ' ')}</p>
                                 </div>
                               </>
                             ) : (
                               <>
-                                <div className="h-10 w-10 rounded-2xl bg-white border border-dashed border-slate-300 flex items-center justify-center text-slate-300">
-                                  <Plus className="w-4 h-4" />
+                                <div className="h-12 w-12 rounded-2xl bg-white border border-dashed border-slate-300 flex items-center justify-center text-slate-300">
+                                  <Plus className="w-5 h-5" />
                                 </div>
                                 <div>
-                                  <p className="text-sm font-black text-slate-300 uppercase italic">UNFILLED POST</p>
-                                  <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">REQUIRED: {slot.role.replace(/_/g, ' ')}</p>
+                                  <p className="text-sm font-black text-slate-300 uppercase italic">Unfilled Requirement</p>
+                                  <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Needed: {slot.role?.replace(/_/g, ' ')}</p>
                                 </div>
                               </>
                             )}
                           </div>
                           <div className="flex gap-2">
                             {slot.assignment ? (
-                              <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:text-destructive rounded-xl" onClick={() => handleRemoveAssignment(slot.assignment!)}><Trash2 className="h-4 w-4" /></Button>
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="sm" className="h-9 px-4 rounded-xl text-primary font-bold text-[10px] uppercase">MOVE</Button>
+                                <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-300 hover:text-red-500 rounded-xl" onClick={() => handleRemoveAssignment(slot.assignment!)}><Trash2 className="h-4 w-4" /></Button>
+                              </div>
                             ) : (
-                              <Button variant="outline" size="sm" className="h-9 px-6 rounded-xl border-primary text-primary font-black text-[9px] uppercase italic tracking-tighter" onClick={() => openAddGuard(selectedShift, slot.role)}>
-                                <UserPlus className="h-3.5 h-3.5 mr-2" /> ASSIGN PERSONNEL
+                              <Button variant="outline" size="sm" className="h-10 px-6 rounded-2xl border-primary text-primary hover:bg-primary/5 font-black text-[10px] uppercase italic tracking-tighter shadow-sm" onClick={() => openAddGuard(selectedShift, slot.role)}>
+                                <UserPlus className="h-4 w-4 mr-2" /> Assign Personnel
                               </Button>
                             )}
                           </div>
@@ -517,16 +531,16 @@ export default function SchedulingPage() {
           </DialogContent>
         </Dialog>
 
-        {/* POOL SELECTION MODAL */}
+        {/* CANDIDATE SELECTION MODAL */}
         <Dialog open={isAddGuardOpen} onOpenChange={setIsAddGuardOpen}>
           <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
             <DialogHeader className="p-8 bg-slate-900 text-white">
               <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
                 <UserPlus className="w-6 h-6 text-primary" />
-                Select Candidate
+                Select Personnel
               </DialogTitle>
               <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                Filling position: <span className="text-primary italic">{targetRole.replace(/_/g, ' ')}</span>
+                Filling Role: <span className="text-primary italic">{targetRole?.replace(/_/g, ' ')}</span>
               </DialogDescription>
             </DialogHeader>
             <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto bg-slate-50">
@@ -537,13 +551,14 @@ export default function SchedulingPage() {
                   className={`flex items-center justify-between p-5 border rounded-[2rem] bg-white shadow-sm transition-all ${validation.isValid ? 'hover:border-primary cursor-pointer group' : 'opacity-40 grayscale cursor-not-allowed border-dashed'}`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-200 group-hover:bg-primary/5 group-hover:text-primary transition-colors">{guard.name.charAt(0)}</div>
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-200 group-hover:bg-primary/5 group-hover:text-primary transition-colors shadow-inner">{guard.name.charAt(0)}</div>
                     <div>
                       <p className="text-sm font-black text-slate-800 uppercase italic">{guard.name}</p>
                       <div className="flex items-center gap-2 mt-1">
-                         <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none ${validation.isValid ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                           {validation.isValid ? 'QUALIFIED' : validation.code.replace(/_/g, ' ')}
+                         <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none ${validation.isValid ? 'bg-green-50 text-green-600 shadow-sm' : 'bg-red-50 text-red-600'}`}>
+                           {validation.isValid ? 'QUALIFIED' : validation.code?.replace(/_/g, ' ')}
                          </Badge>
+                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{getFatigueScore(guard)} Fatigue</span>
                       </div>
                     </div>
                   </div>
