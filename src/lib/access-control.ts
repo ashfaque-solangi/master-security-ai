@@ -1,4 +1,3 @@
-
 'use client';
 /**
  * @fileOverview Centralized Access Control Service
@@ -41,6 +40,9 @@ export class AccessControlService {
         // Guards only see their own records
         if (entityType === 'guard') return record.id === user.guardId;
         if (entityType === 'shift' || entityType === 'shift_assignment') {
+            // WEB-05: Draft shifts must be hidden from guards
+            if (record.status === 'Draft') return false;
+            
             return record.assignments?.some((a: any) => a.guardId === user.guardId);
         }
         return false;

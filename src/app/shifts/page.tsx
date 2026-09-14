@@ -13,7 +13,8 @@ import {
   LayoutGrid, 
   List,
   Lock,
-  Coffee
+  Coffee,
+  Send
 } from 'lucide-react';
 import {
   Card,
@@ -64,7 +65,7 @@ export default function ShiftsManagement() {
   // Form States
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [role, setRole] = useState('Security Officer');
-  const [status, setStatus] = useState<Shift['status']>('Open');
+  const [status, setStatus] = useState<Shift['status']>('Draft');
   const [startTime, setStartTime] = useState(format(new Date(), "yyyy-MM-dd'T'08:00"));
   const [endTime, setEndTime] = useState(format(new Date(), "yyyy-MM-dd'T'16:00"));
   const [breakStart, setBreakStart] = useState('');
@@ -100,16 +101,17 @@ export default function ShiftsManagement() {
       endTime: new Date(endTime).toISOString(),
       breakStartTime: bStart,
       breakEndTime: bEnd,
-      status: 'Open',
+      status: 'Draft',
       priority: 'Routine',
       requirements: [{ role: role, count: 1 }],
-      role: role
+      role: role,
+      version: 1
     };
     const updated = store.addShift(newShift);
     setShifts(updated);
     setIsCreateOpen(false);
     resetForm();
-    toast({ title: "Shift Created", description: "Requirement added to registry." });
+    toast({ title: "Draft Created", description: "Shift created in draft mode. Publish it to make it operational." });
   };
 
   const handleUpdate = () => {
@@ -143,6 +145,16 @@ export default function ShiftsManagement() {
     toast({ title: "Shift Updated", description: "Record successfully modified." });
   };
 
+  const handlePublish = (id: string) => {
+    try {
+      const updated = store.publishShift(id);
+      setShifts(updated);
+      toast({ title: "Shift Published", description: "Shift is now operational and visible to guards." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
+
   const handleDelete = (id: string) => {
     const shift = shifts.find(s => s.id === id);
     if (shift?.status === 'Completed') {
@@ -167,7 +179,7 @@ export default function ShiftsManagement() {
     setEndTime(format(parseISO(shift.endTime), "yyyy-MM-dd'T'HH:mm"));
     if (shift.breakStartTime && shift.breakEndTime) {
       setBreakStart(format(parseISO(shift.breakStartTime), "HH:mm"));
-      setBreakEnd(format(parseISO(shift.breakEndTime), "HH:mm"));
+      setBreakEnd(format(parseISO(shift.breakEndTime!), "HH:mm"));
     } else {
       setBreakStart('');
       setBreakEnd('');
@@ -178,7 +190,7 @@ export default function ShiftsManagement() {
   const resetForm = () => {
     setSelectedSiteId('');
     setRole('Security Officer');
-    setStatus('Open');
+    setStatus('Draft');
     setStartTime(format(new Date(), "yyyy-MM-dd'T'08:00"));
     setEndTime(format(new Date(), "yyyy-MM-dd'T'16:00"));
     setBreakStart('');
@@ -256,6 +268,7 @@ export default function ShiftsManagement() {
           {shifts.map((shift) => (
             <Card key={shift.id} className="group border-none shadow-sm hover:shadow-md transition-all relative overflow-hidden bg-white rounded-2xl">
               <div className={`absolute top-0 left-0 w-full h-1.5 ${
+                shift.status === 'Draft' ? 'bg-slate-300' :
                 shift.status === 'Completed' ? 'bg-slate-400' :
                 shift.status === 'In Progress' ? 'bg-green-500' :
                 shift.status === 'Open' ? 'bg-red-500' : 'bg-blue-500'
@@ -312,6 +325,11 @@ export default function ShiftsManagement() {
                     <Button variant="ghost" size="sm" className="text-primary font-bold h-8" onClick={() => openEdit(shift)}>
                       <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
                     </Button>
+                    {shift.status === 'Draft' && (
+                       <Button variant="ghost" size="sm" className="text-primary font-bold h-8" onClick={() => handlePublish(shift.id)}>
+                        <Send className="w-3.5 h-3.5 mr-1" /> Publish
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -380,6 +398,7 @@ export default function ShiftsManagement() {
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className={`text-[9px] font-black uppercase rounded-full ${
+                      shift.status === 'Draft' ? 'bg-slate-100 text-slate-500' :
                       shift.status === 'Completed' ? 'bg-slate-100 text-slate-500' :
                       shift.status === 'In Progress' ? 'bg-green-50 text-green-600 border-green-200' :
                       shift.status === 'Open' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'
@@ -389,6 +408,11 @@ export default function ShiftsManagement() {
                   </TableCell>
                   <TableCell className="text-right px-6">
                     <div className="flex justify-end gap-1">
+                      {shift.status === 'Draft' && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handlePublish(shift.id)}>
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -453,6 +477,7 @@ export default function ShiftsManagement() {
                 <Select value={status} onValueChange={(v) => setStatus(v as Shift['status'])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Draft">Draft</SelectItem>
                     <SelectItem value="Open">Open</SelectItem>
                     <SelectItem value="Claimed">Claimed</SelectItem>
                     <SelectItem value="In Progress">In Progress</SelectItem>

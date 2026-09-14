@@ -1,17 +1,16 @@
-
 import { User, UserRole, PermissionAction } from './types';
 
-export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit', 'location'];
+export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai'];
 
 /**
  * Mapping of Platform Roles to their allowed Permission Actions.
  */
 export const rolePermissions: Record<UserRole, PermissionAction[]> = {
-  'SUPER_ADMIN': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'audit', 'location'],
-  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'audit', 'location'],
-  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'audit', 'location'],
-  'DISPATCHER': ['view', 'schedule', 'location'],
-  'SCHEDULER': ['view', 'schedule'],
+  'SUPER_ADMIN': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai'],
+  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location'],
+  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location'],
+  'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location'],
+  'SCHEDULER': ['view', 'schedule', 'schedule.publish'],
   'SITE_MANAGER': ['view', 'manage', 'location'],
   'HR_MANAGER': ['view', 'hr'],
   'COMPLIANCE_MANAGER': ['view', 'hr'],

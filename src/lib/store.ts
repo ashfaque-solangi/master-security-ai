@@ -34,7 +34,8 @@ import {
   Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
   AuditRecord, AuditAction, 
   SOSAlert, Alarm, Vehicle, Contract, 
-  RecruitmentStage, UserSession, MockDocument, LeaveRecord, ShiftAssignment
+  RecruitmentStage, UserSession, MockDocument, LeaveRecord, ShiftAssignment,
+  PermissionAction
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
@@ -122,7 +123,7 @@ export const useJsonStore = () => {
     return AccessControlService.filterByScope(user, entityType, data) as any;
   };
 
-  const assertWrite = (action: any, entityType: string, record?: any): boolean => {
+  const assertWrite = (action: PermissionAction, entityType: string, record?: any): boolean => {
     const user = getCurrentUser();
     if (!user) return false;
     if (!AccessControlService.assertMutation(user, action, entityType, record)) {
@@ -298,6 +299,35 @@ export const useJsonStore = () => {
       return updated;
     },
 
+    publishShift: (shiftId: string) => {
+      const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const shift = all.find(s => s.id === shiftId);
+      
+      if (!shift) throw new Error('Shift not found');
+      
+      // WEB-05: Publish permission check
+      if (!assertWrite('schedule.publish', 'shift', shift)) return all;
+
+      const updatedShift: Shift = {
+        ...shift,
+        status: shift.assignments.length > 0 ? 'Claimed' : 'Open',
+        version: (shift.version || 0) + 1
+      };
+
+      const updated = all.map(s => s.id === shiftId ? updatedShift : s);
+      setStored(STORAGE_KEYS.SHIFTS, updated);
+      
+      logAudit({ 
+        action: 'SHIFT_PUBLISHED', 
+        entityType: 'shift', 
+        entityId: shiftId, 
+        description: `Shift at ${shift.siteName} published and is now operational.`,
+        newValues: updatedShift 
+      });
+
+      return updated;
+    },
+
     deleteShift: (id: string) => {
       if (!assertWrite('schedule', 'shift')) return [];
       const all = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
@@ -315,7 +345,8 @@ export const useJsonStore = () => {
       const updatedShift: Shift = {
         ...shift,
         assignments: [...shift.assignments, assignment],
-        status: 'Claimed',
+        // Preserve status logic: only move from Open to Claimed if it was already published
+        status: shift.status === 'Open' ? 'Claimed' : shift.status,
         version: (shift.version || 0) + 1
       };
       const finalShifts = all.map(s => s.id === shiftId ? updatedShift : s);
@@ -377,10 +408,14 @@ export const useJsonStore = () => {
 
       const assignment = shift.assignments.find(a => a.id === assignmentId);
       const updatedAssignments = shift.assignments.filter(a => a.id !== assignmentId);
+      
+      // If the shift was claimed and now has no assignments, return to Open if it was already published
+      const newStatus = (shift.status === 'Claimed' && updatedAssignments.length === 0) ? 'Open' : shift.status;
+
       const updatedShift: Shift = { 
         ...shift, 
         assignments: updatedAssignments, 
-        status: updatedAssignments.length > 0 ? 'Claimed' : 'Open',
+        status: newStatus,
         version: (shift.version || 0) + 1
       };
       
@@ -405,6 +440,7 @@ export const useJsonStore = () => {
       const allLeave = getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave);
 
       const updatedShifts = allShifts.map(s => {
+        // AI optimization typically works on Draft or Open shifts
         if (s.status === 'Completed' || s.status === 'Cancelled') return s;
         const assignments = [...s.assignments];
         let changed = false;
@@ -430,10 +466,15 @@ export const useJsonStore = () => {
             }
           }
         });
+        
+        const newStatus = (s.status === 'Open' || s.status === 'Draft') && assignments.length > 0 && s.status !== 'Draft' 
+          ? 'Claimed' 
+          : s.status;
+
         return { 
           ...s, 
           assignments, 
-          status: assignments.length > 0 ? 'Claimed' : 'Open',
+          status: newStatus,
           version: changed ? (s.version || 0) + 1 : s.version
         };
       });

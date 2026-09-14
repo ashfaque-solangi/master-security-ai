@@ -35,7 +35,7 @@ export const WORKFORCE_ROLES = [
 
 export type WorkforceRole = typeof WORKFORCE_ROLES[number];
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'audit' | 'location' | 'ai';
+export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'schedule.publish' | 'audit' | 'location' | 'ai';
 
 export type User = {
   id: string;
@@ -255,7 +255,7 @@ export type Shift = {
   endTime: string;
   breakStartTime?: string;
   breakEndTime?: string;
-  status: 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Published';
+  status: 'Draft' | 'Open' | 'Claimed' | 'In Progress' | 'Completed' | 'Cancelled' | 'Published';
   priority: 'Routine' | 'Urgent' | 'STAT';
   requirements: RoleRequirement[];
   assignments: ShiftAssignment[];
@@ -388,7 +388,8 @@ export type AuditAction =
   | 'DOC_UPLOADED' | 'DOC_VERIFIED' | 'DOCUMENT_CREATED' | 'DOCUMENT_VERSION_CREATED' | 'CONTRACT_UPDATED'
   | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT'
   | 'SESSION_REVOKED'
-  | 'CONCURRENT_UPDATE_REJECTED';
+  | 'CONCURRENT_UPDATE_REJECTED'
+  | 'SHIFT_PUBLISHED';
 
 export type AuditRecord = {
   id: string;

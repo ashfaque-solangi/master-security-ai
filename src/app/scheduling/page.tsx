@@ -21,7 +21,8 @@ import {
   Trash2,
   UserPlus,
   ShieldCheck,
-  Building2
+  Building2,
+  Send
 } from 'lucide-react';
 import {
   Card,
@@ -37,6 +38,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter
 } from '@/components/ui/dialog';
 import { useJsonStore } from '@/lib/store';
 import { Shift, Guard, ShiftAssignment, AuditRecord, LeaveRecord, WorkforceRole } from '@/lib/types';
@@ -234,6 +236,19 @@ export default function SchedulingPage() {
     toast({ title: "Personnel Removed", description: "Assignment released to open board." });
   };
 
+  const handlePublish = () => {
+    if (!selectedShift) return;
+    try {
+      const updated = store.publishShift(selectedShift.id);
+      setShifts(updated);
+      const published = updated.find(s => s.id === selectedShift.id);
+      if (published) setSelectedShift(published);
+      toast({ title: "Shift Published", description: "Operational roster is now visible to eligible guards." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Publishing Denied", description: e.message });
+    }
+  };
+
   const navigate = (direction: 'prev' | 'next') => {
     const amount = direction === 'next' ? 1 : -1;
     if (viewMode === 'month') setCurrentDate(addMonths(currentDate, amount));
@@ -324,6 +339,7 @@ export default function SchedulingPage() {
                   const required = shift.requirements.reduce((a, b) => a + b.count, 0);
                   const assigned = shift.assignments.length;
                   const isUnderstaffed = assigned < required;
+                  const isDraft = shift.status === 'Draft';
 
                   return (
                     <Card 
@@ -331,17 +347,19 @@ export default function SchedulingPage() {
                       draggable
                       onDragStart={(e) => e.dataTransfer.setData('shiftId', shift.id)}
                       onClick={() => { setSelectedShift(shift); setIsDetailOpen(true); }} 
-                      className="p-3 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-md bg-white relative overflow-hidden group/shift"
+                      className={`p-3 cursor-grab active:cursor-grabbing border-none shadow-sm hover:shadow-md relative overflow-hidden group/shift transition-opacity ${isDraft ? 'opacity-60 bg-slate-50 border-dashed border' : 'bg-white'}`}
                     >
-                      <div className={`absolute left-0 top-0 w-1 h-full ${isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
+                      <div className={`absolute left-0 top-0 w-1 h-full ${isDraft ? 'bg-slate-300' : isUnderstaffed ? 'bg-red-500' : 'bg-primary'}`} />
                       <div className="flex justify-between items-start mb-2">
                         <p className="text-[9px] font-black uppercase truncate text-slate-800 max-w-[80%]">{shift.siteName}</p>
-                        <Badge variant="outline" className="text-[7px] px-1 h-3 border-none bg-slate-50 font-bold uppercase">{assigned}/{required}</Badge>
+                        <Badge variant="outline" className={`text-[7px] px-1.5 h-4 border-none font-bold uppercase ${isDraft ? 'bg-slate-200 text-slate-500' : 'bg-slate-50'}`}>
+                          {isDraft ? 'DRAFT' : `${assigned}/${required}`}
+                        </Badge>
                       </div>
                       <div className="space-y-1.5">
                         {shift.assignments.slice(0, 3).map(asg => (
-                          <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 text-[8px] font-bold">
-                             <Users className="w-2.5 h-2.5 text-primary" /> 
+                          <div key={asg.id} className="flex items-center gap-1.5 bg-slate-50/50 px-2 py-0.5 rounded border border-slate-100 text-[8px] font-bold">
+                             <Users className={`w-2.5 h-2.5 ${isDraft ? 'text-slate-400' : 'text-primary'}`} /> 
                              <span className="truncate flex-1">{asg.guardName}</span>
                              <span className="text-[6px] text-slate-400 uppercase">{asg.rolePerformed.replace(/_/g, ' ')}</span>
                           </div>
@@ -349,7 +367,7 @@ export default function SchedulingPage() {
                         {shift.assignments.length > 3 && (
                           <p className="text-[7px] font-black text-slate-400 text-center uppercase tracking-widest mt-1">+{shift.assignments.length - 3} more personnel</p>
                         )}
-                        {isUnderstaffed && (
+                        {!isDraft && isUnderstaffed && (
                           <div className="mt-1 flex items-center gap-1 text-[7px] text-red-500 font-black uppercase">
                             <XCircle className="w-2.5 h-2.5" /> MISSING POSITIONS
                           </div>
@@ -403,9 +421,16 @@ export default function SchedulingPage() {
                        <Badge variant="outline" className="bg-white text-[8px] uppercase">{selectedShift?.priority}</Badge>
                     </div>
                   </div>
-                  <div className="pt-2 border-t border-slate-100">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Revision ID</p>
-                    <p className="text-xs font-mono text-slate-500 uppercase">v{selectedShift?.version || 1}</p>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+                      <p className={`text-[10px] font-black uppercase italic ${selectedShift?.status === 'Draft' ? 'text-slate-400' : 'text-primary'}`}>{selectedShift?.status}</p>
+                    </div>
+                    {selectedShift?.status === 'Draft' && (
+                      <Button onClick={handlePublish} className="bg-primary text-white h-8 px-4 rounded-xl text-[9px] font-black uppercase italic italic tracking-tighter">
+                        <Send className="w-3 h-3 mr-1.5" /> PUBLISH
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

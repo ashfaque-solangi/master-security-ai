@@ -3,7 +3,7 @@ import {
   Invoice, Applicant, SOSAlert, Alarm, Vehicle, Contract,
   Patrol, PayrollRecord, Visitor, FormDefinition, MockDocument, LeaveRecord
 } from './types';
-import { addDays, subDays, set, subMinutes } from 'date-fns';
+import { addDays, set } from 'date-fns';
 
 const now = new Date();
 const ORG_A = 'ORG-GLOBAL-001';
@@ -20,11 +20,11 @@ export const users: User[] = [
 ];
 
 export const clients: Client[] = [
-  { id: 'CL-001', organizationId: ORG_A, name: 'Northgate Retail Group', contactPerson: 'John Hammond', email: 'j.hammond@northgate.com', phone: '+44 20 7123 4567', status: 'Active', industry: 'Retail' },
-  { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics' },
-  { id: 'CL-003', organizationId: ORG_A, name: 'Westfield Property Services', contactPerson: 'Mark Spencer', email: 'mspencer@westfield.com', phone: '+44 20 7111 2222', status: 'Active', industry: 'Real Estate' },
-  { id: 'CL-004', organizationId: ORG_A, name: 'Corporate City Tower', contactPerson: 'Sarah Kent', email: 'skent@citytower.com', phone: '+44 20 7333 4444', status: 'Active', industry: 'Commercial' },
-  { id: 'CL-005', organizationId: ORG_B, name: 'Sentinel Industrial Hub', contactPerson: 'James Reed', email: 'jreed@sentinel.com', phone: '+44 20 7555 6666', status: 'Active', industry: 'Industrial' }
+  { id: 'CL-001', organizationId: ORG_A, name: 'Northgate Retail Group', contactPerson: 'John Hammond', email: 'j.hammond@northgate.com', phone: '+44 20 7123 4567', status: 'Active', industry: 'Retail', address: '123 Retail Lane, London' },
+  { id: 'CL-002', organizationId: ORG_A, name: 'Metro Logistics Ltd', contactPerson: 'Linda Vance', email: 'vance@metrologistics.com', phone: '+44 20 7987 6543', status: 'Active', industry: 'Logistics', address: '50 Logistics Way, Dartford' },
+  { id: 'CL-003', organizationId: ORG_A, name: 'Westfield Property Services', contactPerson: 'Mark Spencer', email: 'mspencer@westfield.com', phone: '+44 20 7111 2222', status: 'Active', industry: 'Real Estate', address: '88 Property Blvd, Manchester' },
+  { id: 'CL-004', organizationId: ORG_A, name: 'Corporate City Tower', contactPerson: 'Sarah Kent', email: 'skent@citytower.com', phone: '+44 20 7333 4444', status: 'Active', industry: 'Commercial', address: '1 City Plaza, London' },
+  { id: 'CL-005', organizationId: ORG_B, name: 'Sentinel Industrial Hub', contactPerson: 'James Reed', email: 'jreed@sentinel.com', phone: '+44 20 7555 6666', status: 'Active', industry: 'Industrial', address: 'Sentinel Park, Birmingham' }
 ];
 
 export const sites: Site[] = [
@@ -76,7 +76,7 @@ export const guards: Guard[] = [
 export const shifts: Shift[] = [
   {
     id: 'SHF-001', organizationId: ORG_A, siteId: 'SITE-001', siteName: 'Northgate Mall',
-    startTime: createTimestamp(0, 8), endTime: createTimestamp(0, 16), status: 'Claimed', priority: 'Routine',
+    startTime: createTimestamp(0, 8), endTime: createTimestamp(0, 16), status: 'Open', priority: 'Routine',
     requirements: [
       { role: 'SECURITY_GUARD', count: 2 },
       { role: 'CCTV_OPERATOR', count: 1 },
@@ -87,6 +87,14 @@ export const shifts: Shift[] = [
       { id: 'ASG-2', guardId: 'GRD-002', guardName: 'Sarah Jenkins', rolePerformed: 'CCTV_OPERATOR', status: 'On Site', assignedAt: now.toISOString(), assignedBy: 'SYSTEM' }
     ],
     role: 'Team Deployment',
+    version: 1
+  },
+  {
+    id: 'SHF-DRAFT-001', organizationId: ORG_A, siteId: 'SITE-003', siteName: 'Central Office Tower',
+    startTime: createTimestamp(1, 10), endTime: createTimestamp(1, 18), status: 'Draft', priority: 'Routine',
+    requirements: [{ role: 'SECURITY_GUARD', count: 1 }],
+    assignments: [],
+    role: 'Static Post',
     version: 1
   }
 ];
