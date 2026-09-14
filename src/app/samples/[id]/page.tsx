@@ -25,13 +25,14 @@ import { AuditTrail } from '@/components/samples/audit-trail';
 import { Separator } from '@/components/ui/separator';
 
 type SampleDetailPageProps = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export default function SampleDetailPage({ params }: SampleDetailPageProps) {
-  const sample = findSampleById(params.id);
+export default async function SampleDetailPage({ params }: SampleDetailPageProps) {
+  const { id } = await params;
+  const sample = findSampleById(id);
 
   if (!sample) {
     notFound();

@@ -70,7 +70,7 @@ export function ResultEntryForm({ sample, isVerified }: ResultEntryFormProps) {
       acc[result.parameter] = result.referenceRange;
     }
     return acc;
-  }, {} as Record<string, { min: number; max: number }>;
+  }, {} as Record<string, { min: number; max: number }>);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
