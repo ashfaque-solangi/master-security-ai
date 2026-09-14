@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
@@ -17,6 +18,10 @@ import { Button } from '@/components/ui/button';
 import { ExecutiveDashboard } from '@/components/dashboard/executive-dashboard';
 import { OperationsDashboard } from '@/components/dashboard/operations-dashboard';
 import { HRDashboard } from '@/components/dashboard/hr-dashboard';
+import { WarRoom } from '@/components/dashboard/war-room';
+import { FinanceDashboard } from '@/components/dashboard/finance-dashboard';
+import { ComplianceDashboard } from '@/components/dashboard/compliance-dashboard';
+import { AIDashboard } from '@/components/dashboard/ai-dashboard';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -73,6 +78,10 @@ function DashboardContent() {
       case 'executive': return <ExecutiveDashboard />;
       case 'operations': return <OperationsDashboard />;
       case 'hr': return <HRDashboard />;
+      case 'command-centre': return <WarRoom />;
+      case 'finance': return <FinanceDashboard />;
+      case 'compliance': return <ComplianceDashboard />;
+      case 'ai-insights': return <AIDashboard />;
       default: return <PlaceholderDashboard title={activeDashboard?.title || 'Dashboard'} />;
     }
   };
