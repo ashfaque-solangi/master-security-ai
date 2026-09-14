@@ -25,7 +25,8 @@ import {
   MessageSquare,
   UserCheck,
   User as UserIcon,
-  Users2
+  Users2,
+  ShieldCheck
 } from 'lucide-react';
 import {
   Sidebar as ShadSidebar,
