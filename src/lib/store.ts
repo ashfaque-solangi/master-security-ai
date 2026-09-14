@@ -27,7 +27,8 @@ import {
 } from './data';
 import { 
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
-  Visitor, Invoice, Applicant, Patrol, PayrollRecord, FormDefinition,
+  Visitor, Invoice, Applicant, Patrol, PatrolCheckpoint, PatrolRoute, PatrolEvent,
+  PayrollRecord, FormDefinition,
   AuditRecord, AuditAction, 
   SOSAlert, Alarm, Vehicle, Contract, 
   UserSession, MockDocument, LeaveRecord, ShiftAssignment,
@@ -50,6 +51,9 @@ const STORAGE_KEYS = {
   INVOICES: 'sg_invoices_p10_v2',
   APPLICANTS: 'sg_applicants_p10_v2',
   PATROLS: 'sg_patrols_p10_v2',
+  CHECKPOINTS: 'sg_checkpoints_p10_v2',
+  ROUTES: 'sg_routes_p10_v2',
+  PATROL_EVENTS: 'sg_patrol_events_p10_v2',
   PAYROLL: 'sg_payroll_p10_v2',
   FORMS: 'sg_forms_p10_v2',
   AUDITS: 'sg_audits_p10_v2',
@@ -294,7 +298,10 @@ export const useJsonStore = () => {
     getAudits: () => getProtectedData<AuditRecord[]>(STORAGE_KEYS.AUDITS, [], 'audit'),
     getSessions: () => getStored<UserSession[]>(STORAGE_KEYS.SESSIONS, []),
     getSubcontractors: () => getProtectedData<Subcontractor[]>(STORAGE_KEYS.SUBS, initialSubcontractors, 'subcontractor'),
-    getPatrols: () => getProtectedData<Patrol[]>(STORAGE_KEYS.PATROLS, initialPatrols, 'view'),
+    getPatrols: () => getProtectedData<Patrol[]>(STORAGE_KEYS.PATROLS, initialPatrols, 'patrol'),
+    getCheckpoints: () => getProtectedData<PatrolCheckpoint[]>(STORAGE_KEYS.CHECKPOINTS, [], 'patrol'),
+    getRoutes: () => getProtectedData<PatrolRoute[]>(STORAGE_KEYS.ROUTES, [], 'patrol'),
+    getPatrolEvents: () => getProtectedData<PatrolEvent[]>(STORAGE_KEYS.PATROL_EVENTS, [], 'patrol'),
     getPayroll: () => getProtectedData<PayrollRecord[]>(STORAGE_KEYS.PAYROLL, initialPayroll, 'finance'),
     getVisitors: () => getProtectedData<Visitor[]>(STORAGE_KEYS.VISITORS, initialVisitors, 'view'),
     getDocuments: () => getProtectedData<MockDocument[]>(STORAGE_KEYS.DOCUMENTS, initialDocs, 'document'),
@@ -441,6 +448,103 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.SHIFTS, updated);
       logAudit({ action: 'SHIFT_UNDEPLOYED', entityType: 'shift', entityId: shiftId, description: `Shift [${shift.code}] undeployed.` });
       return updated;
+    },
+
+    // WEB-07 Patrol System Storage Methods
+    addCheckpoint: (cp: PatrolCheckpoint) => {
+      if (!assertWrite('patrol.manage', 'patrol')) return [];
+      const updated = [cp, ...getStored<PatrolCheckpoint[]>(STORAGE_KEYS.CHECKPOINTS, [])];
+      setStored(STORAGE_KEYS.CHECKPOINTS, updated);
+      logAudit({ action: 'PATROL_CHECKPOINT_CREATED', entityType: 'patrol', entityId: cp.id, description: `Checkpoint ${cp.name} added to site ${cp.siteId}` });
+      return updated;
+    },
+
+    addRoute: (route: PatrolRoute) => {
+      if (!assertWrite('patrol.manage', 'patrol')) return [];
+      const updated = [route, ...getStored<PatrolRoute[]>(STORAGE_KEYS.ROUTES, [])];
+      setStored(STORAGE_KEYS.ROUTES, updated);
+      logAudit({ action: 'PATROL_ROUTE_CREATED', entityType: 'patrol', entityId: route.id, description: `Route ${route.name} created for site ${route.siteId}` });
+      return updated;
+    },
+
+    recordPatrolScan: (params: { 
+      shiftId: string, 
+      routeId: string, 
+      checkpointId: string, 
+      guardId: string,
+      isSimulated: boolean 
+    }) => {
+      const user = getCurrentUser();
+      if (!user) return;
+
+      const routes = getStored<PatrolRoute[]>(STORAGE_KEYS.ROUTES, []);
+      const route = routes.find(r => r.id === params.routeId);
+      if (!route) throw new Error("Route not found");
+
+      const existingEvents = getStored<PatrolEvent[]>(STORAGE_KEYS.PATROL_EVENTS, []);
+      const shiftEvents = existingEvents.filter(e => e.shiftId === params.shiftId && e.routeId === params.routeId);
+      
+      // Validation Logic: Out of Sequence detection
+      const lastScannedIndex = shiftEvents.length > 0 
+        ? route.checkpointIds.indexOf(shiftEvents[shiftEvents.length - 1].checkpointId)
+        : -1;
+      
+      const currentTargetIndex = route.checkpointIds.indexOf(params.checkpointId);
+      
+      let validation: ScanValidationStatus = 'Valid';
+      if (currentTargetIndex === -1) {
+        validation = 'Unexpected';
+      } else if (currentTargetIndex !== lastScannedIndex + 1) {
+        validation = 'Out of Sequence';
+      }
+
+      const newEvent: PatrolEvent = {
+        id: `EVT-${Date.now()}`,
+        organizationId: user.organizationId,
+        shiftId: params.shiftId,
+        routeId: params.routeId,
+        checkpointId: params.checkpointId,
+        guardId: params.guardId,
+        timestamp: new Date().toISOString(),
+        scanType: 'QR',
+        sequenceNumber: shiftEvents.length + 1,
+        validationStatus: validation,
+        isSimulated: params.isSimulated
+      };
+
+      const updatedEvents = [...existingEvents, newEvent];
+      setStored(STORAGE_KEYS.PATROL_EVENTS, updatedEvents);
+
+      // Log to Audit
+      logAudit({ 
+        action: 'PATROL_SCAN', 
+        entityType: 'patrol', 
+        entityId: params.shiftId, 
+        description: `Officer scanned checkpoint ${params.checkpointId}. Status: ${validation}` 
+      });
+
+      // Update Live Patrol Status
+      const activePatrols = getStored<Patrol[]>(STORAGE_KEYS.PATROLS, initialPatrols);
+      const site = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).find(s => s.id === route.siteId);
+      
+      const patrolIdx = activePatrols.findIndex(p => p.shiftId === params.shiftId && p.routeId === params.routeId);
+      if (patrolIdx > -1) {
+        const p = activePatrols[patrolIdx];
+        const newCompleted = new Set(updatedEvents.filter(e => e.shiftId === params.shiftId).map(e => e.checkpointId)).size;
+        activePatrols[patrolIdx] = {
+          ...p,
+          status: 'Active',
+          checkpoints: newCompleted,
+          completion: Math.round((newCompleted / p.totalCheckpoints) * 100)
+        };
+        if (newCompleted >= p.totalCheckpoints) {
+          activePatrols[patrolIdx].status = 'Completed';
+          activePatrols[patrolIdx].endTime = new Date().toISOString();
+        }
+        setStored(STORAGE_KEYS.PATROLS, activePatrols);
+      }
+
+      return updatedEvents;
     },
 
     submitClaim: (shiftId: string, guardId: string, role: string) => {

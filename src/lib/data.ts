@@ -1,9 +1,10 @@
 import { 
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
   Invoice, Applicant, SOSAlert, Alarm, Vehicle, Contract,
-  Patrol, PayrollRecord, Visitor, FormDefinition, MockDocument, LeaveRecord
+  Patrol, PayrollRecord, Visitor, FormDefinition, MockDocument, LeaveRecord,
+  PatrolCheckpoint, PatrolRoute
 } from './types';
-import { addDays, set, subDays } from 'date-fns';
+import { addDays, set, subDays, subHours } from 'date-fns';
 
 const now = new Date();
 const ORG_A = 'ORG-GLOBAL-001';
@@ -147,9 +148,45 @@ export const contracts: Contract[] = [];
 export const applicants: Applicant[] = [];
 export const invoices: Invoice[] = [];
 export const subcontractors: Subcontractor[] = [];
-export const patrols: Patrol[] = [];
 export const payrollRecords: PayrollRecord[] = [];
 export const visitors: Visitor[] = [];
 export const forms: FormDefinition[] = [];
 export const documents: MockDocument[] = [];
 export const leaveRecords: LeaveRecord[] = [];
+
+// WEB-07 Demo Data
+export const patrols: Patrol[] = [
+  {
+    id: 'PAT-101',
+    organizationId: ORG_A,
+    siteId: 'SITE-101',
+    siteName: 'Northgate Retail Group - Main Gate',
+    guardId: 'GRD-101',
+    guardName: 'Marcus Thorne',
+    shiftId: 'SHF-101',
+    routeId: 'ROU-101',
+    routeName: 'Night Perimeter Patrol',
+    startTime: subHours(now, 2).toISOString(),
+    completion: 60,
+    checkpoints: 3,
+    totalCheckpoints: 5,
+    status: 'Active'
+  },
+  {
+    id: 'PAT-102',
+    organizationId: ORG_A,
+    siteId: 'SITE-102',
+    siteName: 'Metro Logistics Ltd - North Wing',
+    guardId: 'GRD-102',
+    guardName: 'Sarah Jenkins',
+    shiftId: 'SHF-102',
+    routeId: 'ROU-102',
+    routeName: 'Warehouse Inspection',
+    startTime: subHours(now, 4).toISOString(),
+    endTime: subHours(now, 3).toISOString(),
+    completion: 100,
+    checkpoints: 4,
+    totalCheckpoints: 4,
+    status: 'Completed'
+  }
+];

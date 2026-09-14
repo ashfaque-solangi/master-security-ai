@@ -1,23 +1,41 @@
 import { User, UserRole, PermissionAction } from './types';
 
-export const ALL_PERMISSIONS: PermissionAction[] = ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai', 'compliance.manage', 'compliance.override'];
+export const ALL_PERMISSIONS: PermissionAction[] = [
+  'view', 
+  'manage', 
+  'finance', 
+  'hr', 
+  'client', 
+  'guard', 
+  'schedule', 
+  'schedule.publish', 
+  'audit', 
+  'location', 
+  'ai', 
+  'compliance.manage', 
+  'compliance.override',
+  'patrol.view',
+  'patrol.manage',
+  'patrol.assign',
+  'patrol.monitor'
+];
 
 /**
  * Mapping of Platform Roles to their allowed Permission Actions.
  */
 export const rolePermissions: Record<UserRole, PermissionAction[]> = {
-  'SUPER_ADMIN': ['view', 'manage', 'finance', 'hr', 'client', 'guard', 'schedule', 'schedule.publish', 'audit', 'location', 'ai', 'compliance.manage', 'compliance.override'],
-  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location', 'compliance.manage'],
-  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location'],
-  'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location'],
+  'SUPER_ADMIN': ALL_PERMISSIONS,
+  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location', 'compliance.manage', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor'],
+  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor'],
+  'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location', 'patrol.view', 'patrol.assign', 'patrol.monitor'],
   'SCHEDULER': ['view', 'schedule', 'schedule.publish'],
-  'SITE_MANAGER': ['view', 'manage', 'location'],
+  'SITE_MANAGER': ['view', 'manage', 'location', 'patrol.view', 'patrol.monitor'],
   'HR_MANAGER': ['view', 'hr', 'compliance.manage'],
   'COMPLIANCE_MANAGER': ['view', 'hr', 'compliance.manage', 'compliance.override'],
   'FINANCE_MANAGER': ['view', 'finance'],
-  'GUARD': ['guard'],
-  'CLIENT_ADMIN': ['client', 'view', 'location'],
-  'CLIENT_VIEWER': ['view', 'location'],
+  'GUARD': ['guard', 'patrol.view'],
+  'CLIENT_ADMIN': ['client', 'view', 'location', 'patrol.view'],
+  'CLIENT_VIEWER': ['view', 'location', 'patrol.view'],
   'SUBCONTRACTOR_ADMIN': ['view', 'manage']
 };
 
@@ -29,7 +47,7 @@ export const navItemPermissions: Record<string, PermissionAction> = {
   '/client-portal': 'client',
   '/scheduling': 'schedule',
   '/shifts': 'schedule',
-  '/patrols': 'view',
+  '/patrols': 'patrol.view',
   '/incidents': 'view',
   '/forms': 'manage',
   '/visitors': 'view',

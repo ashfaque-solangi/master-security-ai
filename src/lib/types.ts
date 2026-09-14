@@ -35,7 +35,24 @@ export const WORKFORCE_ROLES = [
 
 export type WorkforceRole = typeof WORKFORCE_ROLES[number];
 
-export type PermissionAction = 'view' | 'manage' | 'finance' | 'hr' | 'client' | 'guard' | 'schedule' | 'schedule.publish' | 'audit' | 'location' | 'ai' | 'compliance.manage' | 'compliance.override';
+export type PermissionAction = 
+  | 'view' 
+  | 'manage' 
+  | 'finance' 
+  | 'hr' 
+  | 'client' 
+  | 'guard' 
+  | 'schedule' 
+  | 'schedule.publish' 
+  | 'audit' 
+  | 'location' 
+  | 'ai' 
+  | 'compliance.manage' 
+  | 'compliance.override'
+  | 'patrol.view'
+  | 'patrol.manage'
+  | 'patrol.assign'
+  | 'patrol.monitor';
 
 export type User = {
   id: string;
@@ -187,6 +204,7 @@ export type Shift = {
   assignments: ShiftAssignment[];
   role: string; 
   version: number;
+  patrolRouteId?: string; // WEB-07: Link to a patrol route
 };
 
 export type Incident = {
@@ -248,25 +266,68 @@ export type Visitor = {
   status: 'Expected' | 'Checked In' | 'Checked Out';
 };
 
-export type Invoice = {
+// WEB-07 Patrol System Types
+export type PatrolCheckpointType = 'QR' | 'NFC';
+export type PatrolStatus = 'Scheduled' | 'Active' | 'Completed' | 'Missed' | 'Aborted';
+export type ScanValidationStatus = 'Valid' | 'Out of Sequence' | 'Unexpected';
+
+export interface PatrolCheckpoint {
   id: string;
   organizationId: string;
-  clientName: string;
-  siteName: string;
-  amount: number;
-  date: string;
-  status: 'Paid' | 'Pending' | 'Overdue' | 'Draft';
-};
+  siteId: string;
+  name: string;
+  code: string;
+  type: PatrolCheckpointType;
+  description?: string;
+  status: 'Active' | 'Inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatrolRoute {
+  id: string;
+  organizationId: string;
+  siteId: string;
+  name: string;
+  code: string;
+  description?: string;
+  status: 'Active' | 'Inactive';
+  estimatedDuration: number; // in minutes
+  checkpointIds: string[]; // Ordered list of checkpoint IDs
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatrolEvent {
+  id: string;
+  organizationId: string;
+  shiftId: string;
+  routeId: string;
+  checkpointId: string;
+  guardId: string;
+  timestamp: string;
+  scanType: PatrolCheckpointType;
+  sequenceNumber: number; // The order in which it was scanned
+  validationStatus: ScanValidationStatus;
+  isSimulated: boolean;
+}
 
 export type Patrol = {
   id: string;
+  organizationId: string;
   siteId: string;
   siteName: string;
   guardName: string;
+  guardId: string;
+  shiftId: string;
+  routeId: string;
+  routeName: string;
   startTime: string;
-  completion: number;
-  checkpoints: number;
-  status: 'In Progress' | 'Completed' | 'Alert' | 'Scheduled' | 'Delayed' | 'Missed';
+  endTime?: string;
+  completion: number; // percentage 0-100
+  checkpoints: number; // count of completed
+  totalCheckpoints: number;
+  status: PatrolStatus;
 };
 
 export type PayrollRecord = {
@@ -318,7 +379,8 @@ export type AuditAction =
   | 'CONCURRENT_UPDATE_REJECTED'
   | 'SHIFT_PUBLISHED'
   | 'SHIFT_DEPLOYED' | 'SHIFT_DEPLOYMENT_CHANGED' | 'SHIFT_UNDEPLOYED'
-  | 'COMPLIANCE_RECORD_UPDATED' | 'COMPLIANCE_OVERRIDE' | 'DOC_REJECTED';
+  | 'COMPLIANCE_RECORD_UPDATED' | 'COMPLIANCE_OVERRIDE' | 'DOC_REJECTED'
+  | 'PATROL_CHECKPOINT_CREATED' | 'PATROL_ROUTE_CREATED' | 'PATROL_STARTED' | 'PATROL_COMPLETED' | 'PATROL_SCAN';
 
 export type AuditRecord = {
   id: string;
@@ -327,7 +389,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract' | 'session' | 'compliance';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'shift_assignment' | 'system' | 'subcontractor' | 'incident' | 'finance' | 'document' | 'contract' | 'session' | 'compliance' | 'patrol';
   entityId: string;
   description: string;
   oldValues: any | null;

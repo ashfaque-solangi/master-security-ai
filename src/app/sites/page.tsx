@@ -23,7 +23,10 @@ import {
   ClipboardList,
   Building,
   Info,
-  Hash
+  Hash,
+  QrCode,
+  Map as MapIcon,
+  Navigation
 } from 'lucide-react';
 import {
   Card,
@@ -61,7 +64,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { Site, Severity, Shift, Client, MockDocument } from '@/lib/types';
+import { Site, Severity, Shift, Client, MockDocument, PatrolCheckpoint, PatrolRoute } from '@/lib/types';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -72,6 +75,8 @@ export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [checkpoints, setCheckpoints] = useState<PatrolCheckpoint[]>([]);
+  const [routes, setRoutes] = useState<PatrolRoute[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [searchTerm, setSearchTerm] = useState('');
@@ -87,6 +92,16 @@ export default function SitesPage() {
   const [risk, setRisk] = useState<Severity>('Low');
   const [clientId, setClientId] = useState('');
 
+  // Checkpoint Form
+  const [cpName, setCpName] = useState('');
+  const [cpCode, setCpCode] = useState('');
+  const [cpType, setCpType] = useState<'QR' | 'NFC'>('QR');
+
+  // Route Form
+  const [routeName, setRouteName] = useState('');
+  const [routeDuration, setRouteDuration] = useState(30);
+  const [routeCheckpoints, setRouteCheckpoints] = useState<string[]>([]);
+
   useEffect(() => {
     setIsMounted(true);
     refreshData();
@@ -96,6 +111,8 @@ export default function SitesPage() {
     setSites(store.getSites());
     setShifts(store.getShifts());
     setClients(store.getClients());
+    setCheckpoints(store.getCheckpoints());
+    setRoutes(store.getRoutes());
   };
 
   const handleAdd = () => {
@@ -142,6 +159,47 @@ export default function SitesPage() {
     setCode('');
     setRisk('Low');
     setClientId('');
+  };
+
+  const handleAddCheckpoint = () => {
+    if (!selectedSite || !cpName || !cpCode) return;
+    const cp: PatrolCheckpoint = {
+      id: `CP-${Date.now()}`,
+      organizationId: selectedSite.organizationId,
+      siteId: selectedSite.id,
+      name: cpName,
+      code: cpCode,
+      type: cpType,
+      status: 'Active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    store.addCheckpoint(cp);
+    setCheckpoints(store.getCheckpoints());
+    setCpName('');
+    setCpCode('');
+    toast({ title: "Checkpoint Added", description: `QR/NFC point ${cpName} registered for this site.` });
+  };
+
+  const handleAddRoute = () => {
+    if (!selectedSite || !routeName || routeCheckpoints.length === 0) return;
+    const route: PatrolRoute = {
+      id: `ROU-${Date.now()}`,
+      organizationId: selectedSite.organizationId,
+      siteId: selectedSite.id,
+      name: routeName,
+      code: `ROU-${Date.now().toString().slice(-4)}`,
+      status: 'Active',
+      estimatedDuration: routeDuration,
+      checkpointIds: routeCheckpoints,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    store.addRoute(route);
+    setRoutes(store.getRoutes());
+    setRouteName('');
+    setRouteCheckpoints([]);
+    toast({ title: "Route Created", description: `Patrol route ${routeName} with ${routeCheckpoints.length} points defined.` });
   };
 
   if (!isMounted) return null;
@@ -382,6 +440,7 @@ export default function SitesPage() {
             <TabsList className="bg-slate-50 w-full justify-start h-16 px-10 border-b rounded-none gap-8">
               <TabsTrigger value="overview" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Site Intelligence</TabsTrigger>
               <TabsTrigger value="shifts" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Deployed Shifts</TabsTrigger>
+              <TabsTrigger value="patrols" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Patrol & Routes</TabsTrigger>
               <TabsTrigger value="guards" className="rounded-none h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-black uppercase text-[10px] tracking-widest">Personnel Ledger</TabsTrigger>
             </TabsList>
 
@@ -430,6 +489,139 @@ export default function SitesPage() {
                     }`}>{shift.status}</Badge>
                   </div>
                 ))}
+              </TabsContent>
+
+              <TabsContent value="patrols" className="m-0 space-y-10">
+                 {/* Checkpoints Sub-module */}
+                 <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Site Checkpoints (QR/NFC)</h4>
+                       <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-8 rounded-xl text-[9px] font-black uppercase italic"><Plus className="h-3 w-3 mr-1.5" /> Add Point</Button>
+                          </DialogTrigger>
+                          <DialogContent className="rounded-[2.5rem]">
+                             <DialogHeader>
+                                <DialogTitle className="text-xl font-black italic uppercase">Add Checkpoint</DialogTitle>
+                                <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Register a new physical verification point.</DialogDescription>
+                             </DialogHeader>
+                             <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                   <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Point Name</label>
+                                   <Input value={cpName} onChange={(e) => setCpName(e.target.value)} placeholder="e.g. Server Room Entrance" className="rounded-xl h-11" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                   <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Asset Code</label>
+                                      <Input value={cpCode} onChange={(e) => setCpCode(e.target.value)} placeholder="QR-001" className="rounded-xl h-11" />
+                                   </div>
+                                   <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Point Type</label>
+                                      <Select value={cpType} onValueChange={(v: any) => setCpType(v)}>
+                                         <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+                                         <SelectContent>
+                                            <SelectItem value="QR">QR Code</SelectItem>
+                                            <SelectItem value="NFC">NFC Tag</SelectItem>
+                                         </SelectContent>
+                                      </Select>
+                                   </div>
+                                </div>
+                             </div>
+                             <DialogFooter>
+                                <Button onClick={handleAddCheckpoint} className="bg-primary text-white rounded-xl px-12 font-black italic">Save Checkpoint</Button>
+                             </DialogFooter>
+                          </DialogContent>
+                       </Dialog>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                       {checkpoints.filter(c => c.siteId === selectedSite?.id).map(cp => (
+                         <div key={cp.id} className="p-4 bg-slate-50 border rounded-2xl space-y-2 relative group hover:bg-white hover:shadow-md transition-all">
+                            <QrCode className="h-5 w-5 text-primary mb-1" />
+                            <p className="text-[10px] font-black text-slate-800 uppercase italic truncate">{cp.name}</p>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{cp.code} • {cp.type}</p>
+                         </div>
+                       ))}
+                       {checkpoints.filter(c => c.siteId === selectedSite?.id).length === 0 && (
+                         <div className="col-span-full py-12 text-center border border-dashed rounded-[2rem] text-slate-300 italic font-medium">No checkpoints configured for this location.</div>
+                       )}
+                    </div>
+                 </div>
+
+                 {/* Routes Sub-module */}
+                 <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Patrol Routes</h4>
+                       <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-8 rounded-xl text-[9px] font-black uppercase italic"><Plus className="h-3 w-3 mr-1.5" /> Define Route</Button>
+                          </DialogTrigger>
+                          <DialogContent className="rounded-[2.5rem] max-w-md">
+                             <DialogHeader>
+                                <DialogTitle className="text-xl font-black italic uppercase">Patrol Route Builder</DialogTitle>
+                                <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Define the ordered sequence of checkpoints.</DialogDescription>
+                             </DialogHeader>
+                             <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                   <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Route Title</label>
+                                   <Input value={routeName} onChange={(e) => setRouteName(e.target.value)} placeholder="e.g. Night Perimeter" className="rounded-xl h-11" />
+                                </div>
+                                <div className="space-y-4">
+                                   <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Select Ordered Checkpoints</label>
+                                   <div className="max-h-40 overflow-y-auto space-y-2 p-2 bg-slate-50 rounded-xl">
+                                      {checkpoints.filter(c => c.siteId === selectedSite?.id).map(cp => (
+                                        <div key={cp.id} className="flex items-center justify-between p-2 bg-white rounded-lg border">
+                                           <span className="text-[10px] font-bold uppercase">{cp.name}</span>
+                                           <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            onClick={() => {
+                                              if (routeCheckpoints.includes(cp.id)) {
+                                                setRouteCheckpoints(routeCheckpoints.filter(id => id !== cp.id));
+                                              } else {
+                                                setRouteCheckpoints([...routeCheckpoints, cp.id]);
+                                              }
+                                            }}
+                                            className="h-6 px-2 text-[8px] font-black uppercase"
+                                           >
+                                              {routeCheckpoints.includes(cp.id) ? "Remove" : "Add"}
+                                           </Button>
+                                        </div>
+                                      ))}
+                                   </div>
+                                   <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                                      <p className="text-[8px] font-black uppercase text-slate-400 mb-2">Build Sequence:</p>
+                                      <div className="flex flex-wrap gap-2">
+                                         {routeCheckpoints.map((id, idx) => (
+                                           <Badge key={id} className="bg-primary text-white text-[8px] font-black italic">{idx + 1}. {checkpoints.find(c => c.id === id)?.name}</Badge>
+                                         ))}
+                                      </div>
+                                   </div>
+                                </div>
+                             </div>
+                             <DialogFooter>
+                                <Button onClick={handleAddRoute} className="bg-primary text-white rounded-xl px-12 font-black italic">Save Route</Button>
+                             </DialogFooter>
+                          </DialogContent>
+                       </Dialog>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                       {routes.filter(r => r.siteId === selectedSite?.id).map(route => (
+                         <div key={route.id} className="p-6 bg-slate-50 border rounded-[1.5rem] flex items-center justify-between hover:bg-white transition-all group">
+                            <div className="flex items-center gap-5">
+                               <div className="h-12 w-12 rounded-2xl bg-white border flex items-center justify-center text-primary shadow-sm"><Navigation className="h-6 w-6" /></div>
+                               <div>
+                                  <p className="text-sm font-black text-slate-800 uppercase italic tracking-tight">{route.name}</p>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{route.checkpointIds.length} Points • Sequence Validated</p>
+                               </div>
+                            </div>
+                            <Button variant="ghost" size="icon" className="text-slate-300 group-hover:text-primary"><ChevronRight className="h-5 w-5" /></Button>
+                         </div>
+                       ))}
+                       {routes.filter(r => r.siteId === selectedSite?.id).length === 0 && (
+                         <div className="py-12 text-center border border-dashed rounded-[2rem] text-slate-300 italic font-medium">No patrol routes defined.</div>
+                       )}
+                    </div>
+                 </div>
               </TabsContent>
 
               <TabsContent value="guards" className="m-0 space-y-4">
