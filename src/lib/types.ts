@@ -205,6 +205,8 @@ export type Site = {
   requiredQualifications?: string[];
   requiredSkills?: string[];
   instructions?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type Subcontractor = {
@@ -271,7 +273,8 @@ export type AuditAction =
   | 'CLIENT_CREATED' | 'CLIENT_UPDATED' | 'CLIENT_STATUS_CHANGED' | 'SITE_CREATED' | 'SITE_UPDATED'
   | 'SITE_STATUS_CHANGED' | 'PATROL_CHECKPOINT_CREATED' | 'PATROL_ROUTE_CREATED' | 'PATROL_SCAN'
   | 'COMPLIANCE_OVERRIDE' | 'USER_CREATED' | 'USER_UPDATED' | 'USER_DELETED' | 'DOCUMENT_CREATED'
-  | 'CONTRACT_CREATED' | 'CONTRACT_UPDATED';
+  | 'CONTRACT_CREATED' | 'CONTRACT_UPDATED'
+  | 'TRACKING_STARTED' | 'TRACKING_STOPPED';
 
 export type AuditRecord = {
   id: string;
@@ -280,7 +283,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document' | 'location';
   entityId: string;
   description: string;
   oldValues: any | null;
@@ -399,6 +402,23 @@ export type Patrol = {
   completion: number; // percentage
 };
 
+export type TrackingSource = 'SIMULATED' | 'GPS' | 'MOBILE' | 'API';
+export type TrackingStatus = 'Active' | 'Stale' | 'Offline';
+
+export type GuardLocation = {
+  id: string;
+  organizationId: string;
+  guardId: string;
+  siteId: string;
+  shiftId?: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+  timestamp: string;
+  source: TrackingSource;
+  status: TrackingStatus;
+};
+
 export type ValidationResult = {
   isValid: boolean;
   code?: string;
@@ -422,7 +442,9 @@ export type PermissionAction =
   | 'patrol.view'
   | 'patrol.manage'
   | 'patrol.assign'
-  | 'patrol.monitor';
+  | 'patrol.monitor'
+  | 'location.view'
+  | 'location.manage';
 
 // Legacy Medical Types
 export type BloodUnit = {

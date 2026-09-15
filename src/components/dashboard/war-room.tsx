@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +17,8 @@ import {
   XCircle,
   Building2,
   Zap,
-  MoreVertical
+  MoreVertical,
+  Navigation
 } from 'lucide-react';
 import { KPICard } from './kpi-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,10 +26,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useJsonStore } from '@/lib/store';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInSeconds } from 'date-fns';
+import { useTrackingSimulation } from '@/hooks/use-tracking-simulation';
 import Link from 'next/link';
 
+const STALE_THRESHOLD_SECONDS = 30;
+
 export function WarRoom() {
+  // Initialize Simulation Engine (Dev/Demo Only)
+  useTrackingSimulation();
+
   const store = useJsonStore();
   const [now, setNow] = useState(new Date());
   
@@ -40,6 +46,7 @@ export function WarRoom() {
   const sosAlerts = store.getSOS();
   const alarms = store.getAlarms();
   const vehicles = store.getVehicles();
+  const locations = store.getGuardLocations();
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -98,7 +105,28 @@ export function WarRoom() {
                   <p className="text-[10px] text-slate-400 font-bold mt-1 flex items-center gap-1"><Building2 className="h-2.5 w-2.5" /> {inc.siteName}</p>
                </div>
              ))}
-             <div className="p-20 text-center text-slate-400 italic font-black uppercase text-[10px] opacity-20">Monitoring Operational Grid...</div>
+             <div className="p-4 bg-primary/5 border-y border-primary/10">
+                <p className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                   <Navigation className="h-3 w-3 animate-pulse" /> Telemetry Active
+                </p>
+             </div>
+             {locations.map(loc => {
+                const guard = guards.find(g => g.id === loc.guardId);
+                const secondsAgo = differenceInSeconds(now, parseISO(loc.timestamp));
+                const isStale = secondsAgo > STALE_THRESHOLD_SECONDS;
+                return (
+                  <div key={loc.id} className="p-4 hover:bg-slate-50 transition-colors">
+                     <div className="flex justify-between items-center mb-1">
+                        <p className="text-[10px] font-black text-slate-800 uppercase italic">{guard?.name || 'Unknown Unit'}</p>
+                        <Badge variant="outline" className={`text-[7px] font-black h-3 px-1 ${isStale ? 'text-amber-500' : 'text-green-500'}`}>
+                           {isStale ? 'STALE' : 'LIVE'}
+                        </Badge>
+                     </div>
+                     <p className="text-[9px] text-slate-400 font-mono">LAT: {loc.latitude.toFixed(4)} LNG: {loc.longitude.toFixed(4)}</p>
+                     <p className="text-[8px] text-slate-300 uppercase mt-1">Last Update: {secondsAgo}s ago</p>
+                  </div>
+                );
+             })}
           </CardContent>
         </Card>
 
@@ -110,15 +138,16 @@ export function WarRoom() {
            <CardHeader className="relative z-10 p-8 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-800">Operational Grid</CardTitle>
-                <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Real-time Site Status Overlay</CardDescription>
+                <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Simulated Live Tracking Overlay</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Badge className="bg-white/80 backdrop-blur-md text-slate-600 font-black border border-slate-200">2D VIEW</Badge>
+                <Badge className="bg-white/80 backdrop-blur-md text-slate-600 font-black border border-slate-200">DEV SIMULATOR</Badge>
                 <Badge className="bg-primary text-white font-black italic">LIVE SENSORS</Badge>
               </div>
            </CardHeader>
 
            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Site Markers */}
               {sites.map((site, idx) => (
                 <div 
                   key={site.id} 
@@ -133,30 +162,49 @@ export function WarRoom() {
                   }`}>
                     <Building2 className="h-6 w-6 text-white" />
                   </div>
-                  <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border rounded-lg p-2 shadow-xl min-w-[120px]">
-                    <p className="text-[10px] font-black uppercase italic text-slate-800 truncate">{site.name}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] font-black text-slate-400 uppercase">Health</span>
-                      <span className={`text-[9px] font-black ${site.healthScore > 90 ? 'text-green-600' : 'text-amber-600'}`}>{site.healthScore}%</span>
-                    </div>
-                  </div>
                 </div>
               ))}
+
+              {/* Live Guard Markers (Simulated Mapping to visual grid) */}
+              {locations.map((loc, idx) => {
+                 const secondsAgo = differenceInSeconds(now, parseISO(loc.timestamp));
+                 if (secondsAgo > 60) return null; // Only show recent ones on map
+                 return (
+                  <div 
+                    key={loc.id} 
+                    className="absolute pointer-events-auto transition-all duration-1000 ease-in-out"
+                    style={{ 
+                      top: `${25 + (idx * 12) % 55}%`, 
+                      left: `${20 + (idx * 22) % 65}%` 
+                    }}
+                  >
+                    <div className="relative">
+                       <div className="h-8 w-8 rounded-2xl bg-primary border-4 border-white shadow-xl flex items-center justify-center text-white">
+                          <Navigation className="h-4 w-4 fill-current" />
+                       </div>
+                       <div className="absolute top-0 left-0 w-full h-full rounded-2xl bg-primary animate-ping opacity-20" />
+                       <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[8px] font-black uppercase whitespace-nowrap">
+                          {guards.find(g => g.id === loc.guardId)?.name.split(' ')[0]}
+                       </div>
+                    </div>
+                  </div>
+                 );
+              })}
            </div>
 
            <CardContent className="absolute bottom-8 left-8 right-8 z-10">
               <div className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-2xl">
                  <div className="flex gap-6">
                     <div className="flex flex-col">
-                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Sites</span>
-                       <span className="text-xl font-black italic text-slate-800">{sites.length}</span>
+                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tracked Units</span>
+                       <span className="text-xl font-black italic text-slate-800">{locations.length}</span>
                     </div>
                     <div className="flex flex-col">
-                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global Health</span>
-                       <span className="text-xl font-black italic text-green-600">96.4%</span>
+                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Protocol</span>
+                       <span className="text-xl font-black italic text-primary">SIM-GPS v1</span>
                     </div>
                  </div>
-                 <Button size="sm" className="bg-slate-900 text-white rounded-xl h-10 px-6 font-black uppercase italic italic tracking-tighter">EXPAND GRID</Button>
+                 <Button size="sm" className="bg-slate-900 text-white rounded-xl h-10 px-6 font-black uppercase italic italic tracking-tighter">RE-CALIBRATE</Button>
               </div>
            </CardContent>
         </Card>

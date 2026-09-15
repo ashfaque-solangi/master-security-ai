@@ -17,7 +17,9 @@ export const ALL_PERMISSIONS: PermissionAction[] = [
   'patrol.view',
   'patrol.manage',
   'patrol.assign',
-  'patrol.monitor'
+  'patrol.monitor',
+  'location.view',
+  'location.manage'
 ];
 
 /**
@@ -25,17 +27,17 @@ export const ALL_PERMISSIONS: PermissionAction[] = [
  */
 export const rolePermissions: Record<UserRole, PermissionAction[]> = {
   'SUPER_ADMIN': ALL_PERMISSIONS,
-  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location', 'compliance.manage', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor'],
-  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor'],
-  'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location', 'patrol.view', 'patrol.assign', 'patrol.monitor'],
+  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location', 'compliance.manage', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor', 'location.view', 'location.manage'],
+  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor', 'location.view'],
+  'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location', 'patrol.view', 'patrol.assign', 'patrol.monitor', 'location.view'],
   'SCHEDULER': ['view', 'schedule', 'schedule.publish'],
-  'SITE_MANAGER': ['view', 'manage', 'location', 'patrol.view', 'patrol.monitor'],
+  'SITE_MANAGER': ['view', 'manage', 'location', 'patrol.view', 'patrol.monitor', 'location.view'],
   'HR_MANAGER': ['view', 'hr', 'compliance.manage'],
   'COMPLIANCE_MANAGER': ['view', 'hr', 'compliance.manage', 'compliance.override'],
   'FINANCE_MANAGER': ['view', 'finance'],
   'GUARD': ['guard', 'patrol.view'],
-  'CLIENT_ADMIN': ['client', 'view', 'location', 'patrol.view'],
-  'CLIENT_VIEWER': ['view', 'location', 'patrol.view'],
+  'CLIENT_ADMIN': ['client', 'view', 'location', 'patrol.view', 'location.view'],
+  'CLIENT_VIEWER': ['view', 'location', 'patrol.view', 'location.view'],
   'SUBCONTRACTOR_ADMIN': ['view', 'manage']
 };
 

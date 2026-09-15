@@ -33,7 +33,8 @@ import {
   SOSAlert, Alarm, Vehicle, Contract, 
   UserSession, MockDocument, LeaveRecord, ShiftAssignment,
   PermissionAction,
-  ComplianceStatus
+  ComplianceStatus,
+  GuardLocation
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
@@ -65,7 +66,8 @@ const STORAGE_KEYS = {
   VEHICLES: 'sg_vehicles_p10_v2',
   CONTRACTS: 'sg_contracts_p10_v2',
   DOCUMENTS: 'sg_docs_p10_v2',
-  LEAVE: 'sg_leave_p10_v2'
+  LEAVE: 'sg_leave_p10_v2',
+  LOCATIONS: 'sg_locations_p10_v2'
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -312,6 +314,14 @@ export const useJsonStore = () => {
     getAlarms: () => getProtectedData<Alarm[]>(STORAGE_KEYS.ALARMS, initialAlarms, 'view'),
     getVehicles: () => getProtectedData<Vehicle[]>(STORAGE_KEYS.VEHICLES, initialVehicles, 'view'),
     getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'hr'),
+    getGuardLocations: () => getProtectedData<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, [], 'location'),
+
+    updateGuardLocation: (loc: GuardLocation) => {
+      const all = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
+      const updated = [loc, ...all.filter(l => l.guardId !== loc.guardId)].slice(0, 500); // Keep last 500 per org
+      setStored(STORAGE_KEYS.LOCATIONS, updated);
+      return updated;
+    },
 
     addGuard: (g: Guard) => {
       if (!assertWrite('hr', 'guard')) return [];
