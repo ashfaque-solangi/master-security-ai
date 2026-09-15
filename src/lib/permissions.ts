@@ -24,7 +24,10 @@ export const ALL_PERMISSIONS: PermissionAction[] = [
   'sos.trigger',
   'sos.acknowledge',
   'sos.escalate',
-  'sos.resolve'
+  'sos.resolve',
+  'welfare.view',
+  'welfare.manage',
+  'welfare.respond'
 ];
 
 /**
@@ -32,15 +35,15 @@ export const ALL_PERMISSIONS: PermissionAction[] = [
  */
 export const rolePermissions: Record<UserRole, PermissionAction[]> = {
   'SUPER_ADMIN': ALL_PERMISSIONS,
-  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location', 'compliance.manage', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor', 'location.view', 'location.manage', 'sos.view', 'sos.trigger', 'sos.acknowledge', 'sos.escalate', 'sos.resolve'],
-  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor', 'location.view', 'sos.view', 'sos.acknowledge', 'sos.escalate', 'sos.resolve'],
-  'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location', 'patrol.view', 'patrol.assign', 'patrol.monitor', 'location.view', 'sos.view', 'sos.acknowledge', 'sos.escalate'],
+  'COMPANY_ADMIN': ['view', 'manage', 'finance', 'hr', 'schedule', 'schedule.publish', 'audit', 'location', 'compliance.manage', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor', 'location.view', 'location.manage', 'sos.view', 'sos.trigger', 'sos.acknowledge', 'sos.escalate', 'sos.resolve', 'welfare.view', 'welfare.manage'],
+  'OPERATIONS_MANAGER': ['view', 'manage', 'schedule', 'schedule.publish', 'audit', 'location', 'patrol.view', 'patrol.manage', 'patrol.assign', 'patrol.monitor', 'location.view', 'sos.view', 'sos.acknowledge', 'sos.escalate', 'sos.resolve', 'welfare.view', 'welfare.manage'],
+  'DISPATCHER': ['view', 'schedule', 'schedule.publish', 'location', 'patrol.view', 'patrol.assign', 'patrol.monitor', 'location.view', 'sos.view', 'sos.acknowledge', 'sos.escalate', 'welfare.view', 'welfare.manage'],
   'SCHEDULER': ['view', 'schedule', 'schedule.publish'],
-  'SITE_MANAGER': ['view', 'manage', 'location', 'patrol.view', 'patrol.monitor', 'location.view', 'sos.view', 'sos.acknowledge'],
+  'SITE_MANAGER': ['view', 'manage', 'location', 'patrol.view', 'patrol.monitor', 'location.view', 'sos.view', 'sos.acknowledge', 'welfare.view'],
   'HR_MANAGER': ['view', 'hr', 'compliance.manage'],
   'COMPLIANCE_MANAGER': ['view', 'hr', 'compliance.manage', 'compliance.override'],
   'FINANCE_MANAGER': ['view', 'finance'],
-  'GUARD': ['guard', 'patrol.view', 'sos.trigger'],
+  'GUARD': ['guard', 'patrol.view', 'sos.trigger', 'welfare.respond'],
   'CLIENT_ADMIN': ['client', 'view', 'location', 'patrol.view', 'location.view', 'sos.view'],
   'CLIENT_VIEWER': ['view', 'location', 'patrol.view', 'location.view'],
   'SUBCONTRACTOR_ADMIN': ['view', 'manage']

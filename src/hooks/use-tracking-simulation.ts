@@ -13,7 +13,7 @@ const MOVEMENT_GRANULARITY = 0.0005; // ~50 meters approx per tick
 /**
  * @fileOverview Simulated GPS Tracking Hook
  * 
- * Provides a development/demo simulation of guard movement.
+ * Provides a development/demo simulation of guard movement and welfare monitoring.
  * Abstraction ready for replacement by real GPS provider.
  */
 export function useTrackingSimulation() {
@@ -64,6 +64,9 @@ export function useTrackingSimulation() {
           store.updateGuardLocation(newLocation);
         });
       });
+
+      // Also trigger the system side of welfare monitoring
+      store.syncWelfareChecks();
     };
 
     // Initial tick

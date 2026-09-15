@@ -288,7 +288,8 @@ export type AuditAction =
   | 'SITE_STATUS_CHANGED' | 'PATROL_CHECKPOINT_CREATED' | 'PATROL_ROUTE_CREATED' | 'PATROL_SCAN'
   | 'COMPLIANCE_OVERRIDE' | 'USER_CREATED' | 'USER_UPDATED' | 'USER_DELETED' | 'DOCUMENT_CREATED'
   | 'CONTRACT_CREATED' | 'CONTRACT_UPDATED'
-  | 'TRACKING_STARTED' | 'TRACKING_STOPPED';
+  | 'TRACKING_STARTED' | 'TRACKING_STOPPED'
+  | 'WELFARE_CHECK_CREATED' | 'WELFARE_CHECK_PROMPTED' | 'WELFARE_CHECK_RESPONDED' | 'WELFARE_CHECK_MISSED' | 'WELFARE_CHECK_ESCALATED';
 
 export type AuditRecord = {
   id: string;
@@ -297,7 +298,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document' | 'location' | 'sos';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document' | 'location' | 'sos' | 'welfare';
   entityId: string;
   description: string;
   oldValues: any | null;
@@ -443,6 +444,28 @@ export type LiveGuardContext = {
   rolePerformed: string;
 };
 
+export type WelfareCheckStatus = 'Due' | 'Prompted' | 'Responded' | 'Missed' | 'Escalated' | 'Resolved';
+
+export type WelfareCheck = {
+  id: string;
+  organizationId: string;
+  guardId: string;
+  guardName: string;
+  assignmentId: string;
+  shiftId: string;
+  shiftName: string;
+  siteId: string;
+  siteName: string;
+  scheduledAt: string;
+  promptedAt?: string;
+  respondedAt?: string;
+  response?: 'OK' | 'HELP';
+  status: WelfareCheckStatus;
+  escalatedAt?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+};
+
 export type ValidationResult = {
   isValid: boolean;
   code?: string;
@@ -473,7 +496,10 @@ export type PermissionAction =
   | 'sos.trigger'
   | 'sos.acknowledge'
   | 'sos.escalate'
-  | 'sos.resolve';
+  | 'sos.resolve'
+  | 'welfare.view'
+  | 'welfare.manage'
+  | 'welfare.respond';
 
 // Legacy Medical Types
 export type BloodUnit = {

@@ -38,11 +38,13 @@ import {
   LiveGuardContext,
   TrackingStatus,
   ScanValidationStatus,
-  SOSStatus
+  SOSStatus,
+  WelfareCheck,
+  WelfareCheckStatus
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
-import { isPast, parseISO, addDays, isBefore, differenceInSeconds } from 'date-fns';
+import { isPast, parseISO, addDays, isBefore, differenceInSeconds, addMinutes } from 'date-fns';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards_p10_v2',
@@ -71,12 +73,15 @@ const STORAGE_KEYS = {
   CONTRACTS: 'sg_contracts_p10_v2',
   DOCUMENTS: 'sg_docs_p10_v2',
   LEAVE: 'sg_leave_p10_v2',
-  LOCATIONS: 'sg_locations_p10_v2'
+  LOCATIONS: 'sg_locations_p10_v2',
+  WELFARE: 'sg_welfare_p10_v2'
 };
 
 const isBrowser = typeof window !== 'undefined';
 const MAX_CONCURRENT_DEVICES = 2;
 export const STALE_THRESHOLD_SECONDS = 30;
+export const WELFARE_CHECK_INTERVAL_MINUTES = 30;
+export const WELFARE_GRACE_PERIOD_MINUTES = 5;
 
 function getStored<T>(key: string, defaultValue: T): T {
   if (!isBrowser) return defaultValue;
@@ -364,6 +369,7 @@ export const useJsonStore = () => {
     getVehicles: () => getProtectedData<Vehicle[]>(STORAGE_KEYS.VEHICLES, initialVehicles, 'view'),
     getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'hr'),
     getGuardLocations: () => getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []),
+    getWelfareChecks: () => getProtectedData<WelfareCheck[]>(STORAGE_KEYS.WELFARE, [], 'welfare'),
 
     getLiveGuardContexts,
 
@@ -594,6 +600,90 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.SOS, updated);
       logAudit({ action: 'SOS_RESOLVED', entityType: 'sos', entityId: sosId, description: `SOS Resolved: ${notes}` });
       return updated;
+    },
+
+    // WEB-08.4 Welfare Operations
+    syncWelfareChecks: () => {
+      const contexts = getLiveGuardContexts();
+      const user = getCurrentUser();
+      if (!user || contexts.length === 0) return;
+
+      const allChecks = getStored<WelfareCheck[]>(STORAGE_KEYS.WELFARE, []);
+      const now = new Date();
+      let changed = false;
+
+      // 1. Create DUE checks for guards who haven't had one recently
+      contexts.forEach(ctx => {
+        const guardChecks = allChecks.filter(c => c.guardId === ctx.guard.id && c.shiftId === ctx.shift.id);
+        const lastCheck = guardChecks.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
+
+        const minutesSinceStart = differenceInSeconds(now, parseISO(ctx.shift.startTime)) / 60;
+        const minutesSinceLast = lastCheck ? (differenceInSeconds(now, parseISO(lastCheck.scheduledAt)) / 60) : minutesSinceStart;
+
+        if (!lastCheck || minutesSinceLast >= WELFARE_CHECK_INTERVAL_MINUTES) {
+          const newCheck: WelfareCheck = {
+            id: `WLF-${Date.now()}-${ctx.guard.id}`,
+            organizationId: user.organizationId,
+            guardId: ctx.guard.id,
+            guardName: ctx.guard.name,
+            assignmentId: ctx.assignment.id,
+            shiftId: ctx.shift.id,
+            shiftName: ctx.shift.name,
+            siteId: ctx.site.id,
+            siteName: ctx.site.name,
+            scheduledAt: now.toISOString(),
+            status: 'Due'
+          };
+          allChecks.push(newCheck);
+          changed = true;
+          logAudit({ action: 'WELFARE_CHECK_CREATED', entityType: 'welfare', entityId: newCheck.id, description: `Safety check scheduled for ${ctx.guard.name}` });
+        }
+      });
+
+      // 2. Automate lifecycle based on time
+      const updatedChecks = allChecks.map(c => {
+        const secondsSinceScheduled = differenceInSeconds(now, parseISO(c.scheduledAt));
+        const minutesSinceScheduled = secondsSinceScheduled / 60;
+
+        if (c.status === 'Due') {
+          return { ...c, status: 'Prompted' as WelfareCheckStatus, promptedAt: now.toISOString() };
+        }
+
+        if (c.status === 'Prompted' && minutesSinceScheduled > WELFARE_GRACE_PERIOD_MINUTES) {
+          logAudit({ action: 'WELFARE_CHECK_MISSED', entityType: 'welfare', entityId: c.id, description: `Safety check missed by ${c.guardName}` });
+          return { ...c, status: 'Missed' as WelfareCheckStatus };
+        }
+
+        if (c.status === 'Missed' && minutesSinceScheduled > (WELFARE_GRACE_PERIOD_MINUTES * 2)) {
+          logAudit({ action: 'WELFARE_CHECK_ESCALATED', entityType: 'welfare', entityId: c.id, description: `CRITICAL: Welfare escalation for ${c.guardName}` });
+          return { ...c, status: 'Escalated' as WelfareCheckStatus, escalatedAt: now.toISOString() };
+        }
+
+        return c;
+      });
+
+      if (changed || JSON.stringify(allChecks) !== JSON.stringify(updatedChecks)) {
+        setStored(STORAGE_KEYS.WELFARE, updatedChecks);
+      }
+    },
+
+    respondWelfare: (checkId: string, response: 'OK' | 'HELP') => {
+      const user = getCurrentUser();
+      if (!user) return;
+      const all = getStored<WelfareCheck[]>(STORAGE_KEYS.WELFARE, []);
+      const updated = all.map(c => c.id === checkId ? { 
+        ...c, 
+        status: 'Responded' as WelfareCheckStatus, 
+        respondedAt: new Date().toISOString(), 
+        response 
+      } : c);
+      setStored(STORAGE_KEYS.WELFARE, updated);
+      logAudit({ action: 'WELFARE_CHECK_RESPONDED', entityType: 'welfare', entityId: checkId, description: `Guard responded ${response} to safety check` });
+      
+      if (response === 'HELP') {
+        const check = updated.find(c => c.id === checkId);
+        if (check) useJsonStore().triggerSOS(check.guardId);
+      }
     },
 
     // WEB-07 Patrol System Storage Methods
