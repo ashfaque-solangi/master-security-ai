@@ -419,6 +419,16 @@ export type GuardLocation = {
   status: TrackingStatus;
 };
 
+export type LiveGuardContext = {
+  guard: Guard;
+  assignment: ShiftAssignment;
+  shift: Shift;
+  site: Site;
+  location?: GuardLocation;
+  status: TrackingStatus;
+  rolePerformed: string;
+};
+
 export type ValidationResult = {
   isValid: boolean;
   code?: string;

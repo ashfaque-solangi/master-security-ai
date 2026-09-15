@@ -34,11 +34,14 @@ import {
   UserSession, MockDocument, LeaveRecord, ShiftAssignment,
   PermissionAction,
   ComplianceStatus,
-  GuardLocation
+  GuardLocation,
+  LiveGuardContext,
+  TrackingStatus,
+  ScanValidationStatus
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
-import { isPast, parseISO, addDays, isBefore } from 'date-fns';
+import { isPast, parseISO, addDays, isBefore, differenceInSeconds } from 'date-fns';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards_p10_v2',
@@ -72,6 +75,7 @@ const STORAGE_KEYS = {
 
 const isBrowser = typeof window !== 'undefined';
 const MAX_CONCURRENT_DEVICES = 2;
+export const STALE_THRESHOLD_SECONDS = 30;
 
 function getStored<T>(key: string, defaultValue: T): T {
   if (!isBrowser) return defaultValue;
@@ -315,6 +319,50 @@ export const useJsonStore = () => {
     getVehicles: () => getProtectedData<Vehicle[]>(STORAGE_KEYS.VEHICLES, initialVehicles, 'view'),
     getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'hr'),
     getGuardLocations: () => getProtectedData<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, [], 'location'),
+
+    getLiveGuardContexts: (): LiveGuardContext[] => {
+      const user = getCurrentUser();
+      if (!user) return [];
+
+      const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+      const activeShifts = shifts.filter(s => s.status === 'In Progress');
+      const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const allSites = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
+      const allLocations = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
+
+      const contexts: LiveGuardContext[] = [];
+      const now = new Date();
+
+      activeShifts.forEach(shift => {
+        const site = allSites.find(s => s.id === shift.siteId);
+        if (!site) return;
+
+        shift.assignments?.forEach(asg => {
+          const guard = allGuards.find(g => g.id === asg.guardId);
+          if (!guard) return;
+
+          const location = allLocations.find(l => l.guardId === asg.guardId);
+          
+          let status: TrackingStatus = 'Offline';
+          if (location) {
+            const secondsAgo = differenceInSeconds(now, parseISO(location.timestamp));
+            status = secondsAgo > STALE_THRESHOLD_SECONDS ? 'Stale' : 'Active';
+          }
+
+          contexts.push({
+            guard,
+            assignment: asg,
+            shift,
+            site,
+            location,
+            status,
+            rolePerformed: asg.rolePerformed
+          });
+        });
+      });
+
+      return AccessControlService.filterByScope(user, 'location', contexts);
+    },
 
     updateGuardLocation: (loc: GuardLocation) => {
       const all = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
