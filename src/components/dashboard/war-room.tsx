@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useJsonStore, STALE_THRESHOLD_SECONDS } from '@/lib/store';
+import { useJsonStore } from '@/lib/store';
 import { format, parseISO, differenceInSeconds } from 'date-fns';
 import { useTrackingSimulation } from '@/hooks/use-tracking-simulation';
 import { LiveGuardContext, SOSAlert, WelfareCheck } from '@/lib/types';
@@ -57,27 +57,31 @@ export function WarRoom() {
 
   const store = useJsonStore();
   const { toast } = useToast();
-  const [now, setNow] = useState(new Date());
+  const [now, setNow] = useState<Date | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const [searchQuery, setSearchTerm] = useState('');
   const [selectedContext, setSelectedContext] = useState<LiveGuardContext | null>(null);
   const [selectedSOS, setSelectedSOS] = useState<SOSAlert | null>(null);
   const [selectedWelfare, setSelectedWelfare] = useState<WelfareCheck | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
   
-  const sites = store.getSites();
-  const guards = store.getGuards();
-  const shifts = store.getShifts();
-  const incidents = store.getIncidents();
-  const sosAlerts = store.getSOS();
-  const alarms = store.getAlarms();
-  const vehicles = store.getVehicles();
-  const liveContexts = store.getLiveGuardContexts();
-  const welfareChecks = store.getWelfareChecks();
-
   useEffect(() => {
+    setIsMounted(true);
+    setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  if (!isMounted || !now) return null;
+
+  const sites = store.getSites() ?? [];
+  const guards = store.getGuards() ?? [];
+  const shifts = store.getShifts() ?? [];
+  const incidents = store.getIncidents() ?? [];
+  const sosAlerts = store.getSOS() ?? [];
+  const vehicles = store.getVehicles() ?? [];
+  const liveContexts = store.getLiveGuardContexts() ?? [];
+  const welfareChecks = store.getWelfareChecks() ?? [];
 
   const activeSOS = sosAlerts.filter(s => s.status !== 'Resolved');
   const activeWelfare = welfareChecks.filter(c => c.status === 'Missed' || c.status === 'Escalated');
@@ -86,11 +90,14 @@ export function WarRoom() {
   const onlinePercent = totalGuards > 0 ? (liveContexts.length / totalGuards) * 100 : 0;
   const criticalGaps = shifts.filter(s => s.status === 'Open' && (s.priority === 'STAT' || s.priority === 'Urgent')).length;
 
-  const filteredPersonnel = liveContexts.filter(c => 
-    c.guard.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.site.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.rolePerformed.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPersonnel = liveContexts.filter(c => {
+    const search = searchQuery.toLowerCase();
+    return (
+      (c.guard?.name || '').toLowerCase().includes(search) ||
+      (c.site?.name || '').toLowerCase().includes(search) ||
+      (c.rolePerformed || '').toLowerCase().includes(search)
+    );
+  });
 
   const handleAcknowledge = (id: string) => {
     store.acknowledgeSOS(id);
@@ -112,7 +119,6 @@ export function WarRoom() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
-      {/* Top KPI Bar */}
       <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-8">
         <KPICard label="Online" value={liveContexts.length} icon={Users} description={`${onlinePercent.toFixed(0)}% Capacity`} className="lg:col-span-1" />
         <KPICard label="Active" value={activeGuardsCount} icon={ShieldCheck} status="success" className="lg:col-span-1" />
@@ -125,7 +131,6 @@ export function WarRoom() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-4">
-        {/* LEFT: Command Feed & Personnel List */}
         <Card className="lg:col-span-1 border-none shadow-sm rounded-3xl overflow-hidden bg-white flex flex-col h-[650px]">
           <Tabs defaultValue="personnel" className="flex flex-col h-full">
             <CardHeader className="bg-slate-900 text-white p-6 shrink-0 space-y-4">
@@ -180,7 +185,7 @@ export function WarRoom() {
                               {isSOS ? 'EMERGENCY' : isWelfare ? 'WELFARE RISK' : ctx.status.toUpperCase()}
                             </Badge>
                          </div>
-                         <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-2">{ctx.rolePerformed.replace(/_/g, ' ')}</p>
+                         <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-2">{(ctx.rolePerformed || 'Officer').replace(/_/g, ' ')}</p>
                          <div className="space-y-1">
                             <p className="text-[9px] text-slate-500 font-bold flex items-center gap-1.5"><Building2 className="h-3 w-3" /> {ctx.site.name}</p>
                             <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5"><Clock className="h-3 w-3" /> Last sync: {ctx.location ? differenceInSeconds(now, parseISO(ctx.location.timestamp)) : '--'}s ago</p>
@@ -216,7 +221,6 @@ export function WarRoom() {
           </Tabs>
         </Card>
 
-        {/* CENTER: Operational Site Map Visualization */}
         <Card className="lg:col-span-2 border-none shadow-sm rounded-3xl overflow-hidden bg-slate-50 relative group h-[650px]">
            <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/map/1200/800')] bg-cover bg-center opacity-30 grayscale contrast-125" />
            <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent" />
@@ -229,7 +233,6 @@ export function WarRoom() {
            </CardHeader>
 
            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {/* Live Guard Markers */}
               {liveContexts.map((ctx, idx) => {
                  if (!ctx.location) return null;
                  const isStale = ctx.status === 'Stale';
@@ -281,7 +284,6 @@ export function WarRoom() {
            </CardContent>
         </Card>
 
-        {/* RIGHT: High-Priority Panel */}
         <Card className="lg:col-span-1 border-none shadow-sm rounded-3xl overflow-hidden bg-white h-[650px] flex flex-col">
           <CardHeader className="border-b p-6 shrink-0">
             <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 italic">Critical Field Alerts</CardTitle>
@@ -321,7 +323,6 @@ export function WarRoom() {
         </Card>
       </div>
 
-      {/* Detail Dialogs (SOS and Welfare) */}
       <Dialog open={!!selectedSOS} onOpenChange={(v) => !v && setSelectedSOS(null)}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
            <DialogHeader className="bg-red-600 text-white p-8 relative">
@@ -330,7 +331,7 @@ export function WarRoom() {
                 {selectedSOS?.guardName}
               </DialogTitle>
               <DialogDescription className="text-white/80 font-black uppercase text-[10px] tracking-widest mt-1">
-                {selectedSOS?.rolePerformed.replace(/_/g, ' ')}
+                {(selectedSOS?.rolePerformed || 'Officer').replace(/_/g, ' ')}
               </DialogDescription>
            </DialogHeader>
            

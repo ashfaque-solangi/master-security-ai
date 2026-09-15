@@ -40,9 +40,9 @@ import {
 } from '@/components/ui/dialog';
 import {
   Tooltip,
-  TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  TooltipContent,
 } from "@/components/ui/tooltip";
 import { useJsonStore } from '@/lib/store';
 import { Shift, Guard, ShiftAssignment, LeaveRecord, Site } from '@/lib/types';
@@ -72,7 +72,7 @@ export default function SchedulingPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   
@@ -86,17 +86,18 @@ export default function SchedulingPage() {
 
   useEffect(() => {
     setIsMounted(true);
+    setCurrentDate(new Date());
     refreshData();
   }, []);
 
   const refreshData = () => {
-    setShifts(store.getShifts());
-    setGuards(store.getGuards());
-    setSites(store.getSites());
-    setLeaveRecords(store.getLeave());
+    setShifts(store.getShifts() ?? []);
+    setGuards(store.getGuards() ?? []);
+    setSites(store.getSites() ?? []);
+    setLeaveRecords(store.getLeave() ?? []);
   };
 
-  if (!isMounted) return null;
+  if (!isMounted || !currentDate) return null;
 
   const handleDrop = (e: React.DragEvent, targetDay: Date) => {
     e.preventDefault();
@@ -193,6 +194,7 @@ export default function SchedulingPage() {
   };
 
   const daysToRender = (() => {
+    if (!currentDate) return [];
     if (viewMode === 'month') {
       const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
       const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 });
@@ -205,8 +207,8 @@ export default function SchedulingPage() {
 
   const getPositionSlots = (shift: Shift) => {
     const slots: { role: string, assignment: ShiftAssignment | null }[] = [];
-    shift.requirements.forEach(req => {
-      const matchingAssignments = shift.assignments.filter(a => a.rolePerformed === req.role && ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
+    (shift.requirements || []).forEach(req => {
+      const matchingAssignments = (shift.assignments || []).filter(a => a.rolePerformed === req.role && ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status));
       for (let i = 0; i < req.count; i++) {
         slots.push({ role: req.role, assignment: matchingAssignments[i] || null });
       }
@@ -235,22 +237,24 @@ export default function SchedulingPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className="rounded-xl"><ChevronLeft /></Button>
-            <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-800">
-              {format(daysToRender[0], 'MMMM yyyy')}
-            </h2>
-            <Button variant="ghost" size="icon" onClick={() => navigate('next')} className="rounded-xl"><ChevronRight /></Button>
+        {daysToRender.length > 0 && (
+          <div className="flex items-center justify-between bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate('prev')} className="rounded-xl"><ChevronLeft /></Button>
+              <h2 className="text-lg font-black uppercase italic tracking-tight text-slate-800">
+                {format(daysToRender[0], 'MMMM yyyy')}
+              </h2>
+              <Button variant="ghost" size="icon" onClick={() => navigate('next')} className="rounded-xl"><ChevronRight /></Button>
+            </div>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              {(['month', 'week', 'day'] as ViewMode[]).map(v => (
+                <Button key={v} variant={viewMode === v ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode(v)} className="rounded-lg px-6 font-bold uppercase text-[10px] tracking-widest h-8">
+                  {v}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            {(['month', 'week', 'day'] as ViewMode[]).map(v => (
-              <Button key={v} variant={viewMode === v ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode(v)} className="rounded-lg px-6 font-bold uppercase text-[10px] tracking-widest h-8">
-                {v}
-              </Button>
-            ))}
-          </div>
-        </div>
+        )}
 
         <div className={`grid gap-px bg-slate-200 border rounded-[2.5rem] overflow-hidden ${viewMode === 'week' ? 'grid-cols-7' : 'grid-cols-1 shadow-2xl'}`}>
           {daysToRender.map((day, idx) => {
@@ -450,7 +454,7 @@ export default function SchedulingPage() {
                           </div>
                         ))}
                         {selectedShift?.assignments?.filter(a => a.status === 'Pending').length === 0 && (
-                          <p className="text-center text-[9px] font-black uppercase text-slate-300 py-8 italic border border-dashed rounded-3xl">No pending workforce requests</p>
+                          <p className="text-center text-[9px] font-black uppercase text-slate-300 py-8 italic border border-dashed rounded-3xl">No workforce requests</p>
                         )}
                      </div>
                   </div>
@@ -531,7 +535,6 @@ export default function SchedulingPage() {
           </DialogContent>
         </Dialog>
 
-        {/* CANDIDATE SELECTION MODAL */}
         <Dialog open={isAddGuardOpen} onOpenChange={setIsAddGuardOpen}>
           <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
             <DialogHeader className="p-8 bg-slate-900 text-white">
@@ -556,7 +559,7 @@ export default function SchedulingPage() {
                       <p className="text-sm font-black text-slate-800 uppercase italic">{guard.name}</p>
                       <div className="flex items-center gap-2 mt-1">
                          <Badge variant="outline" className={`text-[7px] font-black h-4 px-2 border-none ${validation.isValid ? 'bg-green-50 text-green-600 shadow-sm' : 'bg-red-50 text-red-600'}`}>
-                           {validation.isValid ? 'QUALIFIED' : validation.code?.replace(/_/g, ' ')}
+                           {validation.isValid ? 'QUALIFIED' : (validation.code || 'BLOCKED').replace(/_/g, ' ')}
                          </Badge>
                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{getFatigueScore(guard)} Fatigue</span>
                       </div>

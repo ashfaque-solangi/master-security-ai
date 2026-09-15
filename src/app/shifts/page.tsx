@@ -2,30 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Clock3, 
-  MapPin, 
-  Users, 
   Plus, 
   Trash2, 
-  Pencil, 
   Search, 
   Filter, 
   LayoutGrid, 
-  List,
-  Lock,
-  Coffee,
+  List, 
+  Hash, 
+  Building2, 
+  ChevronRight, 
+  ArrowRightLeft, 
   Send,
-  Hash,
-  Activity,
-  UserCheck,
-  Calendar,
-  Building2,
-  ChevronRight,
-  ShieldAlert,
-  ArrowRightLeft,
-  Settings,
-  MoreVertical,
-  Clock
+  Clock,
+  MapPin
 } from 'lucide-react';
 import {
   Card,
@@ -55,7 +44,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useJsonStore } from '@/lib/store';
-import { Shift, Site, Guard, ShiftAssignment } from '@/lib/types';
+import { Shift, Site } from '@/lib/types';
 import { format, parseISO, differenceInHours } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -73,21 +62,29 @@ export default function ShiftsRegistry() {
   const [isDeployOpen, setIsDeployOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
 
-  // Form States
+  // Form States (Initialized correctly in useEffect)
   const [shiftName, setShiftName] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [role, setRole] = useState('SECURITY_GUARD');
-  const [startTime, setStartTime] = useState(format(new Date(), "yyyy-MM-dd'T'08:00"));
-  const [endTime, setEndTime] = useState(format(new Date(), "yyyy-MM-dd'T'16:00"));
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
 
   useEffect(() => {
     setIsMounted(true);
     refreshData();
+    const now = new Date();
+    const defaultStart = new Date(now);
+    defaultStart.setHours(8, 0, 0, 0);
+    const defaultEnd = new Date(now);
+    defaultEnd.setHours(16, 0, 0, 0);
+    
+    setStartTime(format(defaultStart, "yyyy-MM-dd'T'HH:mm"));
+    setEndTime(format(defaultEnd, "yyyy-MM-dd'T'HH:mm"));
   }, []);
 
   const refreshData = () => {
-    setShifts(store.getShifts());
-    setSites(store.getSites());
+    setShifts(store.getShifts() ?? []);
+    setSites(store.getSites() ?? []);
   };
 
   const handleAdd = () => {
@@ -155,8 +152,9 @@ export default function ShiftsRegistry() {
     setShiftName('');
     setSelectedSiteId('');
     setRole('SECURITY_GUARD');
-    setStartTime(format(new Date(), "yyyy-MM-dd'T'08:00"));
-    setEndTime(format(new Date(), "yyyy-MM-dd'T'16:00"));
+    const now = new Date();
+    setStartTime(format(now, "yyyy-MM-dd'T'08:00"));
+    setEndTime(format(now, "yyyy-MM-dd'T'16:00"));
   };
 
   if (!isMounted) return null;
@@ -258,8 +256,8 @@ export default function ShiftsRegistry() {
           <TableBody>
             {filteredShifts.map(shift => {
               const duration = differenceInHours(parseISO(shift.endTime), parseISO(shift.startTime));
-              const assignedCount = shift.assignments?.filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status))?.length || 0;
-              const requiredCount = shift.requirements?.reduce((acc, r) => acc + r.count, 0) || 1;
+              const assignedCount = (shift.assignments || []).filter(a => ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(a.status))?.length || 0;
+              const requiredCount = (shift.requirements || []).reduce((acc, r) => acc + r.count, 0) || 1;
               return (
                 <TableRow key={shift.id} className="hover:bg-slate-50/50 transition-colors h-24">
                   <TableCell className="px-8">
@@ -324,7 +322,6 @@ export default function ShiftsRegistry() {
         </Table>
       </Card>
 
-      {/* Move Shift / Change Site Dialog */}
       <Dialog open={isDeployOpen} onOpenChange={setIsDeployOpen}>
         <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="bg-slate-900 text-white p-8">

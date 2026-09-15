@@ -43,7 +43,6 @@ import { useJsonStore } from '@/lib/store';
 import { Guard, Shift, Incident, PayrollRecord, Site, LeaveRecord, WelfareCheck } from '@/lib/types';
 import { format, isPast, isFuture, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { validateGuardAssignment } from '@/lib/scheduling-validation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,27 +82,25 @@ export default function GuardPortal() {
   const refreshData = () => {
     const user = store.getCurrentUser();
     if (user) {
-      const allGuards = store.getGuards();
+      const allGuards = store.getGuards() ?? [];
       const guardRecord = allGuards.find((g: Guard) => g.email === user.email);
       if (guardRecord) {
         setCurrentGuard(guardRecord);
-        setLeaveRecords(store.getLeave());
+        setLeaveRecords(store.getLeave() ?? []);
         
-        const allShifts = store.getShifts();
+        const allShifts = store.getShifts() ?? [];
         const personalShifts = allShifts.filter((s: Shift) => 
           s.assignments?.some(ag => ag.guardId === guardRecord.id && ['Assigned', 'Confirmed', 'In Transit', 'On Site'].includes(ag.status))
         );
         setMyShifts(personalShifts);
         
-        // Find available open shifts
         const availableOpen = allShifts.filter(s => 
           s.status === 'Open' && 
           !s.assignments?.some(ag => ag.guardId === guardRecord.id && ag.status !== 'Rejected' && ag.status !== 'Withdrawn')
         );
         setOpenShifts(availableOpen);
 
-        // Check for prompted welfare checks
-        const allChecks = store.getWelfareChecks();
+        const allChecks = store.getWelfareChecks() ?? [];
         const activePrompt = allChecks.find(c => c.guardId === guardRecord.id && c.status === 'Prompted');
         setWelfarePrompt(activePrompt || null);
       }
@@ -139,7 +136,7 @@ export default function GuardPortal() {
   };
 
   const handleCheckIn = (shift: Shift) => {
-    const updatedAssignments = shift.assignments.map(a => 
+    const updatedAssignments = (shift.assignments || []).map(a => 
       a.guardId === currentGuard?.id ? { ...a, status: 'On Site' as const, checkInTime: new Date().toISOString() } : a
     );
     const updatedShift: Shift = { ...shift, assignments: updatedAssignments, status: 'In Progress' };
@@ -161,7 +158,7 @@ export default function GuardPortal() {
   };
 
   const handleCheckOut = (shift: Shift) => {
-    const updatedAssignments = shift.assignments.map(a => 
+    const updatedAssignments = (shift.assignments || []).map(a => 
       a.guardId === currentGuard?.id ? { ...a, status: 'Confirmed' as const, checkOutTime: new Date().toISOString() } : a
     );
     const updatedShift: Shift = { ...shift, assignments: updatedAssignments, status: 'Completed' };
@@ -212,10 +209,15 @@ export default function GuardPortal() {
   if (!currentGuard) return <div className="p-8 text-center text-muted-foreground italic">Guard record not found. Please contact administration.</div>;
 
   const activeShift = myShifts.find(s => s.status === 'In Progress');
-  const upcomingShifts = myShifts.filter(s => isFuture(new Date(s.startTime)) && s.status !== 'Completed');
+  const upcomingShifts = myShifts.filter(s => {
+    try {
+      return isFuture(parseISO(s.startTime)) && s.status !== 'Completed';
+    } catch (e) {
+      return false;
+    }
+  });
 
-  // Filter for my pending claims
-  const allShifts = store.getShifts();
+  const allShifts = store.getShifts() ?? [];
   const myPendingClaims = allShifts.filter(s => 
     s.assignments?.some(a => a.guardId === currentGuard.id && a.status === 'Pending')
   );
@@ -286,7 +288,7 @@ export default function GuardPortal() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black italic uppercase tracking-tight text-slate-800">{currentGuard.complianceStatus}</div>
-                <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">SIA Valid until {format(new Date(currentGuard.licenceExpiry), 'MMM yyyy')}</p>
+                <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase">SIA Valid until {currentGuard.licenceExpiry ? format(parseISO(currentGuard.licenceExpiry), 'MMM yyyy') : 'N/A'}</p>
               </CardContent>
             </Card>
 
@@ -339,11 +341,11 @@ export default function GuardPortal() {
                       <p className="text-4xl font-black text-white italic tracking-tighter">
                         {format(parseISO(activeShift.startTime), 'HH:mm')} - {format(parseISO(activeShift.endTime), 'HH:mm')}
                       </p>
-                      <p className="text-xs text-slate-400 font-bold">REMAINING: 4h 12m</p>
+                      <p className="text-xs text-slate-400 font-bold">LIVE TELEMETRY ACTIVE</p>
                     </div>
                   </div>
                   <div className="flex gap-4">
-                    {activeShift.assignments.find(a => a.guardId === currentGuard.id)?.status !== 'On Site' ? (
+                    {(activeShift.assignments || []).find(a => a.guardId === currentGuard.id)?.status !== 'On Site' ? (
                       <Button 
                         onClick={() => handleCheckIn(activeShift)}
                         className="flex-1 bg-primary hover:bg-primary/90 text-white font-black h-16 rounded-[1.5rem] text-lg uppercase italic tracking-tighter shadow-xl shadow-primary/20"
@@ -372,11 +374,33 @@ export default function GuardPortal() {
         </TabsContent>
 
         <TabsContent value="open-shifts" className="space-y-6">
-           {/* (Previous open-shifts code preserved) */}
+           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {openShifts.map(shift => (
+                <Card key={shift.id} className="border-none shadow-sm rounded-3xl overflow-hidden hover:shadow-md transition-all bg-white">
+                   <div className="p-6 space-y-4">
+                      <div className="flex justify-between items-start">
+                         <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20 text-primary bg-primary/5">{shift.role?.replace(/_/g, ' ')}</Badge>
+                         <span className="text-[10px] font-bold text-slate-400 font-mono">{shift.code}</span>
+                      </div>
+                      <div>
+                         <h4 className="text-lg font-black italic text-slate-800 uppercase leading-none">{shift.name}</h4>
+                         <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-1"><MapPin className="h-3 w-3" /> {shift.siteName}</p>
+                      </div>
+                      <div className="pt-2 border-t border-dashed flex justify-between items-end">
+                         <div>
+                            <p className="text-[8px] font-black text-slate-400 uppercase">Timing</p>
+                            <p className="text-sm font-black text-slate-700 italic">{format(parseISO(shift.startTime), 'HH:mm')} - {format(parseISO(shift.endTime), 'HH:mm')}</p>
+                         </div>
+                         <Button onClick={() => handleClaimShift(shift)} size="sm" className="bg-slate-900 text-white rounded-xl font-black text-[9px] h-8 px-4 italic uppercase">CLAIM POST</Button>
+                      </div>
+                   </div>
+                </Card>
+              ))}
+              {openShifts.length === 0 && <div className="col-span-full py-20 text-center bg-slate-50 rounded-[2.5rem] border border-dashed text-slate-300 font-black italic uppercase tracking-tighter">No available posts at this time</div>}
+           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Welfare Check Dialog */}
       <Dialog open={!!welfarePrompt} onOpenChange={() => {}}>
         <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="bg-amber-500 text-white p-8">
