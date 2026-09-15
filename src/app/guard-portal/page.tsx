@@ -42,6 +42,17 @@ import { Guard, Shift, Incident, PayrollRecord, Site, LeaveRecord } from '@/lib/
 import { format, isPast, isFuture, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { validateGuardAssignment } from '@/lib/scheduling-validation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function GuardPortal() {
   const store = useJsonStore();
@@ -154,6 +165,25 @@ export default function GuardPortal() {
     refreshData();
   };
 
+  const handleTriggerSOS = () => {
+    if (!currentGuard) return;
+    try {
+      store.triggerSOS(currentGuard.id);
+      toast({
+        variant: "destructive",
+        title: "SOS ALERT TRIGGERED",
+        description: "Emergency protocol initiated. Command centre has your location."
+      });
+      refreshData();
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "SOS Failed",
+        description: e.message
+      });
+    }
+  };
+
   if (!isMounted) return null;
   if (!currentGuard) return <div className="p-8 text-center text-muted-foreground italic">Guard record not found. Please contact administration.</div>;
 
@@ -174,9 +204,25 @@ export default function GuardPortal() {
           <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest">Global Field Operations Portal • REF: {currentGuard.id}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="destructive" className="rounded-full shadow-lg px-8 font-black animate-pulse h-12 uppercase italic tracking-tighter">
-            <AlertTriangle className="mr-2 h-5 w-5" /> EMERGENCY SOS
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="rounded-full shadow-lg px-8 font-black animate-pulse h-12 uppercase italic tracking-tighter">
+                <AlertTriangle className="mr-2 h-5 w-5" /> EMERGENCY SOS
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="rounded-[2.5rem]">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-2xl font-black italic uppercase text-red-600">TRIGGER EMERGENCY SOS?</AlertDialogTitle>
+                <AlertDialogDescription className="font-bold text-slate-600">
+                  This will immediately alert the Command Centre, transmit your current location, and initiate emergency response protocols.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2">
+                <AlertDialogCancel className="rounded-xl font-bold">CANCEL</AlertDialogCancel>
+                <AlertDialogAction onClick={handleTriggerSOS} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-black italic">INITIATE SOS</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -233,7 +279,7 @@ export default function GuardPortal() {
           </div>
 
           <Card className="border-none shadow-2xl overflow-hidden bg-slate-950 text-white relative rounded-[2.5rem]">
-            <div className="absolute top-0 right-0 p-12 opacity-5">
+            <div className="absolute top-0 right-0 p-10 pb-4 opacity-5">
               <Timer className="h-64 w-64" />
             </div>
             <CardHeader className="p-10 pb-4">

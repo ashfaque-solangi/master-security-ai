@@ -37,7 +37,8 @@ import {
   GuardLocation,
   LiveGuardContext,
   TrackingStatus,
-  ScanValidationStatus
+  ScanValidationStatus,
+  SOSStatus
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
@@ -222,6 +223,50 @@ export const useJsonStore = () => {
     return `${prefix}${nextNum.toString().padStart(6, '0')}`;
   };
 
+  const getLiveGuardContexts = (): LiveGuardContext[] => {
+    const user = getCurrentUser();
+    if (!user) return [];
+
+    const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
+    const activeShifts = shifts.filter(s => s.status === 'In Progress');
+    const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+    const allSites = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
+    const allLocations = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
+
+    const contexts: LiveGuardContext[] = [];
+    const now = new Date();
+
+    activeShifts.forEach(shift => {
+      const site = allSites.find(s => s.id === shift.siteId);
+      if (!site) return;
+
+      shift.assignments?.forEach(asg => {
+        const guard = allGuards.find(g => g.id === asg.guardId);
+        if (!guard) return;
+
+        const location = allLocations.find(l => l.guardId === asg.guardId);
+        
+        let status: TrackingStatus = 'Offline';
+        if (location) {
+          const secondsAgo = differenceInSeconds(now, parseISO(location.timestamp));
+          status = secondsAgo > STALE_THRESHOLD_SECONDS ? 'Stale' : 'Active';
+        }
+
+        contexts.push({
+          guard,
+          assignment: asg,
+          shift,
+          site,
+          location,
+          status,
+          rolePerformed: asg.rolePerformed
+        });
+      });
+    });
+
+    return AccessControlService.filterByScope(user, 'location', contexts);
+  };
+
   return {
     getCurrentUser,
     getCurrentSessionId,
@@ -314,55 +359,13 @@ export const useJsonStore = () => {
     getContracts: () => getProtectedData<Contract[]>(STORAGE_KEYS.CONTRACTS, initialContracts, 'contract'),
     getForms: () => getStored<FormDefinition[]>(STORAGE_KEYS.FORMS, initialForms),
     getApplicants: () => getProtectedData<Applicant[]>(STORAGE_KEYS.APPLICANTS, initialApplicants, 'hr'),
-    getSOS: () => getProtectedData<SOSAlert[]>(STORAGE_KEYS.SOS, initialSOS, 'view'),
+    getSOS: () => getProtectedData<SOSAlert[]>(STORAGE_KEYS.SOS, initialSOS, 'sos'),
     getAlarms: () => getProtectedData<Alarm[]>(STORAGE_KEYS.ALARMS, initialAlarms, 'view'),
     getVehicles: () => getProtectedData<Vehicle[]>(STORAGE_KEYS.VEHICLES, initialVehicles, 'view'),
     getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'hr'),
-    getGuardLocations: () => getProtectedData<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, [], 'location'),
+    getGuardLocations: () => getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []),
 
-    getLiveGuardContexts: (): LiveGuardContext[] => {
-      const user = getCurrentUser();
-      if (!user) return [];
-
-      const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
-      const activeShifts = shifts.filter(s => s.status === 'In Progress');
-      const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
-      const allSites = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
-      const allLocations = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
-
-      const contexts: LiveGuardContext[] = [];
-      const now = new Date();
-
-      activeShifts.forEach(shift => {
-        const site = allSites.find(s => s.id === shift.siteId);
-        if (!site) return;
-
-        shift.assignments?.forEach(asg => {
-          const guard = allGuards.find(g => g.id === asg.guardId);
-          if (!guard) return;
-
-          const location = allLocations.find(l => l.guardId === asg.guardId);
-          
-          let status: TrackingStatus = 'Offline';
-          if (location) {
-            const secondsAgo = differenceInSeconds(now, parseISO(location.timestamp));
-            status = secondsAgo > STALE_THRESHOLD_SECONDS ? 'Stale' : 'Active';
-          }
-
-          contexts.push({
-            guard,
-            assignment: asg,
-            shift,
-            site,
-            location,
-            status,
-            rolePerformed: asg.rolePerformed
-          });
-        });
-      });
-
-      return AccessControlService.filterByScope(user, 'location', contexts);
-    },
+    getLiveGuardContexts,
 
     updateGuardLocation: (loc: GuardLocation) => {
       const all = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
@@ -505,6 +508,91 @@ export const useJsonStore = () => {
       const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
       setStored(STORAGE_KEYS.SHIFTS, updated);
       logAudit({ action: 'SHIFT_UNDEPLOYED', entityType: 'shift', entityId: shiftId, description: `Shift [${shift.code}] undeployed.` });
+      return updated;
+    },
+
+    // SOS Operations WEB-08.3
+    triggerSOS: (guardId: string) => {
+      const contexts = getLiveGuardContexts();
+      const ctx = contexts.find(c => c.guard.id === guardId);
+      if (!ctx) throw new Error("Guard is not currently active on a shift.");
+
+      const allSOS = getStored<SOSAlert[]>(STORAGE_KEYS.SOS, initialSOS);
+      const existing = allSOS.find(s => s.guardId === guardId && s.status !== 'Resolved');
+      if (existing) throw new Error("Active SOS alert already exists for this guard.");
+
+      const newSOS: SOSAlert = {
+        id: `SOS-${Date.now()}`,
+        organizationId: ctx.guard.organizationId,
+        siteId: ctx.site.id,
+        siteName: ctx.site.name,
+        shiftId: ctx.shift.id,
+        shiftName: ctx.shift.name,
+        guardId: ctx.guard.id,
+        guardName: ctx.guard.name,
+        rolePerformed: ctx.rolePerformed,
+        timestamp: new Date().toISOString(),
+        status: 'Active',
+        severity: 'Critical',
+        latitude: ctx.location?.latitude,
+        longitude: ctx.location?.longitude,
+        accuracy: ctx.location?.accuracyMeters,
+        locationTimestamp: ctx.location?.timestamp
+      };
+
+      const updated = [newSOS, ...allSOS];
+      setStored(STORAGE_KEYS.SOS, updated);
+      logAudit({ 
+        action: 'SOS_TRIGGERED', 
+        entityType: 'sos', 
+        entityId: newSOS.id, 
+        description: `CRITICAL: SOS Triggered by ${newSOS.guardName} at ${newSOS.siteName}`,
+        newValues: newSOS
+      });
+      return updated;
+    },
+
+    acknowledgeSOS: (sosId: string) => {
+      const user = getCurrentUser();
+      if (!user || !assertWrite('sos.acknowledge', 'sos')) return;
+      const all = getStored<SOSAlert[]>(STORAGE_KEYS.SOS, initialSOS);
+      const updated = all.map(s => s.id === sosId ? { 
+        ...s, 
+        status: 'Acknowledged' as const, 
+        acknowledgedAt: new Date().toISOString(),
+        acknowledgedBy: user.name
+      } : s);
+      setStored(STORAGE_KEYS.SOS, updated);
+      logAudit({ action: 'SOS_ACKNOWLEDGED', entityType: 'sos', entityId: sosId, description: `SOS Acknowledged by ${user.name}` });
+      return updated;
+    },
+
+    escalateSOS: (sosId: string) => {
+      const user = getCurrentUser();
+      if (!user || !assertWrite('sos.escalate', 'sos')) return;
+      const all = getStored<SOSAlert[]>(STORAGE_KEYS.SOS, initialSOS);
+      const updated = all.map(s => s.id === sosId ? { 
+        ...s, 
+        status: 'Escalated' as const, 
+        escalatedAt: new Date().toISOString()
+      } : s);
+      setStored(STORAGE_KEYS.SOS, updated);
+      logAudit({ action: 'SOS_ESCALATED', entityType: 'sos', entityId: sosId, description: `SOS Escalated to emergency protocol` });
+      return updated;
+    },
+
+    resolveSOS: (sosId: string, notes: string) => {
+      const user = getCurrentUser();
+      if (!user || !assertWrite('sos.resolve', 'sos')) return;
+      const all = getStored<SOSAlert[]>(STORAGE_KEYS.SOS, initialSOS);
+      const updated = all.map(s => s.id === sosId ? { 
+        ...s, 
+        status: 'Resolved' as const, 
+        resolvedAt: new Date().toISOString(),
+        resolutionNotes: notes
+      } : s);
+      setStored(STORAGE_KEYS.SOS, updated);
+      logAudit({ action: 'SOS_RESOLVED', entityType: 'sos', entityId: sosId, description: `SOS Resolved: ${notes}` });
       return updated;
     },
 

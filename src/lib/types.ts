@@ -136,16 +136,30 @@ export type Incident = {
   timestamp: string;
 };
 
+export type SOSStatus = 'Active' | 'Acknowledged' | 'Escalated' | 'Resolved';
+
 export type SOSAlert = {
   id: string;
   organizationId: string;
   siteId: string;
   siteName: string;
+  shiftId: string;
+  shiftName: string;
   guardId: string;
   guardName: string;
+  rolePerformed: string;
   timestamp: string;
-  status: 'Active' | 'Resolved';
+  status: SOSStatus;
   severity: 'Critical';
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  locationTimestamp?: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+  escalatedAt?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
 };
 
 export type Alarm = {
@@ -265,7 +279,7 @@ export type FormDefinition = {
 export type AuditAction = 
   | 'USER_LOGIN' | 'USER_LOGOUT' | 'LOGIN_FAILED' | 'ACCESS_DENIED' | 'LOGIN_BLOCKED_DEVICE_LIMIT'
   | 'SHIFT_CREATED' | 'SHIFT_UPDATED' | 'SHIFT_DELETED' | 'GUARD_ASSIGNED' | 'GUARD_REMOVED'
-  | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'ALARM_TRIGGERED' | 'SYSTEM_UPDATED' | 'DEMO_RESET'
+  | 'INCIDENT_CREATED' | 'SOS_TRIGGERED' | 'SOS_ACKNOWLEDGED' | 'SOS_ESCALATED' | 'SOS_RESOLVED' | 'ALARM_TRIGGERED' | 'SYSTEM_UPDATED' | 'DEMO_RESET'
   | 'SESSION_REVOKED' | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT' | 'GUARD_STATUS_CHANGED'
   | 'CLAIM_REQUESTED' | 'CLAIM_APPROVED' | 'CLAIM_REJECTED' | 'CLAIM_WITHDRAWN'
   | 'SHIFT_GUARD_SWAPPED' | 'SHIFT_PUBLISHED' | 'SHIFT_DEPLOYED' | 'SHIFT_UNDEPLOYED'
@@ -283,7 +297,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document' | 'location';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document' | 'location' | 'sos';
   entityId: string;
   description: string;
   oldValues: any | null;
@@ -454,7 +468,12 @@ export type PermissionAction =
   | 'patrol.assign'
   | 'patrol.monitor'
   | 'location.view'
-  | 'location.manage';
+  | 'location.manage'
+  | 'sos.view'
+  | 'sos.trigger'
+  | 'sos.acknowledge'
+  | 'sos.escalate'
+  | 'sos.resolve';
 
 // Legacy Medical Types
 export type BloodUnit = {
