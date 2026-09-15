@@ -298,7 +298,7 @@ export type AuditRecord = {
   userName: string;
   userRole: string;
   action: AuditAction;
-  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document' | 'location' | 'sos' | 'welfare';
+  entityType: 'user' | 'guard' | 'client' | 'site' | 'shift' | 'incident' | 'finance' | 'system' | 'session' | 'patrol' | 'shift_assignment' | 'contract' | 'document' | 'location' | 'sos' | 'welfare' | 'message';
   entityId: string;
   description: string;
   oldValues: any | null;
@@ -470,6 +470,19 @@ export type ValidationResult = {
   isValid: boolean;
   code?: string;
   message: string;
+};
+
+export type MessageType = 'Internal' | 'WhatsApp' | 'SMS';
+
+export type Message = {
+  id: string;
+  organizationId?: string;
+  senderId?: string;
+  senderName: string;
+  preview: string;
+  timestamp: string;
+  status: 'read' | 'unread';
+  type: MessageType;
 };
 
 export type PermissionAction = 

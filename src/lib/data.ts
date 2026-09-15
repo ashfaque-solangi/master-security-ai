@@ -2,7 +2,7 @@ import {
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
   Invoice, Applicant, SOSAlert, Alarm, Vehicle, Contract,
   BloodUnit, Patient, Sample, PayrollRecord, Visitor, FormDefinition,
-  Patrol, MockDocument, LeaveRecord
+  Patrol, MockDocument, LeaveRecord, Message
 } from './types';
 
 export const users: User[] = [
@@ -250,6 +250,25 @@ export const forms: FormDefinition[] = [];
 export const patrols: Patrol[] = [];
 export const documents: MockDocument[] = [];
 export const leaveRecords: LeaveRecord[] = [];
+
+export const initialMessages: Message[] = [
+  {
+    id: 'MSG-001',
+    senderName: 'Marcus Thorne',
+    preview: 'Arrived at the main gate. Starting perimeter check.',
+    timestamp: new Date().toISOString(),
+    status: 'unread',
+    type: 'Internal'
+  },
+  {
+    id: 'MSG-002',
+    senderName: 'Leo Varga',
+    preview: 'Relief is 10 mins late. Continuing duty.',
+    timestamp: new Date().toISOString(),
+    status: 'read',
+    type: 'Internal'
+  }
+];
 
 // Legacy Medical Data (Restored for build stability)
 export const bloodBankInventory: BloodUnit[] = [

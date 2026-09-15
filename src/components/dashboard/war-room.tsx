@@ -27,7 +27,8 @@ import {
   Check,
   ChevronRight,
   RefreshCw,
-  Heart
+  Heart,
+  History
 } from 'lucide-react';
 import { KPICard } from './kpi-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,10 +47,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useJsonStore } from '@/lib/store';
-import { format, parseISO, differenceInSeconds } from 'date-fns';
+import { format, parseISO, differenceInSeconds, startOfDay, endOfDay } from 'date-fns';
 import { useTrackingSimulation } from '@/hooks/use-tracking-simulation';
-import { LiveGuardContext, SOSAlert, WelfareCheck } from '@/lib/types';
+import { LiveGuardContext, SOSAlert, WelfareCheck, GuardLocation } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { HistoricalPlayback } from './historical-playback';
 
 export function WarRoom() {
   // Initialize Simulation Engine (Dev/Demo Only)
@@ -60,11 +62,20 @@ export function WarRoom() {
   const [now, setNow] = useState<Date | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [searchQuery, setSearchTerm] = useState('');
+  
+  // Interaction State
   const [selectedContext, setSelectedContext] = useState<LiveGuardContext | null>(null);
   const [selectedSOS, setSelectedSOS] = useState<SOSAlert | null>(null);
   const [selectedWelfare, setSelectedWelfare] = useState<WelfareCheck | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
   
+  // Historical Playback State
+  const [isReplayMode, setIsReplayMode] = useState(false);
+  const [replayHistory, setReplayHistory] = useState<GuardLocation[]>([]);
+  const [replaySOS, setReplaySOS] = useState<SOSAlert[]>([]);
+  const [replayWelfare, setReplayWelfare] = useState<WelfareCheck[]>([]);
+  const [replayFrame, setReplayFrame] = useState<GuardLocation | null>(null);
+
   useEffect(() => {
     setIsMounted(true);
     setNow(new Date());
@@ -117,6 +128,21 @@ export function WarRoom() {
     setResolutionNotes('');
   };
 
+  const openForensicReplay = (guardId: string) => {
+    const start = format(startOfDay(now), "yyyy-MM-dd'T'HH:mm");
+    const end = format(endOfDay(now), "yyyy-MM-dd'T'HH:mm");
+    
+    const history = store.getGuardLocationHistory(guardId, start, end);
+    const sos = sosAlerts.filter(s => s.guardId === guardId && s.timestamp >= start && s.timestamp <= end);
+    const welfare = welfareChecks.filter(w => w.guardId === guardId && w.scheduledAt >= start && w.scheduledAt <= end);
+    
+    setReplayHistory(history);
+    setReplaySOS(sos);
+    setReplayWelfare(welfare);
+    setIsReplayMode(true);
+    setSelectedContext(null);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-8">
@@ -166,7 +192,7 @@ export function WarRoom() {
                     return (
                       <div 
                         key={ctx.guard.id} 
-                        onClick={() => setSelectedContext(ctx)}
+                        onClick={() => { setSelectedContext(ctx); setIsReplayMode(false); }}
                         className={`p-4 transition-colors cursor-pointer group ${isSOS ? 'bg-red-50 hover:bg-red-100' : isWelfare ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-slate-50'}`}
                       >
                          <div className="flex justify-between items-start mb-1">
@@ -221,68 +247,102 @@ export function WarRoom() {
           </Tabs>
         </Card>
 
-        <Card className="lg:col-span-2 border-none shadow-sm rounded-3xl overflow-hidden bg-slate-50 relative group h-[650px]">
-           <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/map/1200/800')] bg-cover bg-center opacity-30 grayscale contrast-125" />
-           <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent" />
-           
-           <CardHeader className="relative z-10 p-8 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-800">Operational Grid</CardTitle>
-                <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Live Telemetry & Field Context Overlay</CardDescription>
-              </div>
-           </CardHeader>
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-slate-50 relative group h-[650px]">
+             <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/map/1200/800')] bg-cover bg-center opacity-30 grayscale contrast-125" />
+             <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent" />
+             
+             <CardHeader className="relative z-10 p-8 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-800">Operational Grid</CardTitle>
+                  <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Live Telemetry & Field Context Overlay</CardDescription>
+                </div>
+                {isReplayMode && (
+                  <Button variant="outline" onClick={() => setIsReplayMode(false)} className="rounded-xl border-primary text-primary font-black uppercase italic tracking-tighter text-xs h-9">EXIT REPLAY</Button>
+                )}
+             </CardHeader>
 
-           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {liveContexts.map((ctx, idx) => {
-                 if (!ctx.location) return null;
-                 const isStale = ctx.status === 'Stale';
-                 const isSOS = activeSOS.some(s => s.guardId === ctx.guard.id);
-                 const isWelfare = activeWelfare.some(c => c.guardId === ctx.guard.id);
-                 return (
-                  <div 
-                    key={ctx.guard.id} 
-                    onClick={() => setSelectedContext(ctx)}
-                    className="absolute pointer-events-auto transition-all duration-1000 ease-in-out cursor-pointer"
-                    style={{ 
-                      top: `${25 + (idx * 12) % 55}%`, 
-                      left: `${20 + (idx * 22) % 65}%` 
-                    }}
-                  >
-                    <div className="relative group/marker">
-                       <div className={`h-10 w-10 rounded-2xl border-4 border-white shadow-xl flex items-center justify-center text-white transition-colors ${
-                         isSOS ? 'bg-red-600 animate-bounce' :
-                         isWelfare ? 'bg-amber-500 animate-pulse' :
-                         isStale ? 'bg-amber-300' : 'bg-primary'
-                       }`}>
-                          {isSOS ? <ShieldAlert className="h-5 w-5" /> : isWelfare ? <Heart className="h-5 w-5" /> : <Navigation className="h-5 w-5 fill-current" />}
-                       </div>
-                       
-                       <div className={`absolute -bottom-10 left-1/2 -translate-x-1/2 backdrop-blur-sm text-white px-3 py-1 rounded-xl shadow-xl flex flex-col items-center ${isSOS ? 'bg-red-900/90' : isWelfare ? 'bg-amber-900/90' : 'bg-slate-900/90'}`}>
-                          <span className="text-[9px] font-black uppercase italic whitespace-nowrap">{ctx.guard.name.split(' ')[0]}</span>
-                          <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">{isSOS ? 'SOS ACTIVE' : isWelfare ? 'WELFARE RISK' : ctx.status}</span>
-                       </div>
+             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                {!isReplayMode ? (
+                  liveContexts.map((ctx, idx) => {
+                     if (!ctx.location) return null;
+                     const isStale = ctx.status === 'Stale';
+                     const isSOS = activeSOS.some(s => s.guardId === ctx.guard.id);
+                     const isWelfare = activeWelfare.some(c => c.guardId === ctx.guard.id);
+                     return (
+                      <div 
+                        key={ctx.guard.id} 
+                        onClick={() => setSelectedContext(ctx)}
+                        className="absolute pointer-events-auto transition-all duration-1000 ease-in-out cursor-pointer"
+                        style={{ 
+                          top: `${25 + (idx * 12) % 55}%`, 
+                          left: `${20 + (idx * 22) % 65}%` 
+                        }}
+                      >
+                        <div className="relative group/marker">
+                           <div className={`h-10 w-10 rounded-2xl border-4 border-white shadow-xl flex items-center justify-center text-white transition-colors ${
+                             isSOS ? 'bg-red-600 animate-bounce' :
+                             isWelfare ? 'bg-amber-500 animate-pulse' :
+                             isStale ? 'bg-amber-300' : 'bg-primary'
+                           }`}>
+                              {isSOS ? <ShieldAlert className="h-5 w-5" /> : isWelfare ? <Heart className="h-5 w-5" /> : <Navigation className="h-5 w-5 fill-current" />}
+                           </div>
+                           
+                           <div className={`absolute -bottom-10 left-1/2 -translate-x-1/2 backdrop-blur-sm text-white px-3 py-1 rounded-xl shadow-xl flex flex-col items-center ${isSOS ? 'bg-red-900/90' : isWelfare ? 'bg-amber-900/90' : 'bg-slate-900/90'}`}>
+                              <span className="text-[9px] font-black uppercase italic whitespace-nowrap">{ctx.guard.name.split(' ')[0]}</span>
+                              <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest">{isSOS ? 'SOS ACTIVE' : isWelfare ? 'WELFARE RISK' : ctx.status}</span>
+                           </div>
+                        </div>
+                      </div>
+                     );
+                  })
+                ) : (
+                  replayFrame && (
+                    <div 
+                      className="absolute pointer-events-auto transition-all duration-200"
+                      style={{ 
+                        top: `${25 + (Math.random() * 50)}%`, 
+                        left: `${20 + (Math.random() * 60)}%` 
+                      }}
+                    >
+                      <div className="relative group/marker">
+                         <div className="h-10 w-10 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white bg-slate-800">
+                            <MapPin className="h-5 w-5" />
+                         </div>
+                         <Badge className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] font-black uppercase px-2 py-0.5">HISTORICAL</Badge>
+                      </div>
                     </div>
-                  </div>
-                 );
-              })}
-           </div>
+                  )
+                )}
+             </div>
 
-           <CardContent className="absolute bottom-8 left-8 right-8 z-10">
-              <div className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-3xl p-6 flex items-center justify-between shadow-2xl">
-                 <div className="flex gap-10">
-                    <div className="flex flex-col">
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tracked Units</span>
-                       <span className="text-2xl font-black italic text-slate-800">{liveContexts.length} OPERATIONAL</span>
-                    </div>
-                    <div className="flex flex-col">
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Safety Incidents</span>
-                       <span className={`text-2xl font-black italic ${activeSOS.length + activeWelfare.length > 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{activeSOS.length + activeWelfare.length} ACTIVE</span>
-                    </div>
-                 </div>
-                 <Button size="lg" className="bg-slate-900 text-white rounded-2xl px-10 font-black uppercase italic tracking-tighter shadow-xl" onClick={() => store.syncWelfareChecks()}>SYNC FIELD STATUS</Button>
-              </div>
-           </CardContent>
-        </Card>
+             <CardContent className="absolute bottom-8 left-8 right-8 z-10">
+                <div className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-3xl p-6 flex items-center justify-between shadow-2xl">
+                   <div className="flex gap-10">
+                      <div className="flex flex-col">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tracked Units</span>
+                         <span className="text-2xl font-black italic text-slate-800">{liveContexts.length} OPERATIONAL</span>
+                      </div>
+                      <div className="flex flex-col">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Safety Incidents</span>
+                         <span className={`text-2xl font-black italic ${activeSOS.length + activeWelfare.length > 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{activeSOS.length + activeWelfare.length} ACTIVE</span>
+                      </div>
+                   </div>
+                   <Button size="lg" className="bg-slate-900 text-white rounded-2xl px-10 font-black uppercase italic tracking-tighter shadow-xl" onClick={() => store.syncWelfareChecks()}>SYNC FIELD STATUS</Button>
+                </div>
+             </CardContent>
+          </Card>
+          
+          {isReplayMode && selectedContext === null && (
+            <HistoricalPlayback 
+              guard={replaySOS[0] ? guards.find(g => g.id === replaySOS[0].guardId)! : guards[0]}
+              history={replayHistory}
+              sosEvents={replaySOS}
+              welfareEvents={replayWelfare}
+              onFrameChange={setReplayFrame}
+            />
+          )}
+        </div>
 
         <Card className="lg:col-span-1 border-none shadow-sm rounded-3xl overflow-hidden bg-white h-[650px] flex flex-col">
           <CardHeader className="border-b p-6 shrink-0">
@@ -323,6 +383,7 @@ export function WarRoom() {
         </Card>
       </div>
 
+      {/* SOS Detail Dialog */}
       <Dialog open={!!selectedSOS} onOpenChange={(v) => !v && setSelectedSOS(null)}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
            <DialogHeader className="bg-red-600 text-white p-8 relative">
@@ -355,6 +416,64 @@ export function WarRoom() {
                  <Button variant="outline" onClick={() => setSelectedSOS(null)} className="rounded-2xl h-12 font-black uppercase italic tracking-tighter text-xs border-slate-200">CLOSE PANEL</Button>
               </div>
            </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Guard Detail Context Panel */}
+      <Dialog open={!!selectedContext} onOpenChange={(v) => !v && setSelectedContext(null)}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+          <DialogHeader className="bg-slate-900 text-white p-8">
+            <div className="flex justify-between items-start">
+               <div>
+                 <Badge className="bg-primary text-white font-black italic uppercase text-[8px] mb-2 px-2">LIVE CONTEXT</Badge>
+                 <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">{selectedContext?.guard.name}</DialogTitle>
+                 <DialogDescription className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mt-1">Personnel Ref: {selectedContext?.guard.id}</DialogDescription>
+               </div>
+               <Badge className={`rounded-xl h-6 font-black uppercase text-[8px] ${selectedContext?.status === 'Active' ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>
+                 {selectedContext?.status}
+               </Badge>
+            </div>
+          </DialogHeader>
+
+          <div className="p-8 space-y-6 bg-white">
+            <div className="grid grid-cols-2 gap-4">
+               <div className="p-4 bg-slate-50 rounded-2xl border border-dashed">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Site</p>
+                  <p className="text-xs font-black text-slate-800 uppercase mt-1 italic truncate">{selectedContext?.site.name}</p>
+               </div>
+               <div className="p-4 bg-slate-50 rounded-2xl border border-dashed">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Assignment Role</p>
+                  <p className="text-xs font-black text-primary uppercase mt-1 italic truncate">{selectedContext?.rolePerformed.replace(/_/g, ' ')}</p>
+               </div>
+            </div>
+
+            <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
+               <div className="flex items-center gap-3">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Duty Window</p>
+                    <p className="text-xs font-bold">{selectedContext && format(parseISO(selectedContext.shift.startTime), 'HH:mm')} - {selectedContext && format(parseISO(selectedContext.shift.endTime), 'HH:mm')}</p>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3">
+                  <Activity className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Telemetry Health</p>
+                    <p className="text-xs font-bold">Accuracy: ±{selectedContext?.location?.accuracyMeters.toFixed(0) || '0'}m</p>
+                  </div>
+               </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+               <Button 
+                onClick={() => selectedContext && openForensicReplay(selectedContext.guard.id)}
+                className="rounded-2xl h-12 bg-slate-100 hover:bg-slate-200 text-slate-900 font-black uppercase italic tracking-tighter text-xs"
+               >
+                 <History className="mr-2 h-4 w-4" /> FORENSIC PATH REPLAY
+               </Button>
+               <Button variant="outline" onClick={() => setSelectedContext(null)} className="rounded-2xl h-12 font-black uppercase italic tracking-tighter text-xs border-slate-200">CLOSE PANEL</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

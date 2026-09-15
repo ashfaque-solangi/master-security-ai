@@ -23,7 +23,8 @@ import {
   vehicles as initialVehicles,
   documents as initialDocs,
   contracts as initialContracts,
-  leaveRecords as initialLeave
+  leaveRecords as initialLeave,
+  initialMessages
 } from './data';
 import { 
   Guard, Site, User, Client, Subcontractor, Shift, Incident,
@@ -40,7 +41,8 @@ import {
   ScanValidationStatus,
   SOSStatus,
   WelfareCheck,
-  WelfareCheckStatus
+  WelfareCheckStatus,
+  Message
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
@@ -74,7 +76,8 @@ const STORAGE_KEYS = {
   DOCUMENTS: 'sg_docs_p10_v2',
   LEAVE: 'sg_leave_p10_v2',
   LOCATIONS: 'sg_locations_p10_v2',
-  WELFARE: 'sg_welfare_p10_v2'
+  WELFARE: 'sg_welfare_p10_v2',
+  MESSAGES: 'sg_messages_p10_v2'
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -370,13 +373,35 @@ export const useJsonStore = () => {
     getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'hr'),
     getGuardLocations: () => getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []),
     getWelfareChecks: () => getProtectedData<WelfareCheck[]>(STORAGE_KEYS.WELFARE, [], 'welfare'),
+    getMessages: () => getProtectedData<Message[]>(STORAGE_KEYS.MESSAGES, initialMessages, 'message'),
 
     getLiveGuardContexts,
 
+    getGuardLocationHistory: (guardId: string, start: string, end: string) => {
+      const user = getCurrentUser();
+      if (!user) return [];
+      const allLocations = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
+      const history = allLocations.filter(l => 
+        l.guardId === guardId && 
+        l.organizationId === user.organizationId &&
+        l.timestamp >= start && 
+        l.timestamp <= end
+      ).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      return history;
+    },
+
     updateGuardLocation: (loc: GuardLocation) => {
       const all = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
-      const updated = [loc, ...all.filter(l => l.guardId !== loc.guardId)].slice(0, 500); // Keep last 500 per org
+      const updated = [loc, ...all].slice(0, 10000); // Historical playback needs buffer
       setStored(STORAGE_KEYS.LOCATIONS, updated);
+      return updated;
+    },
+
+    addMessage: (m: Message) => {
+      const all = getStored<Message[]>(STORAGE_KEYS.MESSAGES, initialMessages);
+      const updated = [m, ...all];
+      setStored(STORAGE_KEYS.MESSAGES, updated);
+      logAudit({ action: 'INCIDENT_CREATED', entityType: 'message', entityId: m.id, description: `Outbound message sent to ${m.senderName}` });
       return updated;
     },
 
@@ -1131,6 +1156,7 @@ export const useJsonStore = () => {
       setStored(STORAGE_KEYS.CONTRACTS, initialContracts);
       setStored(STORAGE_KEYS.DOCUMENTS, initialDocs);
       setStored(STORAGE_KEYS.LEAVE, initialLeave);
+      setStored(STORAGE_KEYS.MESSAGES, initialMessages);
       logAudit({ action: 'SYSTEM_UPDATED', entityType: 'system', entityId: 'DEMO', description: 'High-fidelity demo data loaded.' });
       window.location.reload();
     }
