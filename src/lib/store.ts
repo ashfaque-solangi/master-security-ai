@@ -46,7 +46,7 @@ import {
 } from './types';
 import { validateGuardAssignment } from './scheduling-validation';
 import { AccessControlService } from './access-control';
-import { isPast, parseISO, addDays, isBefore, differenceInSeconds, addMinutes } from 'date-fns';
+import { isPast, parseISO, addDays, isBefore, differenceInSeconds, addMinutes, subHours } from 'date-fns';
 
 const STORAGE_KEYS = {
   GUARDS: 'sg_guards_p10_v2',
@@ -77,7 +77,8 @@ const STORAGE_KEYS = {
   LEAVE: 'sg_leave_p10_v2',
   LOCATIONS: 'sg_locations_p10_v2',
   WELFARE: 'sg_welfare_p10_v2',
-  MESSAGES: 'sg_messages_p10_v2'
+  MESSAGES: 'sg_messages_p10_v2',
+  LAST_PRUNE: 'sg_last_prune_p10_v2'
 };
 
 const isBrowser = typeof window !== 'undefined';
@@ -85,6 +86,7 @@ const MAX_CONCURRENT_DEVICES = 2;
 export const STALE_THRESHOLD_SECONDS = 30;
 export const WELFARE_CHECK_INTERVAL_MINUTES = 30;
 export const WELFARE_GRACE_PERIOD_MINUTES = 5;
+export const LOCATION_RETENTION_HOURS = 24;
 
 function getStored<T>(key: string, defaultValue: T): T {
   if (!isBrowser) return defaultValue;
@@ -239,7 +241,9 @@ export const useJsonStore = () => {
     const activeShifts = shifts.filter(s => s.status === 'In Progress');
     const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
     const allSites = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites);
-    const allLocations = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
+    
+    // Use the correctly scoped getter
+    const allLocations = getProtectedData<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, [], 'location');
 
     const contexts: LiveGuardContext[] = [];
     const now = new Date();
@@ -252,7 +256,10 @@ export const useJsonStore = () => {
         const guard = allGuards.find(g => g.id === asg.guardId);
         if (!guard) return;
 
-        const location = allLocations.find(l => l.guardId === asg.guardId);
+        // Find the LATEST location for this guard from the SCOPED locations
+        const location = allLocations
+          .filter(l => l.guardId === asg.guardId)
+          .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
         
         let status: TrackingStatus = 'Offline';
         if (location) {
@@ -272,7 +279,63 @@ export const useJsonStore = () => {
       });
     });
 
-    return AccessControlService.filterByScope(user, 'location', contexts);
+    return contexts; // Already scoped by getProtectedData
+  };
+
+  const pruneExpiredGuardLocations = () => {
+    if (!isBrowser) return;
+
+    // Multi-tab safety: Only prune once per hour
+    const lastPrune = getStored<string | null>(STORAGE_KEYS.LAST_PRUNE, null);
+    const now = new Date();
+    if (lastPrune && differenceInSeconds(now, parseISO(lastPrune)) < 3600) return;
+
+    const allLocations = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
+    if (allLocations.length === 0) return;
+
+    const cutoff = subHours(now, LOCATION_RETENTION_HOURS);
+    
+    // Group by Guard to preserve the LATEST known location regardless of age
+    const guardLatest = new Map<string, GuardLocation>();
+    const toKeep: GuardLocation[] = [];
+
+    allLocations.forEach(loc => {
+      // Basic data corruption handling
+      if (!loc.guardId || !loc.timestamp) return;
+
+      const locTime = parseISO(loc.timestamp);
+      
+      // Update the per-guard latest marker
+      const currentLatest = guardLatest.get(loc.guardId);
+      if (!currentLatest || loc.timestamp > currentLatest.timestamp) {
+        guardLatest.set(loc.guardId, loc);
+      }
+
+      // If it's within retention, we definitely keep it
+      if (locTime >= cutoff) {
+        toKeep.push(loc);
+      }
+    });
+
+    // Strategy: Retention history + Latest per guard (ensuring dashboard context remains)
+    const latestLocations = Array.from(guardLatest.values());
+    const combinedUnique = new Map<string, GuardLocation>();
+    
+    [...toKeep, ...latestLocations].forEach(loc => {
+      combinedUnique.set(loc.id, loc);
+    });
+
+    const finalSet = Array.from(combinedUnique.values()).sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    
+    setStored(STORAGE_KEYS.LOCATIONS, finalSet);
+    setStored(STORAGE_KEYS.LAST_PRUNE, now.toISOString());
+
+    logAudit({
+      action: 'SYSTEM_UPDATED',
+      entityType: 'system',
+      entityId: 'TELEMETRY_PRUNER',
+      description: `Telemetry cleanup executed. Retained ${finalSet.length} records. Policy: ${LOCATION_RETENTION_HOURS}h`
+    });
   };
 
   return {
@@ -371,15 +434,22 @@ export const useJsonStore = () => {
     getAlarms: () => getProtectedData<Alarm[]>(STORAGE_KEYS.ALARMS, initialAlarms, 'view'),
     getVehicles: () => getProtectedData<Vehicle[]>(STORAGE_KEYS.VEHICLES, initialVehicles, 'view'),
     getLeave: () => getProtectedData<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave, 'hr'),
-    getGuardLocations: () => getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []),
+    getGuardLocations: () => getProtectedData<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, [], 'location'),
     getWelfareChecks: () => getProtectedData<WelfareCheck[]>(STORAGE_KEYS.WELFARE, [], 'welfare'),
     getMessages: () => getProtectedData<Message[]>(STORAGE_KEYS.MESSAGES, initialMessages, 'message'),
 
     getLiveGuardContexts,
+    pruneExpiredGuardLocations,
 
     getGuardLocationHistory: (guardId: string, start: string, end: string) => {
       const user = getCurrentUser();
       if (!user) return [];
+      
+      // Force check for guard access scope
+      const allGuards = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards);
+      const guard = allGuards.find(g => g.id === guardId);
+      if (!guard || !AccessControlService.canAccessRecord(user, 'guard', guard)) return [];
+
       const allLocations = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
       const history = allLocations.filter(l => 
         l.guardId === guardId && 
@@ -387,12 +457,19 @@ export const useJsonStore = () => {
         l.timestamp >= start && 
         l.timestamp <= end
       ).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      
       return history;
     },
 
     updateGuardLocation: (loc: GuardLocation) => {
+      const user = getCurrentUser();
+      if (!user) return [];
+
+      // Write-level tenant isolation: Ensure organizationId matches current user's scope
+      if (loc.organizationId !== user.organizationId) return [];
+
       const all = getStored<GuardLocation[]>(STORAGE_KEYS.LOCATIONS, []);
-      const updated = [loc, ...all].slice(0, 10000); // Historical playback needs buffer
+      const updated = [loc, ...all].slice(0, 50000); // Soft limit before pruner runs
       setStored(STORAGE_KEYS.LOCATIONS, updated);
       return updated;
     },
@@ -542,7 +619,6 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // SOS Operations WEB-08.3
     triggerSOS: (guardId: string) => {
       const contexts = getLiveGuardContexts();
       const ctx = contexts.find(c => c.guard.id === guardId);
@@ -627,7 +703,6 @@ export const useJsonStore = () => {
       return updated;
     },
 
-    // WEB-08.4 Welfare Operations
     syncWelfareChecks: () => {
       const contexts = getLiveGuardContexts();
       const user = getCurrentUser();
@@ -637,7 +712,6 @@ export const useJsonStore = () => {
       const now = new Date();
       let changed = false;
 
-      // 1. Create DUE checks for guards who haven't had one recently
       contexts.forEach(ctx => {
         const guardChecks = allChecks.filter(c => c.guardId === ctx.guard.id && c.shiftId === ctx.shift.id);
         const lastCheck = guardChecks.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
@@ -665,7 +739,6 @@ export const useJsonStore = () => {
         }
       });
 
-      // 2. Automate lifecycle based on time
       const updatedChecks = allChecks.map(c => {
         const secondsSinceScheduled = differenceInSeconds(now, parseISO(c.scheduledAt));
         const minutesSinceScheduled = secondsSinceScheduled / 60;
@@ -711,7 +784,6 @@ export const useJsonStore = () => {
       }
     },
 
-    // WEB-07 Patrol System Storage Methods
     addCheckpoint: (cp: PatrolCheckpoint) => {
       if (!assertWrite('patrol.manage', 'patrol')) return [];
       const updated = [cp, ...getStored<PatrolCheckpoint[]>(STORAGE_KEYS.CHECKPOINTS, [])];
@@ -745,7 +817,6 @@ export const useJsonStore = () => {
       const existingEvents = getStored<PatrolEvent[]>(STORAGE_KEYS.PATROL_EVENTS, []);
       const shiftEvents = existingEvents.filter(e => e.shiftId === params.shiftId && e.routeId === params.routeId);
       
-      // Validation Logic: Out of Sequence detection
       const lastScannedIndex = shiftEvents.length > 0 
         ? route.checkpointIds.indexOf(shiftEvents[shiftEvents.length - 1].checkpointId)
         : -1;
@@ -776,7 +847,6 @@ export const useJsonStore = () => {
       const updatedEvents = [...existingEvents, newEvent];
       setStored(STORAGE_KEYS.PATROL_EVENTS, updatedEvents);
 
-      // Log to Audit
       logAudit({ 
         action: 'PATROL_SCAN', 
         entityType: 'patrol', 
@@ -784,10 +854,7 @@ export const useJsonStore = () => {
         description: `Officer scanned checkpoint ${params.checkpointId}. Status: ${validation}` 
       });
 
-      // Update Live Patrol Status
       const activePatrols = getStored<Patrol[]>(STORAGE_KEYS.PATROLS, initialPatrols);
-      const site = getStored<Site[]>(STORAGE_KEYS.SITES, initialSites).find(s => s.id === route.siteId);
-      
       const patrolIdx = activePatrols.findIndex(p => p.shiftId === params.shiftId && p.routeId === params.routeId);
       if (patrolIdx > -1) {
         const p = activePatrols[patrolIdx];
@@ -903,16 +970,13 @@ export const useJsonStore = () => {
       const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = shifts.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return shifts;
-
       const assignment = (shift.assignments || []).find(a => a.id === assignmentId);
       if (!assignment) return shifts;
-
       const guard = getStored<Guard[]>(STORAGE_KEYS.GUARDS, initialGuards).find(g => g.id === assignment.guardId);
       if (guard) {
         const v = validateGuardAssignment(guard, shift, shifts, getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave), newRole);
         if (!v.isValid) throw new Error(`Role Change Blocked: ${v.message}`);
       }
-
       const updatedAssignments = shift.assignments.map(a => a.id === assignmentId ? { ...a, rolePerformed: newRole } : a);
       const updatedShift: Shift = { ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 };
       const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
@@ -925,13 +989,10 @@ export const useJsonStore = () => {
       const shifts = getStored<Shift[]>(STORAGE_KEYS.SHIFTS, initialShifts);
       const shift = shifts.find(s => s.id === shiftId);
       if (!shift || !assertWrite('schedule', 'shift', shift)) return shifts;
-
       const oldAsg = (shift.assignments || []).find(a => a.id === oldAssignmentId);
       if (!oldAsg) return shifts;
-
       const v = validateGuardAssignment(newGuard, shift, shifts, getStored<LeaveRecord[]>(STORAGE_KEYS.LEAVE, initialLeave), oldAsg.rolePerformed);
       if (!v.isValid) throw new Error(`Replacement Blocked: ${v.message}`);
-
       const updatedAssignments = shift.assignments.map(a => a.id === oldAssignmentId ? { ...a, guardId: newGuard.id, guardName: newGuard.name, assignedAt: new Date().toISOString(), status: 'Assigned' as const } : a);
       const updatedShift: Shift = { ...shift, assignments: updatedAssignments, version: (shift.version || 0) + 1 };
       const updated = shifts.map(s => s.id === shiftId ? updatedShift : s);
